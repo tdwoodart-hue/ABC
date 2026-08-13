@@ -177,17 +177,19 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
 
       // Save directly to Firestore
       const mealsRef = collection(db, 'couples', userProfile.coupleId, 'nutrition_meals');
-      await addDoc(mealsRef, {
+      const mealData: Record<string, any> = {
         foodName: analyzed.foodName,
         mealType: analyzed.mealType,
         calories: analyzed.calories,
         date: selectedDate,
-        imageUrl: aiImage || undefined,
-        notes: finalNote || undefined,
         loggedByUid: userProfile.uid,
         loggedByName: userProfile.displayName || 'Bạn',
         createdAt: new Date().toISOString(),
-      });
+      };
+      if (aiImage) mealData.imageUrl = aiImage;
+      if (finalNote) mealData.notes = finalNote;
+
+      await addDoc(mealsRef, mealData);
 
       const mealTypeName = MEAL_TYPES.find((t) => t.id === analyzed.mealType)?.label || 'bữa ăn';
       setAiResultSuccess(
@@ -211,17 +213,19 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
     setAddingManual(true);
     try {
       const mealsRef = collection(db, 'couples', userProfile.coupleId, 'nutrition_meals');
-      await addDoc(mealsRef, {
+      const mealData: Record<string, any> = {
         foodName: manualFoodName.trim(),
         mealType: manualMealType,
         calories: parseInt(manualCalories) || 0,
         date: selectedDate,
-        imageUrl: manualImage || undefined,
-        notes: manualNotes.trim() || undefined,
         loggedByUid: userProfile.uid,
         loggedByName: userProfile.displayName || 'Bạn',
         createdAt: new Date().toISOString(),
-      });
+      };
+      if (manualImage) mealData.imageUrl = manualImage;
+      if (manualNotes.trim()) mealData.notes = manualNotes.trim();
+
+      await addDoc(mealsRef, mealData);
       setManualFoodName('');
       setManualCalories('');
       setManualNotes('');
@@ -250,16 +254,18 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
     setAddingRecipe(true);
     try {
       const recipesRef = collection(db, 'couples', userProfile.coupleId, 'nutrition_recipes');
-      await addDoc(recipesRef, {
+      const recipeData: Record<string, any> = {
         title: recipeTitle.trim(),
         ingredients: recipeIngredients.trim(),
-        instructions: recipeInstructions.trim() || undefined,
-        calories: parseInt(recipeCalories) || undefined,
-        imageUrl: recipeImage || undefined,
         createdByUid: userProfile.uid,
         createdByName: userProfile.displayName || 'Bạn',
         createdAt: new Date().toISOString(),
-      });
+      };
+      if (recipeInstructions.trim()) recipeData.instructions = recipeInstructions.trim();
+      if (recipeCalories) recipeData.calories = parseInt(recipeCalories) || 0;
+      if (recipeImage) recipeData.imageUrl = recipeImage;
+
+      await addDoc(recipesRef, recipeData);
       setRecipeTitle('');
       setRecipeIngredients('');
       setRecipeInstructions('');
@@ -295,9 +301,6 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
             <h2 className="text-xl sm:text-2xl font-extrabold text-slate-800">
               Nhật Ký Dinh Dưỡng AI Smart 🤖
             </h2>
-            <p className="text-xs text-slate-600">
-              Nhắn tin món ăn hoặc tải ảnh, AI sẽ tự động phân tích calo & lưu nhật ký
-            </p>
           </div>
           <div className="w-14 h-14 rounded-2xl bg-rose-500/10 text-rose-600 flex items-center justify-center text-2xl shrink-0 shadow-inner">
             🥗
@@ -344,9 +347,6 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
                   <h3 className="text-sm font-bold text-slate-800">
                     Ghi Nhận Món Ăn Nhanh Bằng AI
                   </h3>
-                  <p className="text-[11px] text-slate-500">
-                    Chỉ cần nhắn món bạn vừa ăn (ví dụ: "Sáng nay ăn 1 bát phở bò 1 ly cà phê"), AI tự phân tích
-                  </p>
                 </div>
               </div>
             </div>
@@ -622,9 +622,6 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
                 <p className="text-xs text-slate-500 font-medium">
                   Chưa có bữa ăn nào được ghi nhận cho ngày {formatDateVN(selectedDate)}.
                 </p>
-                <p className="text-xs text-rose-500 font-semibold">
-                  💡 Nhắn tin vào khung "AI Ghi Nhận Món Ăn" ở trên để AI tự động phân tích nhé!
-                </p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -702,7 +699,6 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
                 <BookOpen className="w-4 h-4 text-rose-500" />
                 Thực Đơn & Công Thức Yêu Thích Của Hai Đứa 🍲
               </h3>
-              <p className="text-xs text-slate-500">Lưu trữ các món ngon cùng nhau chuẩn bị</p>
             </div>
             <button
               onClick={() => setShowAddRecipe(true)}

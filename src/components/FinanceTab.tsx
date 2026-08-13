@@ -325,7 +325,6 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-slate-800">Tài Chính & Quỹ Chung 💰</h2>
-          <p className="text-xs text-slate-500">Quản lý đóng góp và chi tiêu giữa hai bạn</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -355,7 +354,6 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
             <Users className="w-4 h-4 text-rose-500" />
             Đối Soát Tài Chính Hai Người
           </span>
-          <span className="text-[11px] text-slate-400">Tự động đồng bộ</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

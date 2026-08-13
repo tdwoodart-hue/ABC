@@ -628,14 +628,16 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
     setAddingMemory(true);
     try {
       const memoriesRef = collection(db, 'couples', userProfile.coupleId, 'memories');
-      await addDoc(memoriesRef, {
+      const memoryData: Record<string, any> = {
         title: memoryTitle.trim(),
         date: memoryDate,
-        imageUrl: memoryImageUrl.trim() || undefined,
         authorName: userProfile.displayName,
         authorUid: userProfile.uid,
         createdAt: new Date().toISOString()
-      });
+      };
+      if (memoryImageUrl.trim()) memoryData.imageUrl = memoryImageUrl.trim();
+
+      await addDoc(memoriesRef, memoryData);
       setMemoryTitle('');
       setMemoryImageUrl('');
       setShowAddMemory(false);
@@ -680,9 +682,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
               <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
                 Xin chào, {userProfile.displayName}! 💕
               </h2>
-              <p className="text-xs sm:text-sm text-slate-600 mt-1">
-                Không gian nhỏ dành riêng cho hai bạn
-              </p>
             </div>
 
             {/* Couple Card */}
@@ -825,9 +824,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
                 <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                   Nhật Ký Tình Yêu 📖
                 </h2>
-                <p className="text-xs text-slate-500">
-                  Viết nên những dòng nhật ký ngọt ngào mỗi ngày
-                </p>
               </div>
               <button
                 onClick={() => setShowAddJournal(!showAddJournal)}
@@ -1558,14 +1554,11 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
             {/* PLACES VISITED VIEW (BẢN ĐỒ & NƠI ĐÃ ĐI) */}
             {journalViewTab === 'places' && (
               <div className="space-y-4">
-                <div className="bg-gradient-to-r from-rose-50 via-pink-50 to-orange-50 p-5 rounded-3xl border border-rose-100 shadow-xs">
-                  <div className="flex items-center gap-2 text-rose-600 font-bold text-sm mb-1">
+                <div className="bg-gradient-to-r from-rose-50 via-pink-50 to-orange-50 p-4 rounded-3xl border border-rose-100 shadow-xs">
+                  <div className="flex items-center gap-2 text-rose-600 font-bold text-sm">
                     <MapPin className="w-4 h-4 text-rose-500" />
                     <span>Hành Trình Ghé Thăm ({journals.filter(j => j.location).length} địa điểm)</span>
                   </div>
-                  <p className="text-xs text-slate-600">
-                    Danh sách những quán ăn, địa điểm du lịch, tiệm cà phê và góc phố kỷ niệm hai bạn đã từng cùng nhau đặt chân tới 💕
-                  </p>
                 </div>
 
                 {filteredJournals.filter(j => j.location).length === 0 ? (
@@ -1574,9 +1567,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
                       <MapPin className="w-6 h-6" />
                     </div>
                     <p className="text-sm font-semibold text-slate-700">Chưa có địa điểm nào được lưu</p>
-                    <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                      Bấm "Viết nhật ký" và điền thông tin địa điểm (hoặc chọn trên Google Maps) để lưu dấu những nơi hai đứa đã đến nhé!
-                    </p>
                     <button
                       type="button"
                       onClick={() => {
