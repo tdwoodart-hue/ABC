@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile, CoupleData, MemoryItem, JournalEntry, JournalComment, JournalExpense } from '../types';
 import { FinanceTab } from './FinanceTab';
+import { MapLocationPickerModal } from './MapLocationPickerModal';
 import { 
   db, 
   doc, 
@@ -38,7 +39,16 @@ import {
   Receipt,
   DollarSign,
   Eye,
-  Wallet
+  Wallet,
+  MapPin,
+  Phone,
+  Cake,
+  Copy,
+  Save,
+  Share2,
+  ExternalLink,
+  Navigation,
+  Map
 } from 'lucide-react';
 
 interface LightHomeScreenProps {
@@ -141,6 +151,86 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
   const [addingMemory, setAddingMemory] = useState(false);
   const [journalImageLoading, setJournalImageLoading] = useState(false);
   const [memoryImageLoading, setMemoryImageLoading] = useState(false);
+
+  // Profile editing state
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editAddress, setEditAddress] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editUser1Phone, setEditUser1Phone] = useState('');
+  const [editUser2Phone, setEditUser2Phone] = useState('');
+  const [editUser1Birthday, setEditUser1Birthday] = useState('');
+  const [editUser2Birthday, setEditUser2Birthday] = useState('');
+  const [editFavoritePlaces, setEditFavoritePlaces] = useState('');
+  const [editLoveStory, setEditLoveStory] = useState('');
+  const [editUser1Name, setEditUser1Name] = useState('');
+  const [editUser2Name, setEditUser2Name] = useState('');
+  const [editAnniversaryDateProfile, setEditAnniversaryDateProfile] = useState('');
+  const [editStatusMessageProfile, setEditStatusMessageProfile] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  const [mapModalOpen, setMapModalOpen] = useState(false);
+  const [mapModalTarget, setMapModalTarget] = useState<'address' | 'favorite'>('address');
+
+  const handleOpenMapPicker = (target: 'address' | 'favorite') => {
+    setMapModalTarget(target);
+    setMapModalOpen(true);
+  };
+
+  const handleSelectMapLocation = (data: { address: string; city: string; fullPlaceName?: string }) => {
+    if (mapModalTarget === 'address') {
+      setEditAddress(data.address);
+      if (data.city) setEditCity(data.city);
+    } else {
+      setEditFavoritePlaces(data.fullPlaceName || data.address);
+    }
+  };
+
+  const handleStartEditProfile = () => {
+    if (coupleData) {
+      setEditAddress(coupleData.address || '');
+      setEditCity(coupleData.city || '');
+      setEditUser1Phone(coupleData.user1Phone || '');
+      setEditUser2Phone(coupleData.user2Phone || '');
+      setEditUser1Birthday(coupleData.user1Birthday || '');
+      setEditUser2Birthday(coupleData.user2Birthday || '');
+      setEditFavoritePlaces(coupleData.favoritePlaces || '');
+      setEditLoveStory(coupleData.loveStory || '');
+      setEditUser1Name(coupleData.user1Name || '');
+      setEditUser2Name(coupleData.user2Name || '');
+      setEditAnniversaryDateProfile(coupleData.anniversaryDate || '');
+      setEditStatusMessageProfile(coupleData.statusMessage || '');
+    }
+    setIsEditingProfile(true);
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userProfile.coupleId) return;
+
+    setSavingProfile(true);
+    try {
+      const coupleRef = doc(db, 'couples', userProfile.coupleId);
+      await updateDoc(coupleRef, {
+        address: editAddress.trim(),
+        city: editCity.trim(),
+        user1Phone: editUser1Phone.trim(),
+        user2Phone: editUser2Phone.trim(),
+        user1Birthday: editUser1Birthday,
+        user2Birthday: editUser2Birthday,
+        favoritePlaces: editFavoritePlaces.trim(),
+        loveStory: editLoveStory.trim(),
+        user1Name: editUser1Name.trim() || coupleData?.user1Name,
+        user2Name: editUser2Name.trim() || coupleData?.user2Name,
+        anniversaryDate: editAnniversaryDateProfile || coupleData?.anniversaryDate,
+        statusMessage: editStatusMessageProfile.trim() || coupleData?.statusMessage,
+      });
+      setIsEditingProfile(false);
+    } catch (err) {
+      console.error('Lỗi lưu thông tin tài khoản:', err);
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const handleJournalFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -1337,48 +1427,477 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
         {/* TAB 4: PROFILE */}
         {activeTab === 'profile' && (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-slate-800">Tài Khoản & Thông Tin 👤</h2>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800">Tài Khoản & Thông Tin 👤</h2>
+                <p className="text-xs text-slate-500">Thông tin cá nhân, địa chỉ và đôi lứa</p>
+              </div>
+              <button
+                onClick={handleStartEditProfile}
+                className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-semibold border border-rose-200/60 shadow-xs transition cursor-pointer flex items-center gap-1.5"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                Sửa thông tin
+              </button>
+            </div>
 
-            <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-md space-y-4">
-              <div className="flex items-center gap-4 border-b border-slate-100 pb-4">
-                <div className="w-16 h-16 rounded-full bg-rose-100 border-2 border-white shadow-md flex items-center justify-center overflow-hidden">
+            {/* Account Info Card */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-rose-100 border border-slate-200 overflow-hidden shrink-0 shadow-xs">
                   <img
                     src={`https://api.dicebear.com/7.x/micah/svg?seed=${userProfile.uid}`}
                     alt={userProfile.displayName}
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <div>
-                  <h3 className="text-lg font-bold text-slate-800">{userProfile.displayName}</h3>
-                  <p className="text-xs text-slate-400">{userProfile.email}</p>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-base font-bold text-slate-800 truncate">{userProfile.displayName}</h3>
+                  <p className="text-xs text-slate-400 truncate">{userProfile.email}</p>
+                  <span className="inline-block mt-1 px-2 py-0.5 bg-rose-50 text-rose-600 font-semibold rounded-md text-[10px] border border-rose-100">
+                    Thành viên Us Couple
+                  </span>
                 </div>
-              </div>
-
-              <div className="space-y-3 text-xs">
-                <div className="flex justify-between py-1 border-b border-slate-50">
-                  <span className="text-slate-400">Tên người yêu 1:</span>
-                  <span className="font-bold text-slate-700">{coupleData?.user1Name || '---'}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-slate-50">
-                  <span className="text-slate-400">Tên người yêu 2:</span>
-                  <span className="font-bold text-slate-700">{coupleData?.user2Name || '---'}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-slate-50">
-                  <span className="text-slate-400">Ngày kỷ niệm:</span>
-                  <span className="font-bold text-rose-600">{coupleData?.anniversaryDate || '---'}</span>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  onClick={handleSignOut}
-                  className="w-full py-3 px-4 bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold rounded-2xl text-xs transition flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Đăng xuất tài khoản
-                </button>
               </div>
             </div>
+
+            {/* Detailed Couple & Personal Information */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
+              <h3 className="text-sm font-bold text-slate-800 pb-2 border-b border-slate-100 flex items-center justify-between">
+                <span>Hồ Sơ Đôi Lứa</span>
+                <span className="text-[11px] font-normal text-slate-400">Đồng bộ hai người</span>
+              </h3>
+
+              <div className="space-y-3 text-xs">
+                {/* Names */}
+                <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50/80 rounded-xl border border-slate-100">
+                  <div>
+                    <span className="text-slate-400 text-[10px] block">Người yêu 1</span>
+                    <span className="font-bold text-slate-800">{coupleData?.user1Name || '---'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 text-[10px] block">Người yêu 2</span>
+                    <span className="font-bold text-slate-800">{coupleData?.user2Name || '---'}</span>
+                  </div>
+                </div>
+
+                {/* Anniversary */}
+                <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-rose-500" />
+                    Ngày kỷ niệm yêu nhau:
+                  </span>
+                  <span className="font-bold text-rose-600">{coupleData?.anniversaryDate || '---'}</span>
+                </div>
+
+                {/* Address */}
+                <div className="py-1.5 border-b border-slate-100 space-y-1.5">
+                  <div className="flex items-start justify-between">
+                    <span className="text-slate-500 flex items-center gap-1.5 shrink-0">
+                      <MapPin className="w-3.5 h-3.5 text-sky-500" />
+                      Địa chỉ / Nơi ở:
+                    </span>
+                    <span className="font-medium text-slate-800 text-right">
+                      {coupleData?.address ? (
+                        <>
+                          {coupleData.address}
+                          {coupleData.city && <span className="block text-[11px] text-slate-400">{coupleData.city}</span>}
+                        </>
+                      ) : (
+                        <span className="text-slate-400 italic">Chưa cập nhật</span>
+                      )}
+                    </span>
+                  </div>
+
+                  {(coupleData?.address || coupleData?.city) && (
+                    <div className="pt-1 flex justify-end">
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(((coupleData.address || '') + ' ' + (coupleData.city || '')).trim())}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-sky-50 hover:bg-sky-100 text-sky-600 rounded-lg text-[11px] font-semibold border border-sky-200/60 transition cursor-pointer"
+                      >
+                        <Map className="w-3 h-3 text-sky-500" />
+                        <span>Mở Google Maps / Chỉ đường</span>
+                        <ExternalLink className="w-2.5 h-2.5 text-sky-400 ml-0.5" />
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                {/* Embedded Google Maps Widget if Address Exists */}
+                {(coupleData?.address || coupleData?.city) && (
+                  <div className="my-2 rounded-xl border border-sky-100 overflow-hidden bg-slate-50 shadow-2xs">
+                    <iframe
+                      title="Google Maps Location"
+                      width="100%"
+                      height="150"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                      src={`https://maps.google.com/maps?q=${encodeURIComponent(((coupleData?.address || '') + ' ' + (coupleData?.city || '')).trim())}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
+                    />
+                  </div>
+                )}
+
+                {/* Phone Numbers */}
+                <div className="flex items-start justify-between py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500 flex items-center gap-1.5 shrink-0">
+                    <Phone className="w-3.5 h-3.5 text-emerald-500" />
+                    Số điện thoại:
+                  </span>
+                  <div className="text-right space-y-0.5">
+                    {coupleData?.user1Phone && (
+                      <div className="font-medium text-slate-800">
+                        {coupleData.user1Name || 'Partner 1'}: <span className="font-mono">{coupleData.user1Phone}</span>
+                      </div>
+                    )}
+                    {coupleData?.user2Phone && (
+                      <div className="font-medium text-slate-800">
+                        {coupleData.user2Name || 'Partner 2'}: <span className="font-mono">{coupleData.user2Phone}</span>
+                      </div>
+                    )}
+                    {!coupleData?.user1Phone && !coupleData?.user2Phone && (
+                      <span className="text-slate-400 italic">Chưa cập nhật</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Birthdays */}
+                <div className="flex items-start justify-between py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500 flex items-center gap-1.5 shrink-0">
+                    <Cake className="w-3.5 h-3.5 text-amber-500" />
+                    Ngày sinh nhật:
+                  </span>
+                  <div className="text-right space-y-0.5">
+                    {coupleData?.user1Birthday && (
+                      <div className="font-medium text-slate-800">
+                        {coupleData.user1Name || 'Partner 1'}: {coupleData.user1Birthday}
+                      </div>
+                    )}
+                    {coupleData?.user2Birthday && (
+                      <div className="font-medium text-slate-800">
+                        {coupleData.user2Name || 'Partner 2'}: {coupleData.user2Birthday}
+                      </div>
+                    )}
+                    {!coupleData?.user1Birthday && !coupleData?.user2Birthday && (
+                      <span className="text-slate-400 italic">Chưa cập nhật</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Favorite Places */}
+                <div className="py-1.5 border-b border-slate-100 space-y-1.5">
+                  <div className="flex items-start justify-between">
+                    <span className="text-slate-500 flex items-center gap-1.5 shrink-0">
+                      <Heart className="w-3.5 h-3.5 text-rose-500" />
+                      Địa điểm hẹn hò yêu thích:
+                    </span>
+                    <span className="font-medium text-slate-800 text-right max-w-xs">
+                      {coupleData?.favoritePlaces || <span className="text-slate-400 italic">Chưa cập nhật</span>}
+                    </span>
+                  </div>
+                  {coupleData?.favoritePlaces && (
+                    <div className="pt-0.5 flex justify-end">
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coupleData.favoritePlaces)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-[11px] font-semibold border border-rose-200/60 transition cursor-pointer"
+                      >
+                        <Navigation className="w-3 h-3 text-rose-500" />
+                        <span>Tìm địa điểm trên Google Maps</span>
+                        <ExternalLink className="w-2.5 h-2.5 text-rose-400 ml-0.5" />
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                {/* Status Message */}
+                <div className="py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500 block mb-1">Lời nhắn tình yêu / Slogan:</span>
+                  <p className="font-medium text-slate-800 italic bg-rose-50/50 p-2.5 rounded-xl border border-rose-100/60">
+                    "{coupleData?.statusMessage || 'Hành trình tình yêu bắt đầu từ những điều nhỏ nhất'}"
+                  </p>
+                </div>
+
+                {/* Love Story / Memory Note */}
+                {coupleData?.loveStory && (
+                  <div className="py-1.5">
+                    <span className="text-slate-500 block mb-1">Kỷ niệm quen nhau / Ghi chú tình yêu:</span>
+                    <p className="text-slate-700 leading-relaxed bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                      {coupleData.loveStory}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Logout Button */}
+            <div className="pt-2">
+              <button
+                onClick={handleSignOut}
+                className="w-full py-3 px-4 bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold rounded-2xl text-xs transition flex items-center justify-center gap-2 cursor-pointer border border-rose-200/60"
+              >
+                <LogOut className="w-4 h-4" />
+                Đăng xuất tài khoản
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Chỉnh Sửa Thông Tin Profile & Đôi Lứa */}
+        {isEditingProfile && (
+          <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+            <form onSubmit={handleSaveProfile} className="bg-white w-full max-w-lg rounded-2xl p-5 border border-slate-200 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 sticky top-0 bg-white z-10">
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <Edit3 className="w-4 h-4 text-rose-500" />
+                  Chỉnh Sửa Thông Tin Hồ Sơ & Địa Chỉ
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingProfile(false)}
+                  className="text-slate-400 hover:text-slate-600 transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Group 1: Standard Names & Anniversary */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-rose-600 uppercase tracking-wider">1. Thông tin đôi lứa</h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Tên Người yêu 1</label>
+                    <input
+                      type="text"
+                      value={editUser1Name}
+                      onChange={(e) => setEditUser1Name(e.target.value)}
+                      placeholder="Tên Bạn"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Tên Người yêu 2</label>
+                    <input
+                      type="text"
+                      value={editUser2Name}
+                      onChange={(e) => setEditUser2Name(e.target.value)}
+                      placeholder="Tên Người ấy"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Ngày kỷ niệm yêu nhau</label>
+                    <input
+                      type="date"
+                      value={editAnniversaryDateProfile}
+                      onChange={(e) => setEditAnniversaryDateProfile(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Lời nhắn tình yêu / Status</label>
+                    <input
+                      type="text"
+                      value={editStatusMessageProfile}
+                      onChange={(e) => setEditStatusMessageProfile(e.target.value)}
+                      placeholder="VD: Cùng nhau đi qua bão giông 💕"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-400"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Group 2: Address & Location */}
+              <div className="space-y-3 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-sky-600 uppercase tracking-wider flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5" />
+                    2. Địa chỉ & Nơi ở (Google Maps)
+                  </h4>
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((editAddress + ' ' + editCity).trim() || 'Việt Nam')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[11px] text-sky-600 hover:text-sky-700 font-medium flex items-center gap-1 hover:underline"
+                  >
+                    <Map className="w-3 h-3 text-sky-500" />
+                    <span>Tìm trên Google Maps</span>
+                    <ExternalLink className="w-2.5 h-2.5" />
+                  </a>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-600">Địa chỉ chi tiết (Đường, Phường, Quận...)</label>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenMapPicker('address')}
+                      className="px-2.5 py-1 bg-sky-50 hover:bg-sky-100 text-sky-600 rounded-lg text-[11px] font-bold border border-sky-200/80 transition cursor-pointer flex items-center gap-1 shrink-0"
+                    >
+                      <MapPin className="w-3 h-3 text-sky-500" />
+                      <span>Chọn trên Google Maps 📍</span>
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={editAddress}
+                    onChange={(e) => setEditAddress(e.target.value)}
+                    placeholder="VD: 123 Đường Nguyễn Huệ, Phường Bến Nghé, Quận 1"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-sky-400"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Thành phố / Tỉnh thành</label>
+                    <input
+                      type="text"
+                      value={editCity}
+                      onChange={(e) => setEditCity(e.target.value)}
+                      placeholder="VD: TP. Hồ Chí Minh, Hà Nội..."
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-sky-400"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold text-slate-600">Địa điểm hẹn hò yêu thích</label>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenMapPicker('favorite')}
+                        className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-md text-[10px] font-semibold border border-rose-200/80 transition cursor-pointer flex items-center gap-1 shrink-0"
+                      >
+                        <MapPin className="w-2.5 h-2.5 text-rose-500" />
+                        <span>Chọn trên bản đồ</span>
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={editFavoritePlaces}
+                      onChange={(e) => setEditFavoritePlaces(e.target.value)}
+                      placeholder="VD: Lẩu Haidilao, Phố cổ, Cà phê ngõ..."
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-sky-400"
+                    />
+                  </div>
+                </div>
+
+                {/* Google Maps Live Interactive Preview in Edit Modal */}
+                {(editAddress.trim() || editCity.trim()) && (
+                  <div className="mt-2 rounded-xl border border-sky-200/80 overflow-hidden bg-slate-50 shadow-2xs space-y-0">
+                    <div className="p-2 bg-sky-50/80 border-b border-sky-100 flex items-center justify-between text-[11px] font-semibold text-sky-800">
+                      <span className="flex items-center gap-1.5">
+                        <Navigation className="w-3.5 h-3.5 text-sky-500 animate-pulse" />
+                        Bản đồ vị trí Google Maps tương ứng:
+                      </span>
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((editAddress + ' ' + editCity).trim())}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sky-600 hover:text-sky-800 underline flex items-center gap-0.5"
+                      >
+                        Chỉ đường trên Google Maps <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+                    </div>
+                    <iframe
+                      title="Google Maps Location Preview"
+                      width="100%"
+                      height="160"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                      src={`https://maps.google.com/maps?q=${encodeURIComponent((editAddress + ' ' + editCity).trim())}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Group 3: Phone & Birthdays */}
+              <div className="space-y-3 pt-2 border-t border-slate-100">
+                <h4 className="text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1">
+                  <Phone className="w-3.5 h-3.5" />
+                  3. Liên hệ & Sinh nhật
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Số điện thoại ({editUser1Name || 'Partner 1'})</label>
+                    <input
+                      type="text"
+                      value={editUser1Phone}
+                      onChange={(e) => setEditUser1Phone(e.target.value)}
+                      placeholder="0901234567"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Số điện thoại ({editUser2Name || 'Partner 2'})</label>
+                    <input
+                      type="text"
+                      value={editUser2Phone}
+                      onChange={(e) => setEditUser2Phone(e.target.value)}
+                      placeholder="0908765432"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Sinh nhật ({editUser1Name || 'Partner 1'})</label>
+                    <input
+                      type="date"
+                      value={editUser1Birthday}
+                      onChange={(e) => setEditUser1Birthday(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Sinh nhật ({editUser2Name || 'Partner 2'})</label>
+                    <input
+                      type="date"
+                      value={editUser2Birthday}
+                      onChange={(e) => setEditUser2Birthday(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Group 4: Love Story / Notes */}
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Ghi chú kỷ niệm quen nhau / Love Story</label>
+                <textarea
+                  rows={3}
+                  value={editLoveStory}
+                  onChange={(e) => setEditLoveStory(e.target.value)}
+                  placeholder="Lần đầu hai đứa gặp nhau ở đâu, ấn tượng gì..."
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-400"
+                />
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 sticky bottom-0 bg-white">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingProfile(false)}
+                  className="px-4 py-2 rounded-xl text-slate-500 hover:bg-slate-100 text-xs font-medium cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="px-5 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold shadow-xs disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  {savingProfile ? 'Đang lưu...' : 'Lưu thông tin'}
+                </button>
+              </div>
+            </form>
           </div>
         )}
       </main>
@@ -1439,6 +1958,15 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
           </button>
         </div>
       </nav>
+
+      {/* Interactive Google Maps Location Picker Modal */}
+      <MapLocationPickerModal
+        isOpen={mapModalOpen}
+        onClose={() => setMapModalOpen(false)}
+        onSelectLocation={handleSelectMapLocation}
+        initialAddress={mapModalTarget === 'address' ? editAddress : editFavoritePlaces}
+        title={mapModalTarget === 'address' ? 'Chọn Địa Chỉ & Nơi Ở Trên Bản Đồ' : 'Chọn Địa Điểm Hẹn Hò Yêu Thích'}
+      />
     </div>
   );
 };

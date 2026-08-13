@@ -8,7 +8,7 @@ import {
   signInWithPopup, 
   syncUserProfile 
 } from '../lib/firebase';
-import { Heart, Mail, Lock, User, ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Heart, Mail, Lock, User, ArrowRight } from 'lucide-react';
 
 interface AuthCardProps {
   onSuccess?: () => void;
@@ -68,36 +68,6 @@ export const AuthCard: React.FC<AuthCardProps> = ({ onSuccess }) => {
     } catch (err: any) {
       console.error('Google sign in error:', err);
       setError('Đăng nhập với Google thất bại hoặc đã bị hủy.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleQuickDemoLogin = async (role: 'person1' | 'person2') => {
-    setError('');
-    setLoading(true);
-    const demoEmail = role === 'person1' ? 'demo_partner1@couple.app' : 'demo_partner2@couple.app';
-    const demoPass = 'CouplePass123!';
-    const demoName = role === 'person1' ? 'Anh Yêu (Partner A)' : 'Em Yêu (Partner B)';
-
-    try {
-      const userCred = await signInWithEmailAndPassword(auth, demoEmail, demoPass);
-      await syncUserProfile(userCred.user, demoName);
-      if (onSuccess) onSuccess();
-    } catch (err: any) {
-      // If demo account doesn't exist yet, create it automatically!
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-        try {
-          const newCred = await createUserWithEmailAndPassword(auth, demoEmail, demoPass);
-          await updateProfile(newCred.user, { displayName: demoName });
-          await syncUserProfile(newCred.user, demoName);
-          if (onSuccess) onSuccess();
-        } catch (createErr: any) {
-          setError('Không thể tạo tài khoản demo: ' + createErr.message);
-        }
-      } else {
-        setError(err.message || 'Lỗi đăng nhập tài khoản thử nghiệm');
-      }
     } finally {
       setLoading(false);
     }
@@ -231,7 +201,7 @@ export const AuthCard: React.FC<AuthCardProps> = ({ onSuccess }) => {
         type="button"
         onClick={handleGoogleSignIn}
         disabled={loading}
-        className="w-full py-2.5 px-4 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium text-sm flex items-center justify-center gap-3 shadow-sm transition-all cursor-pointer mb-6"
+        className="w-full py-2.5 px-4 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium text-sm flex items-center justify-center gap-3 shadow-sm transition-all cursor-pointer"
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24">
           <path
@@ -253,37 +223,6 @@ export const AuthCard: React.FC<AuthCardProps> = ({ onSuccess }) => {
         </svg>
         Đăng nhập với Google
       </button>
-
-      {/* Quick Test Demo Options for User & Partner */}
-      <div className="p-4 bg-rose-50/60 rounded-2xl border border-rose-100">
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-700 mb-2">
-          <Sparkles className="w-4 h-4 text-rose-500" />
-          Đăng nhập thử nghiệm cho 2 người (Nhanh)
-        </div>
-        <p className="text-xs text-slate-500 mb-3">
-          Sử dụng 2 nút bên dưới để thử đăng nhập nhanh 2 tài khoản khác nhau trên 2 tab hoặc thử nghiệm kết nối đôi:
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => handleQuickDemoLogin('person1')}
-            disabled={loading}
-            className="py-2 px-3 bg-white hover:bg-rose-100/50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 cursor-pointer shadow-xs"
-          >
-            <CheckCircle2 className="w-3.5 h-3.5 text-rose-500" />
-            Tài khoản Người 1
-          </button>
-          <button
-            type="button"
-            onClick={() => handleQuickDemoLogin('person2')}
-            disabled={loading}
-            className="py-2 px-3 bg-white hover:bg-rose-100/50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 cursor-pointer shadow-xs"
-          >
-            <CheckCircle2 className="w-3.5 h-3.5 text-rose-500" />
-            Tài khoản Người 2
-          </button>
-        </div>
-      </div>
     </div>
   );
 };

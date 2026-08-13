@@ -5,6 +5,10 @@ export interface UserProfile {
   photoURL?: string;
   coupleId: string;
   createdAt: string;
+  phone?: string;
+  address?: string;
+  birthday?: string;
+  avatarUrl?: string;
 }
 
 export interface CoupleData {
@@ -13,9 +17,22 @@ export interface CoupleData {
   user1Name: string;
   user2Id?: string;
   user2Name?: string;
+  user1Avatar?: string;
+  user2Avatar?: string;
+  user1Uid?: string;
+  user2Uid?: string;
   anniversaryDate: string; // ISO string YYYY-MM-DD
   statusMessage?: string;
   createdAt: string;
+  // Additional info
+  address?: string;
+  city?: string;
+  favoritePlaces?: string;
+  user1Phone?: string;
+  user2Phone?: string;
+  user1Birthday?: string;
+  user2Birthday?: string;
+  loveStory?: string;
 }
 
 export interface MemoryItem {
