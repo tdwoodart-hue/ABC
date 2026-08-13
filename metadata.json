@@ -1,0 +1,6 @@
+{
+  "name": "Couple App",
+  "description": "Couple app with Firebase authentication and clean light interface",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

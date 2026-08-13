@@ -1,0 +1,136 @@
+{
+  "entities": {
+    "users": {
+      "title": "User",
+      "description": "User profile data",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "photoURL": {
+          "type": "string"
+        },
+        "partnerId": {
+          "type": "string"
+        },
+        "partnerEmail": {
+          "type": "string"
+        },
+        "coupleId": {
+          "type": "string"
+        },
+        "pairCode": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "uid",
+        "email"
+      ]
+    },
+    "couples": {
+      "title": "Couple",
+      "description": "Couple pairing relationship",
+      "type": "object",
+      "properties": {
+        "user1Id": {
+          "type": "string"
+        },
+        "user2Id": {
+          "type": "string"
+        },
+        "user1Name": {
+          "type": "string"
+        },
+        "user2Name": {
+          "type": "string"
+        },
+        "pairCode": {
+          "type": "string"
+        },
+        "anniversaryDate": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "user1Id"
+      ]
+    },
+    "memories": {
+      "title": "Memory",
+      "description": "Couple memory items",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "imageUrl": {
+          "type": "string"
+        },
+        "authorName": {
+          "type": "string"
+        },
+        "authorUid": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "date"
+      ]
+    },
+    "journals": {
+      "title": "Journal",
+      "description": "Daily journal entries for couples",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "date": { "type": "string" },
+        "mood": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorUid": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["title", "content", "date"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/users" },
+      "description": "User profiles"
+    },
+    "/couples/{coupleId}": {
+      "schema": { "$ref": "#/entities/couples" },
+      "description": "Couple data"
+    },
+    "/couples/{coupleId}/memories/{memoryId}": {
+      "schema": { "$ref": "#/entities/memories" },
+      "description": "Memories subcollection"
+    },
+    "/couples/{coupleId}/journals/{journalId}": {
+      "schema": { "$ref": "#/entities/journals" },
+      "description": "Journals subcollection"
+    }
+  }
+}
