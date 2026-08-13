@@ -444,18 +444,15 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Date Bar */}
             <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-slate-700 font-bold text-xs sm:text-sm min-w-0">
+              <div className="flex items-center gap-2 text-slate-700 font-bold text-xs sm:text-sm">
                 <Calendar className="w-4 h-4 text-rose-500 shrink-0" />
-                <span className="truncate">Xem ngày:</span>
-                <span className="text-rose-700 font-extrabold bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-100 text-xs shrink-0">
-                  {formatDateVN(selectedDate)}
-                </span>
+                <span>Ngày theo dõi:</span>
               </div>
               <input
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-rose-400 cursor-pointer"
+                className="bg-slate-50 hover:bg-rose-50/50 border border-slate-300 focus:border-rose-400 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-400 cursor-pointer shadow-2xs transition"
               />
             </div>
 
@@ -620,7 +617,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
               <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
                 <Apple className="w-8 h-8 text-slate-300 mx-auto" />
                 <p className="text-xs text-slate-500 font-medium">
-                  Chưa có bữa ăn nào được ghi nhận cho ngày {formatDateVN(selectedDate)}.
+                  Chưa có bữa ăn nào được ghi nhận cho {formatDateVN(selectedDate)}.
                 </p>
               </div>
             ) : (

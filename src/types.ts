@@ -80,6 +80,16 @@ export interface SavingsGoal {
   createdAt: string;
 }
 
+export interface ImageComment {
+  id: string;
+  imageIndex: number;
+  imageUrl?: string;
+  authorName: string;
+  authorUid: string;
+  content: string;
+  createdAt: string;
+}
+
 export interface JournalExpense {
   id: string;
   title: string;
@@ -94,14 +104,16 @@ export interface JournalEntry {
   location?: string; // Tên địa điểm/Nơi đã đi
   locationAddress?: string; // Địa chỉ chi tiết nếu có
   mood?: string;
-  imageUrl?: string;
-  images?: string[];
+  imageUrl?: string; // Ảnh chính / Bìa
+  images?: string[]; // Tất cả ảnh đính kèm
+  mainImageIndex?: number; // Vị trí ảnh chính trong mảng images
   expenses?: JournalExpense[];
   authorName: string;
   authorUid: string;
   createdAt: string;
   updatedAt?: string;
   comments?: JournalComment[];
+  imageComments?: ImageComment[]; // Bình luận riêng cho từng ảnh
   deleteRequest?: JournalDeleteRequest;
 }
 

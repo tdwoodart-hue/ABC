@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserProfile, CoupleData, MemoryItem, JournalEntry, JournalComment, JournalExpense } from '../types';
+import { UserProfile, CoupleData, MemoryItem, JournalEntry, JournalComment, JournalExpense, ImageComment } from '../types';
 import { FinanceTab } from './FinanceTab';
 import { NutritionTab } from './NutritionTab';
 import { MapLocationPickerModal } from './MapLocationPickerModal';
@@ -51,7 +51,12 @@ import {
   ExternalLink,
   Navigation,
   Map,
-  Apple
+  Apple,
+  Star,
+  ChevronLeft,
+  ChevronRight,
+  ZoomIn,
+  MessageSquare
 } from 'lucide-react';
 
 interface LightHomeScreenProps {
@@ -740,26 +745,11 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
                   <span className="text-xl font-bold text-rose-400">ngày</span>
                 </div>
 
-                {/* Anniversary Date Selector */}
+                {/* Anniversary Date Display */}
                 <div className="mt-4 pt-3 border-t border-rose-100/80 flex items-center justify-center gap-2 text-xs text-slate-500">
                   <Calendar className="w-4 h-4 text-rose-400" />
                   <span>Ngày bắt đầu:</span>
-                  {isEditingDate ? (
-                    <input
-                      type="date"
-                      value={anniversaryDate}
-                      onChange={(e) => handleUpdateAnniversaryDate(e.target.value)}
-                      className="bg-white border border-rose-300 rounded-lg px-2 py-1 text-slate-800 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-rose-500"
-                    />
-                  ) : (
-                    <span className="font-bold text-slate-700">{formatDateVN(coupleData?.anniversaryDate)}</span>
-                  )}
-                  <button
-                    onClick={() => setIsEditingDate(!isEditingDate)}
-                    className="ml-1 text-rose-500 hover:text-rose-700 font-medium underline text-[11px] cursor-pointer"
-                  >
-                    {isEditingDate ? 'Đóng' : 'Đổi ngày'}
-                  </button>
+                  <span className="font-bold text-slate-700">{formatDateVN(coupleData?.anniversaryDate)}</span>
                 </div>
               </div>
             </div>
@@ -1603,7 +1593,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
                           <h4 className="font-bold text-slate-800 text-sm leading-snug">{item.title}</h4>
                           <p className="text-[11px] text-slate-400 flex items-center gap-1">
                             <Calendar className="w-3 h-3 text-rose-400" />
-                            <span>Ghé thăm ngày {formatDateVN(item.date)}</span>
+                            <span>Ghé thăm: {formatDateVN(item.date)}</span>
                           </p>
                           {item.content && (
                             <p className="text-xs text-slate-600 line-clamp-2 italic bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
