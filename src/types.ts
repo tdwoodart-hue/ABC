@@ -102,3 +102,38 @@ export interface JournalEntry {
   comments?: JournalComment[];
   deleteRequest?: JournalDeleteRequest;
 }
+
+export interface NutritionMeal {
+  id: string;
+  foodName: string;
+  mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  calories: number;
+  date: string; // YYYY-MM-DD
+  imageUrl?: string;
+  notes?: string;
+  loggedByUid: string;
+  loggedByName: string;
+  createdAt: string;
+}
+
+export interface WaterLog {
+  id: string;
+  date: string; // YYYY-MM-DD
+  amountMl: number;
+  loggedByUid: string;
+  loggedByName: string;
+  createdAt: string;
+}
+
+export interface NutritionRecipe {
+  id: string;
+  title: string;
+  ingredients: string;
+  instructions?: string;
+  calories?: number;
+  imageUrl?: string;
+  createdByUid: string;
+  createdByName: string;
+  createdAt: string;
+}
+

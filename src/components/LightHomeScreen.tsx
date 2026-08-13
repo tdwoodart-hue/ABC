@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile, CoupleData, MemoryItem, JournalEntry, JournalComment, JournalExpense } from '../types';
 import { FinanceTab } from './FinanceTab';
+import { NutritionTab } from './NutritionTab';
 import { MapLocationPickerModal } from './MapLocationPickerModal';
+import { formatDateVN, formatDateShortVN } from '../utils/formatDate';
 import { 
   db, 
   doc, 
@@ -48,7 +50,8 @@ import {
   Share2,
   ExternalLink,
   Navigation,
-  Map
+  Map,
+  Apple
 } from 'lucide-react';
 
 interface LightHomeScreenProps {
@@ -107,7 +110,7 @@ const compressAndConvertToBase64 = (file: File): Promise<string> => {
 };
 
 export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile }) => {
-  const [activeTab, setActiveTab] = useState<'home' | 'journal' | 'finance' | 'profile'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'journal' | 'nutrition' | 'finance' | 'profile'>('home');
   const [coupleData, setCoupleData] = useState<CoupleData | null>(null);
   const [statusInput, setStatusInput] = useState('');
   const [isEditingNote, setIsEditingNote] = useState(false);
@@ -725,7 +728,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
                       className="bg-white border border-rose-300 rounded-lg px-2 py-1 text-slate-800 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-rose-500"
                     />
                   ) : (
-                    <span className="font-bold text-slate-700">{coupleData?.anniversaryDate}</span>
+                    <span className="font-bold text-slate-700">{formatDateVN(coupleData?.anniversaryDate)}</span>
                   )}
                   <button
                     onClick={() => setIsEditingDate(!isEditingDate)}
@@ -1220,7 +1223,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
                             </div>
                             <span className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
                               <Calendar className="w-3 h-3 text-rose-400" />
-                              {item.date}
+                              {formatDateVN(item.date)}
                               {item.updatedAt && (
                                 <span className="text-rose-500 font-medium italic text-[10px]">
                                   (Đã chỉnh sửa)
@@ -1419,12 +1422,17 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
           </div>
         )}
 
-        {/* TAB 3: FINANCE */}
+        {/* TAB 3: NUTRITION */}
+        {activeTab === 'nutrition' && (
+          <NutritionTab userProfile={userProfile} coupleData={coupleData} />
+        )}
+
+        {/* TAB 4: FINANCE */}
         {activeTab === 'finance' && (
           <FinanceTab userProfile={userProfile} coupleData={coupleData} journals={journals} />
         )}
 
-        {/* TAB 4: PROFILE */}
+        {/* TAB 5: PROFILE */}
         {activeTab === 'profile' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -1487,7 +1495,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
                     <Calendar className="w-3.5 h-3.5 text-rose-500" />
                     Ngày kỷ niệm yêu nhau:
                   </span>
-                  <span className="font-bold text-rose-600">{coupleData?.anniversaryDate || '---'}</span>
+                  <span className="font-bold text-rose-600">{formatDateVN(coupleData?.anniversaryDate)}</span>
                 </div>
 
                 {/* Address */}
@@ -1571,12 +1579,12 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
                   <div className="text-right space-y-0.5">
                     {coupleData?.user1Birthday && (
                       <div className="font-medium text-slate-800">
-                        {coupleData.user1Name || 'Partner 1'}: {coupleData.user1Birthday}
+                        {coupleData.user1Name || 'Partner 1'}: {formatDateVN(coupleData.user1Birthday)}
                       </div>
                     )}
                     {coupleData?.user2Birthday && (
                       <div className="font-medium text-slate-800">
-                        {coupleData.user2Name || 'Partner 2'}: {coupleData.user2Birthday}
+                        {coupleData.user2Name || 'Partner 2'}: {formatDateVN(coupleData.user2Birthday)}
                       </div>
                     )}
                     {!coupleData?.user1Birthday && !coupleData?.user2Birthday && (
@@ -1921,7 +1929,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
           {/* Tab 2: Journal */}
           <button
             onClick={() => setActiveTab('journal')}
-            className={`flex flex-col items-center gap-1 py-1.5 px-3 sm:px-4 rounded-2xl transition cursor-pointer ${
+            className={`flex flex-col items-center gap-1 py-1.5 px-2.5 sm:px-3 rounded-2xl transition cursor-pointer ${
               activeTab === 'journal'
                 ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
                 : 'text-slate-400 hover:text-slate-600'
@@ -1931,7 +1939,20 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
             <span className="text-[11px]">Nhật ký</span>
           </button>
 
-          {/* Tab 3: Finance */}
+          {/* Tab 3: Nutrition */}
+          <button
+            onClick={() => setActiveTab('nutrition')}
+            className={`flex flex-col items-center gap-1 py-1.5 px-2.5 sm:px-3 rounded-2xl transition cursor-pointer ${
+              activeTab === 'nutrition'
+                ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
+                : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <Apple className="w-5 h-5" />
+            <span className="text-[11px]">Dinh dưỡng</span>
+          </button>
+
+          {/* Tab 4: Finance */}
           <button
             onClick={() => setActiveTab('finance')}
             className={`flex flex-col items-center gap-1 py-1.5 px-3 sm:px-4 rounded-2xl transition cursor-pointer ${

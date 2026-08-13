@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile, CoupleData, JournalEntry, FinanceTransaction, SavingsGoal } from '../types';
+import { formatDateVN, formatDateShortVN } from '../utils/formatDate';
 import { 
   db, 
   collection, 
@@ -755,7 +756,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
                       {goal.targetDate && (
                         <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
                           <Calendar className="w-3 h-3 text-slate-400" />
-                          Hạn: {goal.targetDate}
+                          Hạn: {formatDateVN(goal.targetDate)}
                         </p>
                       )}
                     </div>
@@ -871,7 +872,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
                       <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
                         <span className="font-medium text-slate-600">{payerDisplayName}</span>
                         <span>•</span>
-                        <span>{tx.date}</span>
+                        <span>{formatDateShortVN(tx.date)}</span>
                         <span>•</span>
                         <span>{tx.category}</span>
                       </div>
