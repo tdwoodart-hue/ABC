@@ -91,6 +91,8 @@ export interface JournalEntry {
   title: string;
   content?: string;
   date: string;
+  location?: string; // Tên địa điểm/Nơi đã đi
+  locationAddress?: string; // Địa chỉ chi tiết nếu có
   mood?: string;
   imageUrl?: string;
   images?: string[];

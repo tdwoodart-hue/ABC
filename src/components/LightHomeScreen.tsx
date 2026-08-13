@@ -123,6 +123,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
   const [showAddJournal, setShowAddJournal] = useState(false);
   const [journalTitle, setJournalTitle] = useState('');
   const [journalContent, setJournalContent] = useState('');
+  const [journalLocation, setJournalLocation] = useState('');
+  const [journalLocationAddress, setJournalLocationAddress] = useState('');
   const [journalDate, setJournalDate] = useState(new Date().toISOString().split('T')[0]);
   const [journalMood, setJournalMood] = useState(MOOD_OPTIONS[0]);
   const [journalImages, setJournalImages] = useState<string[]>([]);
@@ -133,10 +135,17 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
   const [journalSearch, setJournalSearch] = useState('');
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
 
+  // Journal View Subtab & Location Picker Modal
+  const [journalViewTab, setJournalViewTab] = useState<'feed' | 'places'>('feed');
+  const [isJournalMapPickerOpen, setIsJournalMapPickerOpen] = useState(false);
+  const [journalMapTarget, setJournalMapTarget] = useState<'create' | 'edit'>('create');
+
   // Edit Journal State
   const [editingJournalId, setEditingJournalId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
+  const [editLocation, setEditLocation] = useState('');
+  const [editLocationAddress, setEditLocationAddress] = useState('');
   const [editDate, setEditDate] = useState('');
   const [editImages, setEditImages] = useState<string[]>([]);
   const [editExpenses, setEditExpenses] = useState<JournalExpense[]>([]);
@@ -401,6 +410,12 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
       if (journalContent.trim()) {
         docData.content = journalContent.trim();
       }
+      if (journalLocation.trim()) {
+        docData.location = journalLocation.trim();
+      }
+      if (journalLocationAddress.trim()) {
+        docData.locationAddress = journalLocationAddress.trim();
+      }
       if (journalImages.length > 0) {
         docData.images = journalImages;
         docData.imageUrl = journalImages[0];
@@ -412,6 +427,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
       await addDoc(journalsRef, docData);
       setJournalTitle('');
       setJournalContent('');
+      setJournalLocation('');
+      setJournalLocationAddress('');
       setJournalImages([]);
       setJournalExpenses([]);
       setNewExpenseTitle('');
@@ -507,6 +524,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
     setEditingJournalId(item.id);
     setEditTitle(item.title || '');
     setEditContent(item.content || '');
+    setEditLocation(item.location || '');
+    setEditLocationAddress(item.locationAddress || '');
     setEditDate(item.date || new Date().toISOString().split('T')[0]);
     
     let imgs: string[] = [];
@@ -525,6 +544,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
     setEditingJournalId(null);
     setEditTitle('');
     setEditContent('');
+    setEditLocation('');
+    setEditLocationAddress('');
     setEditDate('');
     setEditImages([]);
     setEditExpenses([]);
@@ -584,6 +605,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
         title: editTitle.trim(),
         date: editDate,
         content: editContent.trim() || deleteField(),
+        location: editLocation.trim() || deleteField(),
+        locationAddress: editLocationAddress.trim() || deleteField(),
         images: editImages.length > 0 ? editImages : deleteField(),
         imageUrl: editImages.length > 0 ? editImages[0] : deleteField(),
         expenses: editExpenses.length > 0 ? editExpenses : deleteField(),
@@ -639,7 +662,9 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
   const filteredJournals = journals.filter(j => 
     j.title.toLowerCase().includes(journalSearch.toLowerCase()) ||
     (j.content && j.content.toLowerCase().includes(journalSearch.toLowerCase())) ||
-    (j.mood && j.mood.toLowerCase().includes(journalSearch.toLowerCase()))
+    (j.mood && j.mood.toLowerCase().includes(journalSearch.toLowerCase())) ||
+    (j.location && j.location.toLowerCase().includes(journalSearch.toLowerCase())) ||
+    (j.locationAddress && j.locationAddress.toLowerCase().includes(journalSearch.toLowerCase()))
   );
 
   return (
@@ -813,12 +838,40 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
               </button>
             </div>
 
+            {/* Subtab Toggle: Feed vs Places Visited */}
+            <div className="flex items-center gap-2 border-b border-slate-200/80 pb-3">
+              <button
+                type="button"
+                onClick={() => setJournalViewTab('feed')}
+                className={`px-4 py-2 rounded-2xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                  journalViewTab === 'feed'
+                    ? 'bg-rose-500 text-white shadow-xs'
+                    : 'bg-white hover:bg-rose-50 text-slate-600 border border-slate-200/80'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Nhật ký ({journals.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setJournalViewTab('places')}
+                className={`px-4 py-2 rounded-2xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                  journalViewTab === 'places'
+                    ? 'bg-rose-500 text-white shadow-xs'
+                    : 'bg-white hover:bg-rose-50 text-slate-600 border border-slate-200/80'
+                }`}
+              >
+                <MapPin className="w-3.5 h-3.5" />
+                <span>Nơi đã đi ({journals.filter(j => j.location).length}) 📍</span>
+              </button>
+            </div>
+
             {/* Search Journal */}
             <div className="relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
                 type="text"
-                placeholder="Tìm kiếm nhật ký..."
+                placeholder="Tìm kiếm theo tiêu đề, nội dung, địa điểm đã đi..."
                 value={journalSearch}
                 onChange={(e) => setJournalSearch(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-400 shadow-xs"
@@ -843,6 +896,35 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
                     placeholder="VD: Một ngày mưa ấm áp cùng em, Lần đầu nấu ăn cùng nhau..."
                     value={journalTitle}
                     onChange={(e) => setJournalTitle(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white"
+                  />
+                </div>
+
+                {/* Location Input Field */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-rose-500" />
+                      Địa điểm / Nơi hai đứa đã ghé thăm
+                      <span className="text-slate-400 font-normal">(Không bắt buộc)</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setJournalMapTarget('create');
+                        setIsJournalMapPickerOpen(true);
+                      }}
+                      className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Map className="w-3 h-3" />
+                      Chọn trên Google Maps
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="VD: Đà Lạt - Thung lũng Tình Yêu, Hồ Tây, Phố cổ Hội An..."
+                    value={journalLocation}
+                    onChange={(e) => setJournalLocation(e.target.value)}
                     className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white"
                   />
                 </div>
@@ -993,8 +1075,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
               </form>
             )}
 
-            {/* Journals List */}
-            {filteredJournals.length === 0 ? (
+            {/* Journals List or Places Visited */}
+            {journalViewTab === 'feed' && (
+              <>
+                {filteredJournals.length === 0 ? (
               <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xs text-center space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-400 flex items-center justify-center mx-auto">
                   <BookOpen className="w-6 h-6" />
@@ -1033,6 +1117,37 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
                           disabled={item.authorUid !== userProfile.uid}
                           value={editTitle}
                           onChange={(e) => setEditTitle(e.target.value)}
+                          className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white disabled:bg-slate-100"
+                        />
+                      </div>
+
+                      {/* Location input field in Edit Form */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-rose-500" />
+                            Địa điểm / Nơi hai đứa đã ghé thăm
+                          </label>
+                          {item.authorUid === userProfile.uid && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setJournalMapTarget('edit');
+                                setIsJournalMapPickerOpen(true);
+                              }}
+                              className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold underline flex items-center gap-1 cursor-pointer"
+                            >
+                              <Map className="w-3 h-3" />
+                              Chọn trên Google Maps
+                            </button>
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          disabled={item.authorUid !== userProfile.uid}
+                          placeholder="VD: Đà Lạt - Thung lũng Tình Yêu, Hồ Tây, Phố cổ Hội An..."
+                          value={editLocation}
+                          onChange={(e) => setEditLocation(e.target.value)}
                           className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white disabled:bg-slate-100"
                         />
                       </div>
@@ -1269,6 +1384,24 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
                         {item.title}
                       </h3>
 
+                      {/* Location Badge on feed card */}
+                      {item.location && (
+                        <div className="flex items-center gap-1.5 text-xs text-rose-700 bg-rose-50 border border-rose-200/60 px-3 py-1 rounded-xl w-fit font-medium my-1">
+                          <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                          <span className="font-bold">{item.location}</span>
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.locationAddress || item.location)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] text-rose-600 underline font-semibold ml-1 hover:text-rose-800 flex items-center gap-0.5"
+                            title="Mở chỉ đường Google Maps"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            <span>Bản đồ</span>
+                          </a>
+                        </div>
+                      )}
+
                       {item.content && (
                         <p className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line bg-slate-50/70 p-4 rounded-2xl border border-slate-100">
                           {item.content}
@@ -1417,6 +1550,105 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
                     </div>
                   )
                 ))}
+              </div>
+            )}
+            </>
+            )}
+
+            {/* PLACES VISITED VIEW (BẢN ĐỒ & NƠI ĐÃ ĐI) */}
+            {journalViewTab === 'places' && (
+              <div className="space-y-4">
+                <div className="bg-gradient-to-r from-rose-50 via-pink-50 to-orange-50 p-5 rounded-3xl border border-rose-100 shadow-xs">
+                  <div className="flex items-center gap-2 text-rose-600 font-bold text-sm mb-1">
+                    <MapPin className="w-4 h-4 text-rose-500" />
+                    <span>Hành Trình Ghé Thăm ({journals.filter(j => j.location).length} địa điểm)</span>
+                  </div>
+                  <p className="text-xs text-slate-600">
+                    Danh sách những quán ăn, địa điểm du lịch, tiệm cà phê và góc phố kỷ niệm hai bạn đã từng cùng nhau đặt chân tới 💕
+                  </p>
+                </div>
+
+                {filteredJournals.filter(j => j.location).length === 0 ? (
+                  <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xs text-center space-y-3">
+                    <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-400 flex items-center justify-center mx-auto">
+                      <MapPin className="w-6 h-6" />
+                    </div>
+                    <p className="text-sm font-semibold text-slate-700">Chưa có địa điểm nào được lưu</p>
+                    <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                      Bấm "Viết nhật ký" và điền thông tin địa điểm (hoặc chọn trên Google Maps) để lưu dấu những nơi hai đứa đã đến nhé!
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setJournalViewTab('feed');
+                        setShowAddJournal(true);
+                      }}
+                      className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold shadow-sm transition inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Thêm địa điểm kỷ niệm
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {filteredJournals.filter(j => j.location).map((item) => (
+                      <div key={item.id} className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md transition space-y-3 flex flex-col justify-between">
+                        <div className="space-y-2">
+                          {/* Photo preview */}
+                          {item.images && item.images.length > 0 ? (
+                            <div className="h-36 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100">
+                              <img src={item.images[0]} alt={item.title} className="w-full h-full object-cover" />
+                            </div>
+                          ) : item.imageUrl ? (
+                            <div className="h-36 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100">
+                              <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+                            </div>
+                          ) : null}
+
+                          <div className="flex items-center gap-1.5 text-xs text-rose-700 font-bold bg-rose-50 px-3 py-1 rounded-xl w-fit border border-rose-100">
+                            <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                            <span>{item.location}</span>
+                          </div>
+
+                          <h4 className="font-bold text-slate-800 text-sm leading-snug">{item.title}</h4>
+                          <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                            <Calendar className="w-3 h-3 text-rose-400" />
+                            <span>Ghé thăm ngày {formatDateVN(item.date)}</span>
+                          </p>
+                          {item.content && (
+                            <p className="text-xs text-slate-600 line-clamp-2 italic bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+                              "{item.content}"
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.locationAddress || item.location || '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-semibold transition cursor-pointer"
+                          >
+                            <Navigation className="w-3.5 h-3.5" />
+                            <span>Mở Bản Đồ</span>
+                          </a>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setJournalViewTab('feed');
+                              handleStartEditJournal(item);
+                            }}
+                            className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 font-semibold cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Xem nhật ký</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1987,6 +2219,29 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
         onSelectLocation={handleSelectMapLocation}
         initialAddress={mapModalTarget === 'address' ? editAddress : editFavoritePlaces}
         title={mapModalTarget === 'address' ? 'Chọn Địa Chỉ & Nơi Ở Trên Bản Đồ' : 'Chọn Địa Điểm Hẹn Hò Yêu Thích'}
+      />
+
+      {/* Journal Google Maps Location Picker Modal */}
+      <MapLocationPickerModal
+        isOpen={isJournalMapPickerOpen}
+        onClose={() => setIsJournalMapPickerOpen(false)}
+        onSelectLocation={(data) => {
+          const full = data.fullPlaceName || data.address;
+          if (journalMapTarget === 'create') {
+            setJournalLocation(data.address || full);
+            setJournalLocationAddress(data.address);
+          } else {
+            setEditLocation(data.address || full);
+            setEditLocationAddress(data.address);
+          }
+          setIsJournalMapPickerOpen(false);
+        }}
+        initialAddress={
+          journalMapTarget === 'create'
+            ? (journalLocationAddress || journalLocation)
+            : (editLocationAddress || editLocation)
+        }
+        title="Chọn Địa Điểm Kỷ Niệm Trên Google Maps"
       />
     </div>
   );
