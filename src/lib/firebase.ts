@@ -43,16 +43,28 @@ export const googleProvider = new GoogleAuthProvider();
 // Shared single couple document ID for this dedicated app
 export const OUR_COUPLE_ID = 'our_couple';
 
-export const ADMIN_EMAILS = ['tdwoodart@gmail.com'];
+export const ADMIN_EMAILS = ['tdwoodart@gmail.com', 'duong@gmail.com'];
 
 export function checkIsAdmin(profile?: UserProfile | null): boolean {
   if (!profile) return false;
   if (profile.isAdmin) return true;
-  if (profile.email && ADMIN_EMAILS.includes(profile.email.toLowerCase().trim())) return true;
+  if (profile.email && ADMIN_EMAILS.some(admin => admin.toLowerCase() === profile.email?.toLowerCase().trim())) return true;
   return false;
 }
 
-// Fetch or create user document in Firestore and automatically assign to couple space
+export function isDuongAccount(email?: string): boolean {
+  if (!email) return false;
+  const e = email.toLowerCase().trim();
+  return e === 'duong@gmail.com' || e === 'tdwoodart@gmail.com' || e.startsWith('duong@') || e.startsWith('duong.');
+}
+
+export function isChucGaAccount(email?: string): boolean {
+  if (!email) return false;
+  const e = email.toLowerCase().trim();
+  return e === 'chucga@gmail.com' || e.startsWith('chucga@') || e.startsWith('chucga.') || e.includes('chucga');
+}
+
+// Fetch or create user document in Firestore and accurately assign to couple space
 export async function syncUserProfile(
   user: User, 
   customName?: string, 
@@ -62,43 +74,65 @@ export async function syncUserProfile(
   const userRef = doc(db, 'users', user.uid);
   const snap = await getDoc(userRef);
 
-  const nameToUse = customName || user.displayName || user.email?.split('@')[0] || 'Người dùng';
-  const isAdminUser = ADMIN_EMAILS.includes((user.email || '').toLowerCase().trim());
+  const userEmail = (user.email || '').toLowerCase().trim();
+  const isDuong = isDuongAccount(userEmail);
+  const isChucGa = isChucGaAccount(userEmail);
+
+  // Compute resolved display name based on email / credentials
+  let defaultDisplayName = 'Người dùng';
+  if (isDuong) {
+    defaultDisplayName = 'Dương';
+  } else if (isChucGa) {
+    defaultDisplayName = 'Chúc Gà';
+  } else if (user.displayName && !user.displayName.includes('@')) {
+    defaultDisplayName = user.displayName;
+  } else if (user.email) {
+    defaultDisplayName = user.email.split('@')[0];
+  }
+
+  const nameToUse = customName || (snap.exists() && snap.data()?.displayName ? snap.data().displayName : defaultDisplayName);
+  const isAdminUser = checkIsAdmin({ email: userEmail, isAdmin: snap.exists() ? snap.data()?.isAdmin : false } as UserProfile);
 
   // Ensure our_couple document exists
   const coupleRef = doc(db, 'couples', OUR_COUPLE_ID);
   const coupleSnap = await getDoc(coupleRef);
 
-  let initialGender: 'male' | 'female' | undefined = gender;
-  let initialRole: string | undefined = roleTitle;
+  let initialGender: 'male' | 'female' = gender || (isDuong ? 'male' : isChucGa ? 'female' : 'male');
+  let initialRole: string = roleTitle || (isDuong ? 'Anh' : isChucGa ? 'Em' : (initialGender === 'female' ? 'Em' : 'Anh'));
 
   if (snap.exists()) {
     const data = snap.data() as UserProfile;
-    if (!initialGender && data.gender) initialGender = data.gender;
-    if (!initialRole && data.roleTitle) initialRole = data.roleTitle;
+    if (data.gender) initialGender = data.gender;
+    if (data.roleTitle) initialRole = data.roleTitle;
   }
 
-  const defaultAvatar = initialGender === 'female'
+  const defaultAvatar = isDuong
+    ? `https://api.dicebear.com/7.x/micah/svg?seed=duong_male&hair=fonze,full&eyes=eyes&mouth=smile`
+    : isChucGa
+    ? `https://api.dicebear.com/7.x/micah/svg?seed=chucga_female&hair=donna,straight&eyes=eyes&mouth=smile`
+    : initialGender === 'female'
     ? `https://api.dicebear.com/7.x/micah/svg?seed=female_${user.uid}`
     : `https://api.dicebear.com/7.x/micah/svg?seed=male_${user.uid}`;
 
   if (!coupleSnap.exists()) {
     const initialCouple: CoupleData = {
       id: OUR_COUPLE_ID,
-      user1Id: user.uid,
-      user1Uid: user.uid,
-      user1Name: nameToUse,
-      user1Gender: initialGender || 'male',
-      user1Role: initialRole || (initialGender === 'female' ? 'Em ♀' : 'Anh ♂'),
-      user1Avatar: user.photoURL || defaultAvatar,
-      user2Id: '',
-      user2Uid: '',
-      user2Name: 'Người yêu',
-      user2Gender: initialGender === 'female' ? 'male' : 'female',
-      user2Role: initialGender === 'female' ? 'Anh ♂' : 'Em ♀',
-      user2Avatar: `https://api.dicebear.com/7.x/micah/svg?seed=partner_slot2`,
+      user1Id: isDuong ? user.uid : (isChucGa ? '' : user.uid),
+      user1Uid: isDuong ? user.uid : (isChucGa ? '' : user.uid),
+      user1Email: isDuong ? userEmail : (isChucGa ? 'duong@gmail.com' : userEmail),
+      user1Name: isDuong ? nameToUse : 'Dương',
+      user1Gender: 'male',
+      user1Role: 'Anh',
+      user1Avatar: isDuong ? (user.photoURL || defaultAvatar) : `https://api.dicebear.com/7.x/micah/svg?seed=duong_male`,
+      user2Id: isChucGa ? user.uid : '',
+      user2Uid: isChucGa ? user.uid : '',
+      user2Email: isChucGa ? userEmail : 'chucga@gmail.com',
+      user2Name: isChucGa ? nameToUse : 'Chúc Gà',
+      user2Gender: 'female',
+      user2Role: 'Em',
+      user2Avatar: isChucGa ? (user.photoURL || defaultAvatar) : `https://api.dicebear.com/7.x/micah/svg?seed=chucga_female`,
       anniversaryDate: new Date().toISOString().split('T')[0],
-      statusMessage: 'Chào mừng hai bạn đến với không gian yêu thương!',
+      statusMessage: 'Chào mừng Dương & Chúc Gà đến với không gian yêu thương!',
       createdAt: new Date().toISOString()
     };
     await setDoc(coupleRef, initialCouple);
@@ -106,35 +140,79 @@ export async function syncUserProfile(
     const coupleData = coupleSnap.data() as CoupleData;
     const coupleUpdates: Record<string, any> = {};
 
-    // Auto-assign user to user1 or user2 slot in the couple
-    if (coupleData.user1Id === user.uid || coupleData.user1Uid === user.uid) {
+    if (isDuong) {
+      // Duong is ALWAYS user1 (Slot 1)
       coupleUpdates.user1Id = user.uid;
       coupleUpdates.user1Uid = user.uid;
-      if (coupleData.user1Name !== nameToUse && nameToUse !== 'Người dùng') {
-        coupleUpdates.user1Name = nameToUse;
+      coupleUpdates.user1Email = userEmail;
+      coupleUpdates.user1Name = nameToUse && nameToUse !== 'Người dùng' ? nameToUse : 'Dương';
+      coupleUpdates.user1Gender = 'male';
+      coupleUpdates.user1Role = initialRole || 'Anh';
+      if (!coupleData.user1Avatar || coupleData.user1Avatar.includes('partner_slot')) {
+        coupleUpdates.user1Avatar = user.photoURL || defaultAvatar;
       }
-      if (initialGender) coupleUpdates.user1Gender = initialGender;
-      if (initialRole) coupleUpdates.user1Role = initialRole;
-    } else if (coupleData.user2Id === user.uid || coupleData.user2Uid === user.uid) {
+      // If user2 was accidentally assigned Duong's uid or name, clean it up for Chuc Ga
+      if (coupleData.user2Id === user.uid || coupleData.user2Uid === user.uid) {
+        coupleUpdates.user2Id = '';
+        coupleUpdates.user2Uid = '';
+      }
+      if (coupleData.user2Name === 'Dương' || coupleData.user2Name === nameToUse || !coupleData.user2Name) {
+        coupleUpdates.user2Name = 'Chúc Gà';
+        coupleUpdates.user2Gender = 'female';
+        coupleUpdates.user2Role = 'Em';
+      }
+    } else if (isChucGa) {
+      // Chuc Ga is ALWAYS user2 (Slot 2)
       coupleUpdates.user2Id = user.uid;
       coupleUpdates.user2Uid = user.uid;
-      if (coupleData.user2Name !== nameToUse && nameToUse !== 'Người dùng') {
+      coupleUpdates.user2Email = userEmail;
+      coupleUpdates.user2Name = nameToUse && nameToUse !== 'Người dùng' ? nameToUse : 'Chúc Gà';
+      coupleUpdates.user2Gender = 'female';
+      coupleUpdates.user2Role = initialRole || 'Em';
+      if (!coupleData.user2Avatar || coupleData.user2Avatar.includes('partner_slot')) {
+        coupleUpdates.user2Avatar = user.photoURL || defaultAvatar;
+      }
+      // If user1 was accidentally assigned Chuc Ga's uid or name, restore user1 for Duong
+      if (coupleData.user1Id === user.uid || coupleData.user1Uid === user.uid) {
+        coupleUpdates.user1Id = '';
+        coupleUpdates.user1Uid = '';
+      }
+      if (coupleData.user1Name === 'Chúc Gà' || coupleData.user1Name === nameToUse || !coupleData.user1Name) {
+        coupleUpdates.user1Name = 'Dương';
+        coupleUpdates.user1Gender = 'male';
+        coupleUpdates.user1Role = 'Anh';
+      }
+    } else {
+      // General user: auto-assign to matched slot or empty slot
+      if (coupleData.user1Id === user.uid || coupleData.user1Uid === user.uid) {
+        coupleUpdates.user1Id = user.uid;
+        coupleUpdates.user1Uid = user.uid;
+        coupleUpdates.user1Email = userEmail;
+        if (nameToUse !== 'Người dùng') coupleUpdates.user1Name = nameToUse;
+      } else if (coupleData.user2Id === user.uid || coupleData.user2Uid === user.uid) {
+        coupleUpdates.user2Id = user.uid;
+        coupleUpdates.user2Uid = user.uid;
+        coupleUpdates.user2Email = userEmail;
+        if (nameToUse !== 'Người dùng') coupleUpdates.user2Name = nameToUse;
+      } else if (!coupleData.user1Id || coupleData.user1Id === '') {
+        coupleUpdates.user1Id = user.uid;
+        coupleUpdates.user1Uid = user.uid;
+        coupleUpdates.user1Email = userEmail;
+        coupleUpdates.user1Name = nameToUse;
+      } else if (!coupleData.user2Id || coupleData.user2Id === '') {
+        coupleUpdates.user2Id = user.uid;
+        coupleUpdates.user2Uid = user.uid;
+        coupleUpdates.user2Email = userEmail;
         coupleUpdates.user2Name = nameToUse;
       }
-      if (initialGender) coupleUpdates.user2Gender = initialGender;
-      if (initialRole) coupleUpdates.user2Role = initialRole;
-    } else if (!coupleData.user2Id || coupleData.user2Id === '') {
-      coupleUpdates.user2Id = user.uid;
-      coupleUpdates.user2Uid = user.uid;
-      coupleUpdates.user2Name = nameToUse;
-      if (initialGender) coupleUpdates.user2Gender = initialGender;
-      if (initialRole) coupleUpdates.user2Role = initialRole;
-    } else if (!coupleData.user1Id || coupleData.user1Id === '') {
-      coupleUpdates.user1Id = user.uid;
-      coupleUpdates.user1Uid = user.uid;
-      coupleUpdates.user1Name = nameToUse;
-      if (initialGender) coupleUpdates.user1Gender = initialGender;
-      if (initialRole) coupleUpdates.user1Role = initialRole;
+    }
+
+    // Safety check: Never allow user1Name and user2Name to be identical
+    const finalU1 = coupleUpdates.user1Name || coupleData.user1Name;
+    const finalU2 = coupleUpdates.user2Name || coupleData.user2Name;
+    if (finalU1 && finalU2 && finalU1.toLowerCase().trim() === finalU2.toLowerCase().trim()) {
+      coupleUpdates.user1Name = 'Dương';
+      coupleUpdates.user2Name = 'Chúc Gà';
     }
 
     if (Object.keys(coupleUpdates).length > 0) {
@@ -145,7 +223,7 @@ export async function syncUserProfile(
   if (snap.exists()) {
     const existing = snap.data() as UserProfile;
     const userUpdates: Partial<UserProfile> = {};
-    if (existing.displayName !== nameToUse && nameToUse !== 'Người dùng') {
+    if (nameToUse && nameToUse !== 'Người dùng' && existing.displayName !== nameToUse) {
       userUpdates.displayName = nameToUse;
     }
     if (existing.coupleId !== OUR_COUPLE_ID) {
@@ -153,6 +231,12 @@ export async function syncUserProfile(
     }
     if (isAdminUser && !existing.isAdmin) {
       userUpdates.isAdmin = true;
+    }
+    if (!existing.gender && initialGender) {
+      userUpdates.gender = initialGender;
+    }
+    if (!existing.roleTitle && initialRole) {
+      userUpdates.roleTitle = initialRole;
     }
 
     if (Object.keys(userUpdates).length > 0) {
@@ -169,10 +253,57 @@ export async function syncUserProfile(
       avatarUrl: defaultAvatar,
       coupleId: OUR_COUPLE_ID,
       createdAt: new Date().toISOString(),
+      gender: initialGender,
+      roleTitle: initialRole,
       isAdmin: isAdminUser
     };
     await setDoc(userRef, newProfile);
     return newProfile;
+  }
+}
+
+// Admin / System repair function to ensure Slot 1 is Duong and Slot 2 is Chuc Ga
+export async function repairCoupleSlots(user1Uid?: string, user2Uid?: string): Promise<void> {
+  const coupleRef = doc(db, 'couples', OUR_COUPLE_ID);
+  const snap = await getDoc(coupleRef);
+  const current = snap.exists() ? (snap.data() as CoupleData) : null;
+
+  const updates: Partial<CoupleData> = {
+    user1Name: 'Dương',
+    user1Email: 'duong@gmail.com',
+    user1Gender: 'male',
+    user1Role: 'Anh',
+    user1Avatar: `https://api.dicebear.com/7.x/micah/svg?seed=duong_male&hair=fonze,full&eyes=eyes&mouth=smile`,
+    user2Name: 'Chúc Gà',
+    user2Email: 'chucga@gmail.com',
+    user2Gender: 'female',
+    user2Role: 'Em',
+    user2Avatar: `https://api.dicebear.com/7.x/micah/svg?seed=chucga_female&hair=donna,straight&eyes=eyes&mouth=smile`,
+  };
+
+  if (user1Uid) {
+    updates.user1Id = user1Uid;
+    updates.user1Uid = user1Uid;
+  }
+  if (user2Uid) {
+    updates.user2Id = user2Uid;
+    updates.user2Uid = user2Uid;
+  }
+
+  if (snap.exists()) {
+    await updateDoc(coupleRef, updates);
+  } else {
+    await setDoc(coupleRef, {
+      id: OUR_COUPLE_ID,
+      user1Id: user1Uid || '',
+      user1Uid: user1Uid || '',
+      user2Id: user2Uid || '',
+      user2Uid: user2Uid || '',
+      anniversaryDate: new Date().toISOString().split('T')[0],
+      statusMessage: 'Chào mừng Dương & Chúc Gà đến với không gian yêu thương!',
+      createdAt: new Date().toISOString(),
+      ...updates
+    });
   }
 }
 
@@ -224,6 +355,100 @@ export async function updateUserGenderAndRole(
       await updateDoc(coupleRef, coupleUpdates);
     }
   }
+}
+
+// Helper to update and synchronize user avatar across user document and couple spaces
+export async function updateUserAvatar(
+  uid: string,
+  avatarUrl: string,
+  coupleId: string = OUR_COUPLE_ID
+): Promise<void> {
+  if (!uid || !avatarUrl) return;
+
+  // 1. Update user document
+  const userRef = doc(db, 'users', uid);
+  const userSnap = await getDoc(userRef);
+  const userData = userSnap.exists() ? (userSnap.data() as UserProfile) : null;
+  const userEmail = (userData?.email || '').toLowerCase().trim();
+
+  await updateDoc(userRef, {
+    avatarUrl,
+    photoURL: avatarUrl
+  });
+
+  // Also update Firebase Auth profile if current user
+  if (auth.currentUser && auth.currentUser.uid === uid) {
+    try {
+      await updateProfile(auth.currentUser, { photoURL: avatarUrl });
+    } catch (e) {
+      console.warn('Auth photoURL update warning:', e);
+    }
+  }
+
+  // 2. Synchronize to couple document
+  const coupleRef = doc(db, 'couples', coupleId);
+  const coupleSnap = await getDoc(coupleRef);
+  if (coupleSnap.exists()) {
+    const coupleData = coupleSnap.data() as CoupleData;
+    const isU1 = coupleData.user1Id === uid || coupleData.user1Uid === uid || isDuongAccount(userEmail);
+    const isU2 = coupleData.user2Id === uid || coupleData.user2Uid === uid || isChucGaAccount(userEmail);
+
+    const coupleUpdates: Partial<CoupleData> = {};
+    if (isU1) {
+      coupleUpdates.user1Avatar = avatarUrl;
+    } else if (isU2) {
+      coupleUpdates.user2Avatar = avatarUrl;
+    } else {
+      // Fallback based on slot emptiness or role
+      if (!coupleData.user1Avatar) coupleUpdates.user1Avatar = avatarUrl;
+      else if (!coupleData.user2Avatar) coupleUpdates.user2Avatar = avatarUrl;
+    }
+
+    if (Object.keys(coupleUpdates).length > 0) {
+      await updateDoc(coupleRef, coupleUpdates);
+    }
+  }
+}
+
+// Helper to update a specific finance transaction
+export async function updateFinanceTransaction(
+  coupleId: string,
+  txId: string,
+  updates: {
+    title?: string;
+    amount?: number;
+    type?: 'expense' | 'income';
+    category?: string;
+    paidByUid?: string;
+    paidByName?: string;
+    date?: string;
+  }
+): Promise<void> {
+  const txRef = doc(db, 'couples', coupleId, 'finances', txId);
+  await updateDoc(txRef, updates);
+}
+
+// Helper to batch reassign transactions' payer (e.g. from Duong to Chuc Ga or vice-versa)
+export async function batchReassignFinancePayer(
+  coupleId: string,
+  targetUid: string,
+  targetName: string,
+  txIds?: string[]
+): Promise<number> {
+  const financesRef = collection(db, 'couples', coupleId, 'finances');
+  const snap = await getDocs(financesRef);
+  let count = 0;
+
+  for (const docSnap of snap.docs) {
+    if (!txIds || txIds.includes(docSnap.id)) {
+      await updateDoc(docSnap.ref, {
+        paidByUid: targetUid,
+        paidByName: targetName
+      });
+      count++;
+    }
+  }
+  return count;
 }
 
 // Helper to swap user1 and user2 slots in couple document

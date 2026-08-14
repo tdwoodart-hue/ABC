@@ -74,30 +74,36 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   // Identify Couple Partners with Gender & Roles
-  const currentUserIsUser1 = (coupleData?.user1Uid === userProfile.uid) || (coupleData?.user1Id === userProfile.uid);
+  const currentUserIsUser1 = (coupleData?.user1Uid === userProfile.uid) || (coupleData?.user1Id === userProfile.uid) || (userProfile.email?.toLowerCase().includes('duong'));
   const myUid = userProfile.uid;
-  const myName = userProfile.displayName || 'Bạn';
-  const myGender = userProfile.gender || (currentUserIsUser1 ? coupleData?.user1Gender : coupleData?.user2Gender) || 'male';
-  const myRole = userProfile.roleTitle || (currentUserIsUser1 ? coupleData?.user1Role : coupleData?.user2Role) || (myGender === 'male' ? 'Anh ♂' : 'Em ♀');
-  const myAvatar = userProfile.avatarUrl || (myGender === 'female' ? 'https://api.dicebear.com/7.x/micah/svg?seed=female_me' : 'https://api.dicebear.com/7.x/micah/svg?seed=male_me');
+  const myName = userProfile.displayName || (currentUserIsUser1 ? 'Dương' : 'Chúc Gà');
+  const myGender = userProfile.gender || (currentUserIsUser1 ? (coupleData?.user1Gender || 'male') : (coupleData?.user2Gender || 'female'));
+  const myRole = userProfile.roleTitle || (currentUserIsUser1 ? (coupleData?.user1Role || 'Anh') : (coupleData?.user2Role || 'Em'));
+  const myAvatar = userProfile.avatarUrl || (myGender === 'female' ? 'https://api.dicebear.com/7.x/micah/svg?seed=chucga_female' : 'https://api.dicebear.com/7.x/micah/svg?seed=duong_male');
 
   const partnerUid = coupleData 
     ? (currentUserIsUser1 ? (coupleData.user2Uid || coupleData.user2Id) : (coupleData.user1Uid || coupleData.user1Id)) 
     : null;
-  const partnerName = coupleData 
-    ? (currentUserIsUser1 ? (coupleData.user2Name || 'Người ấy') : (coupleData.user1Name || 'Người ấy')) 
-    : 'Người ấy';
+  
+  let rawPartnerName = coupleData 
+    ? (currentUserIsUser1 ? (coupleData.user2Name || 'Chúc Gà') : (coupleData.user1Name || 'Dương')) 
+    : (currentUserIsUser1 ? 'Chúc Gà' : 'Dương');
+  
+  if (rawPartnerName.trim() === myName.trim()) {
+    rawPartnerName = currentUserIsUser1 ? 'Chúc Gà' : 'Dương';
+  }
+  const partnerName = rawPartnerName;
   const partnerGender = coupleData 
-    ? (currentUserIsUser1 ? (coupleData.user2Gender || (myGender === 'male' ? 'female' : 'male')) : (coupleData.user1Gender || (myGender === 'male' ? 'female' : 'male')))
-    : (myGender === 'male' ? 'female' : 'male');
+    ? (currentUserIsUser1 ? (coupleData.user2Gender || 'female') : (coupleData.user1Gender || 'male'))
+    : (currentUserIsUser1 ? 'female' : 'male');
   const partnerRole = coupleData 
-    ? (currentUserIsUser1 ? (coupleData.user2Role || (partnerGender === 'male' ? 'Anh ♂' : 'Em ♀')) : (coupleData.user1Role || (partnerGender === 'male' ? 'Anh ♂' : 'Em ♀')))
-    : (partnerGender === 'male' ? 'Anh ♂' : 'Em ♀');
+    ? (currentUserIsUser1 ? (coupleData.user2Role || 'Em') : (coupleData.user1Role || 'Anh'))
+    : (currentUserIsUser1 ? 'Em' : 'Anh');
   const partnerAvatar = coupleData 
     ? (currentUserIsUser1 
-        ? (coupleData.user2Avatar || (partnerGender === 'male' ? 'https://api.dicebear.com/7.x/micah/svg?seed=male_partner' : 'https://api.dicebear.com/7.x/micah/svg?seed=female_partner')) 
-        : (coupleData.user1Avatar || (partnerGender === 'male' ? 'https://api.dicebear.com/7.x/micah/svg?seed=male_partner' : 'https://api.dicebear.com/7.x/micah/svg?seed=female_partner'))) 
-    : (partnerGender === 'male' ? 'https://api.dicebear.com/7.x/micah/svg?seed=male_partner' : 'https://api.dicebear.com/7.x/micah/svg?seed=female_partner');
+        ? (coupleData.user2Avatar || 'https://api.dicebear.com/7.x/micah/svg?seed=chucga_female') 
+        : (coupleData.user1Avatar || 'https://api.dicebear.com/7.x/micah/svg?seed=duong_male')) 
+    : (currentUserIsUser1 ? 'https://api.dicebear.com/7.x/micah/svg?seed=chucga_female' : 'https://api.dicebear.com/7.x/micah/svg?seed=duong_male');
 
   // Real-time Firestore sync
   useEffect(() => {

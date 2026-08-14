@@ -24,6 +24,8 @@ export interface CoupleData {
   user2Avatar?: string;
   user1Uid?: string;
   user2Uid?: string;
+  user1Email?: string;
+  user2Email?: string;
   user1Gender?: 'male' | 'female';
   user2Gender?: 'male' | 'female';
   user1Role?: string; // 'Anh ♂', 'Nam', etc.

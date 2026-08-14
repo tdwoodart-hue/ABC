@@ -865,14 +865,18 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
 
             {/* Couple Card */}
             {(() => {
-              const isU1 = (coupleData?.user1Id === userProfile.uid) || (coupleData?.user1Uid === userProfile.uid);
-              const isU2 = (coupleData?.user2Id === userProfile.uid) || (coupleData?.user2Uid === userProfile.uid);
+              const isU1 = (coupleData?.user1Id === userProfile.uid) || (coupleData?.user1Uid === userProfile.uid) || (userProfile.email?.toLowerCase().includes('duong'));
+              const isU2 = (coupleData?.user2Id === userProfile.uid) || (coupleData?.user2Uid === userProfile.uid) || (userProfile.email?.toLowerCase().includes('chucga'));
 
-              const u1Name = coupleData?.user1Name || (isU1 ? userProfile.displayName : 'Người yêu 1');
-              const u1Avatar = coupleData?.user1Avatar || (isU1 ? userProfile.avatarUrl : null) || 'https://api.dicebear.com/7.x/micah/svg?seed=Partner1&hair=fonze,full,pixie&eyes=eyes&mouth=smile';
+              let u1Name = coupleData?.user1Name || 'Dương';
+              let u2Name = coupleData?.user2Name || 'Chúc Gà';
+              if (u1Name.toLowerCase().trim() === u2Name.toLowerCase().trim()) {
+                u1Name = 'Dương';
+                u2Name = 'Chúc Gà';
+              }
 
-              const u2Name = coupleData?.user2Name || (isU2 ? userProfile.displayName : (coupleData?.user2Uid ? 'Người yêu 2' : 'Chờ người yêu vào...'));
-              const u2Avatar = coupleData?.user2Avatar || (isU2 ? userProfile.avatarUrl : null) || 'https://api.dicebear.com/7.x/micah/svg?seed=Partner2&hair=donna,straight&eyes=eyes&mouth=smile';
+              const u1Avatar = coupleData?.user1Avatar || (isU1 ? userProfile.avatarUrl : null) || 'https://api.dicebear.com/7.x/micah/svg?seed=duong_male&hair=fonze,full&eyes=eyes&mouth=smile';
+              const u2Avatar = coupleData?.user2Avatar || (isU2 ? userProfile.avatarUrl : null) || 'https://api.dicebear.com/7.x/micah/svg?seed=chucga_female&hair=donna,straight&eyes=eyes&mouth=smile';
 
               return (
                 <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-md space-y-6">
@@ -1993,19 +1997,23 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
 
         {/* TAB 5: PROFILE */}
         {activeTab === 'profile' && (() => {
-          const isU1 = (coupleData?.user1Id === userProfile.uid) || (coupleData?.user1Uid === userProfile.uid);
-          const isU2 = (coupleData?.user2Id === userProfile.uid) || (coupleData?.user2Uid === userProfile.uid);
+          const isU1 = (coupleData?.user1Id === userProfile.uid) || (coupleData?.user1Uid === userProfile.uid) || (userProfile.email?.toLowerCase().includes('duong'));
+          const isU2 = (coupleData?.user2Id === userProfile.uid) || (coupleData?.user2Uid === userProfile.uid) || (userProfile.email?.toLowerCase().includes('chucga'));
 
           const myPhone = isU1 ? coupleData?.user1Phone : coupleData?.user2Phone;
           const myBirthday = isU1 ? coupleData?.user1Birthday : coupleData?.user2Birthday;
-          const myAvatar = userProfile.avatarUrl || (isU1 ? coupleData?.user1Avatar : coupleData?.user2Avatar) || 'https://api.dicebear.com/7.x/micah/svg?seed=Felix&hair=fonze,full,pixie&eyes=eyes&mouth=smile';
+          const myAvatar = userProfile.avatarUrl || (isU1 ? coupleData?.user1Avatar : coupleData?.user2Avatar) || (isU1 ? 'https://api.dicebear.com/7.x/micah/svg?seed=duong_male' : 'https://api.dicebear.com/7.x/micah/svg?seed=chucga_female');
 
-          const partnerName = isU1 ? (coupleData?.user2Name || 'Người ấy') : (coupleData?.user1Name || 'Người ấy');
+          let rawPartnerName = isU1 ? (coupleData?.user2Name || 'Chúc Gà') : (coupleData?.user1Name || 'Dương');
+          if (rawPartnerName.trim() === userProfile.displayName.trim() || rawPartnerName.trim() === (isU1 ? 'Dương' : 'Chúc Gà')) {
+            rawPartnerName = isU1 ? 'Chúc Gà' : 'Dương';
+          }
+          const partnerName = rawPartnerName;
           const partnerPhone = isU1 ? coupleData?.user2Phone : coupleData?.user1Phone;
           const partnerBirthday = isU1 ? coupleData?.user2Birthday : coupleData?.user1Birthday;
           const partnerAvatar = isU1 
-            ? (coupleData?.user2Avatar || 'https://api.dicebear.com/7.x/micah/svg?seed=Mia&hair=donna,straight&eyes=eyes&mouth=smile')
-            : (coupleData?.user1Avatar || 'https://api.dicebear.com/7.x/micah/svg?seed=Partner1&hair=fonze&eyes=eyes&mouth=smile');
+            ? (coupleData?.user2Avatar || 'https://api.dicebear.com/7.x/micah/svg?seed=chucga_female&hair=donna,straight&eyes=eyes&mouth=smile')
+            : (coupleData?.user1Avatar || 'https://api.dicebear.com/7.x/micah/svg?seed=duong_male&hair=fonze&eyes=eyes&mouth=smile');
 
           return (
             <div className="space-y-6">
@@ -2479,19 +2487,35 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
           </div>
         )}
 
-        {/* TAB 6: ADMIN */}
+        {/* TAB 6: ADMIN (Hidden from UI, only accessible via /admin) */}
         {activeTab === 'admin' && (
-          <AdminTab currentUser={userProfile} onRefreshProfile={onRefreshProfile} />
+          isAdminUser ? (
+            <AdminTab currentUser={userProfile} onRefreshProfile={onRefreshProfile} />
+          ) : (
+            <div className="bg-white rounded-3xl p-8 border border-slate-200 text-center space-y-4 max-w-md mx-auto my-12 shadow-xs">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 mx-auto flex items-center justify-center">
+                <Shield className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800">Khu vực Quản trị Hệ thống</h3>
+              <p className="text-xs text-slate-500">Trang quản trị chỉ dành riêng cho Quản trị viên hệ thống.</p>
+              <button
+                onClick={() => handleNavigateTab('home')}
+                className="px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-xl transition cursor-pointer"
+              >
+                Quay về Trang chủ
+              </button>
+            </div>
+          )
         )}
       </main>
 
       {/* Fixed Bottom Navigation Bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-rose-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-2 sm:px-3 py-2">
-        <div className="max-w-lg mx-auto flex items-center justify-around">
+        <div className="max-w-md mx-auto flex items-center justify-around">
           {/* Tab 1: Home (/home or /) */}
           <button
             onClick={() => handleNavigateTab('home')}
-            className={`flex flex-col items-center gap-1 py-1.5 px-2.5 sm:px-3 rounded-2xl transition cursor-pointer ${
+            className={`flex flex-col items-center gap-1 py-1.5 px-3 sm:px-4 rounded-2xl transition cursor-pointer ${
               activeTab === 'home'
                 ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
                 : 'text-slate-400 hover:text-slate-600'
@@ -2504,7 +2528,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
           {/* Tab 2: Journal (/journal) */}
           <button
             onClick={() => handleNavigateTab('journal')}
-            className={`flex flex-col items-center gap-1 py-1.5 px-2.5 sm:px-3 rounded-2xl transition cursor-pointer ${
+            className={`flex flex-col items-center gap-1 py-1.5 px-3 sm:px-4 rounded-2xl transition cursor-pointer ${
               activeTab === 'journal'
                 ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
                 : 'text-slate-400 hover:text-slate-600'
@@ -2517,7 +2541,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
           {/* Tab 3: Nutrition (/nutrition) */}
           <button
             onClick={() => handleNavigateTab('nutrition')}
-            className={`flex flex-col items-center gap-1 py-1.5 px-2.5 sm:px-3 rounded-2xl transition cursor-pointer ${
+            className={`flex flex-col items-center gap-1 py-1.5 px-3 sm:px-4 rounded-2xl transition cursor-pointer ${
               activeTab === 'nutrition'
                 ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
                 : 'text-slate-400 hover:text-slate-600'
@@ -2530,7 +2554,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
           {/* Tab 4: Finance (/finance) */}
           <button
             onClick={() => handleNavigateTab('finance')}
-            className={`flex flex-col items-center gap-1 py-1.5 px-2.5 sm:px-3 rounded-2xl transition cursor-pointer ${
+            className={`flex flex-col items-center gap-1 py-1.5 px-3 sm:px-4 rounded-2xl transition cursor-pointer ${
               activeTab === 'finance'
                 ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
                 : 'text-slate-400 hover:text-slate-600'
@@ -2543,7 +2567,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
           {/* Tab 5: Profile (/profile) */}
           <button
             onClick={() => handleNavigateTab('profile')}
-            className={`flex flex-col items-center gap-1 py-1.5 px-2.5 sm:px-3 rounded-2xl transition cursor-pointer ${
+            className={`flex flex-col items-center gap-1 py-1.5 px-3 sm:px-4 rounded-2xl transition cursor-pointer ${
               activeTab === 'profile'
                 ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
                 : 'text-slate-400 hover:text-slate-600'
@@ -2552,21 +2576,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             <UserIcon className="w-5 h-5" />
             <span className="text-[10px] sm:text-[11px]">Tài khoản</span>
           </button>
-
-          {/* Tab 6: Admin (/admin) */}
-          {(isAdminUser || activeTab === 'admin') && (
-            <button
-              onClick={() => handleNavigateTab('admin')}
-              className={`flex flex-col items-center gap-1 py-1.5 px-2.5 sm:px-3 rounded-2xl transition cursor-pointer ${
-                activeTab === 'admin'
-                  ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
-                  : 'text-slate-400 hover:text-slate-600'
-              }`}
-            >
-              <Shield className="w-5 h-5 text-rose-500" />
-              <span className="text-[10px] sm:text-[11px] font-bold text-rose-600">Quản trị</span>
-            </button>
-          )}
         </div>
       </nav>
 

@@ -8,7 +8,8 @@ import {
   deleteDoc, 
   setDoc,
   ADMIN_EMAILS,
-  OUR_COUPLE_ID
+  OUR_COUPLE_ID,
+  repairCoupleSlots
 } from '../lib/firebase';
 import { UserProfile, CoupleData } from '../types';
 import { 
@@ -285,6 +286,21 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
       await fetchAdminData();
     } catch (err: any) {
       showNotification('error', 'Lỗi giải phóng slot: ' + err.message);
+    }
+  };
+
+  // Quick repair: Duong -> Slot 1, Chuc Ga -> Slot 2
+  const handleRepairSlots = async () => {
+    try {
+      const duongUser = usersList.find(u => u.email?.toLowerCase().includes('duong') || u.email?.toLowerCase().includes('tdwoodart'));
+      const chucgaUser = usersList.find(u => u.email?.toLowerCase().includes('chucga'));
+
+      await repairCoupleSlots(duongUser?.uid, chucgaUser?.uid);
+      showNotification('success', 'Đã khôi phục chuẩn xác: Dương (Slot 1) & Chúc Gà (Slot 2)!');
+      await fetchAdminData();
+      if (onRefreshProfile) onRefreshProfile();
+    } catch (err: any) {
+      showNotification('error', 'Lỗi khôi phục tài khoản: ' + err.message);
     }
   };
 
@@ -603,7 +619,7 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
       {/* SUB-TAB 2: COUPLE ROOMS MANAGEMENT */}
       {selectedSubTab === 'couples' && (
         <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
             <div>
               <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
                 <Heart className="w-5 h-5 text-rose-500" />
@@ -611,6 +627,14 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
               </h3>
               <p className="text-xs text-slate-500">Xem phòng đôi, quản lý vị trí thành viên và giải phóng slot khi cần</p>
             </div>
+            <button
+              type="button"
+              onClick={handleRepairSlots}
+              className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-2xs self-start sm:self-auto"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-rose-500" />
+              <span>Đồng bộ chuẩn: Dương (Slot 1) & Chúc Gà (Slot 2)</span>
+            </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
