@@ -3,6 +3,7 @@ import {
   db, 
   collection, 
   getDocs, 
+  getDoc,
   doc, 
   updateDoc, 
   deleteDoc, 
@@ -96,66 +97,134 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
     setRefreshing(true);
     try {
       // 1. Fetch Users
-      const usersSnap = await getDocs(collection(db, 'users'));
       const fetchedUsers: UserProfile[] = [];
-      usersSnap.forEach((d) => {
-        const u = d.data() as UserProfile;
-        fetchedUsers.push({
-          ...u,
-          uid: d.id,
-          email: u.email || '',
-          displayName: u.displayName || 'Chưa đặt tên',
-          coupleId: u.coupleId || OUR_COUPLE_ID,
-          createdAt: u.createdAt || new Date().toISOString()
+      try {
+        const usersSnap = await getDocs(collection(db, 'users'));
+        usersSnap.forEach((d) => {
+          const u = d.data() as UserProfile;
+          fetchedUsers.push({
+            ...u,
+            uid: d.id,
+            email: u.email || '',
+            displayName: u.displayName || 'Chưa đặt tên',
+            coupleId: u.coupleId || OUR_COUPLE_ID,
+            createdAt: u.createdAt || new Date().toISOString()
+          });
         });
-      });
+      } catch (e) {
+        console.warn('Lỗi đọc collection users:', e);
+      }
       setUsersList(fetchedUsers);
 
-      // 2. Fetch Couples
-      const couplesSnap = await getDocs(collection(db, 'couples'));
+      // 2. Gather All Couple IDs to inspect
+      const coupleIdSet = new Set<string>();
+      coupleIdSet.add(OUR_COUPLE_ID);
+      if (currentUser.coupleId) coupleIdSet.add(currentUser.coupleId);
+      fetchedUsers.forEach((u) => {
+        if (u.coupleId) coupleIdSet.add(u.coupleId);
+      });
+
+      // Fetch root couples collection
+      const coupleDocMap = new Map<string, CoupleData>();
+      try {
+        const couplesSnap = await getDocs(collection(db, 'couples'));
+        couplesSnap.forEach((d) => {
+          coupleIdSet.add(d.id);
+          coupleDocMap.set(d.id, { id: d.id, ...d.data() } as CoupleData);
+        });
+      } catch (e) {
+        console.warn('Lỗi đọc collection couples:', e);
+      }
+
+      // 3. For every couple ID, resolve doc & subcollections
       const fetchedCouples: CoupleData[] = [];
-      const allFinances: any[] = [];
+      const allFinancesMap = new Map<string, any>();
       let totalJournalsCount = 0;
       let totalMealsCount = 0;
-      let totalFinanceCount = 0;
 
-      for (const coupleDoc of couplesSnap.docs) {
-        const c = coupleDoc.data() as CoupleData;
+      for (const cid of Array.from(coupleIdSet)) {
+        let coupleData = coupleDocMap.get(cid);
+        if (!coupleData) {
+          try {
+            const singleSnap = await getDoc(doc(db, 'couples', cid));
+            if (singleSnap.exists()) {
+              coupleData = { id: singleSnap.id, ...singleSnap.data() } as CoupleData;
+            }
+          } catch {
+            // ignore
+          }
+        }
+
         fetchedCouples.push({
-          ...c,
-          id: coupleDoc.id,
-          user1Name: c.user1Name || 'Người 1',
-          user2Name: c.user2Name || 'Người 2',
-          anniversaryDate: c.anniversaryDate || new Date().toISOString().split('T')[0]
+          id: cid,
+          user1Id: coupleData?.user1Id || coupleData?.user1Uid || '',
+          user1Name: coupleData?.user1Name || 'Người 1',
+          user2Id: coupleData?.user2Id || coupleData?.user2Uid || '',
+          user2Name: coupleData?.user2Name || 'Người 2',
+          user1Uid: coupleData?.user1Uid || '',
+          user2Uid: coupleData?.user2Uid || '',
+          anniversaryDate: coupleData?.anniversaryDate || new Date().toISOString().split('T')[0],
+          statusMessage: coupleData?.statusMessage || '',
+          address: coupleData?.address || '',
+          user1Avatar: coupleData?.user1Avatar || '',
+          user2Avatar: coupleData?.user2Avatar || '',
+          createdAt: coupleData?.createdAt || new Date().toISOString()
         });
 
-        // Count subcollections & fetch finances
+        // Count journals
         try {
-          const jSnap = await getDocs(collection(db, 'couples', coupleDoc.id, 'journals'));
+          const jSnap = await getDocs(collection(db, 'couples', cid, 'journals'));
           totalJournalsCount += jSnap.size;
         } catch {
           // ignore
         }
+
+        // Count meals
         try {
-          const mSnap = await getDocs(collection(db, 'couples', coupleDoc.id, 'nutrition_meals'));
+          const mSnap = await getDocs(collection(db, 'couples', cid, 'nutrition_meals'));
           totalMealsCount += mSnap.size;
         } catch {
           // ignore
         }
+
+        // Fetch finances
         try {
-          const fSnap = await getDocs(collection(db, 'couples', coupleDoc.id, 'finances'));
-          fSnap.forEach(docSnap => {
-            allFinances.push({
+          const fSnap = await getDocs(collection(db, 'couples', cid, 'finances'));
+          fSnap.forEach((docSnap) => {
+            allFinancesMap.set(docSnap.id, {
               id: docSnap.id,
-              coupleId: coupleDoc.id,
+              coupleId: cid,
               ...docSnap.data()
             });
           });
-          totalFinanceCount += fSnap.size;
         } catch {
           // ignore
         }
       }
+
+      // Check root finances if any
+      try {
+        const rootFinSnap = await getDocs(collection(db, 'finances'));
+        rootFinSnap.forEach((docSnap) => {
+          if (!allFinancesMap.has(docSnap.id)) {
+            allFinancesMap.set(docSnap.id, {
+              id: docSnap.id,
+              ...docSnap.data()
+            });
+          }
+        });
+      } catch {
+        // ignore
+      }
+
+      const allFinances = Array.from(allFinancesMap.values());
+      // Sort finances by date desc
+      allFinances.sort((a, b) => {
+        const dateA = a.date || a.createdAt || '';
+        const dateB = b.date || b.createdAt || '';
+        return dateB.localeCompare(dateA);
+      });
+
       setCouplesList(fetchedCouples);
       setFinanceList(allFinances);
 
@@ -164,7 +233,7 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
         totalCouples: fetchedCouples.length,
         totalJournals: totalJournalsCount,
         totalMeals: totalMealsCount,
-        totalFinance: totalFinanceCount
+        totalFinance: allFinances.length
       });
     } catch (err: any) {
       console.error('Lỗi nạp dữ liệu admin:', err);
@@ -460,13 +529,23 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
 
         {/* Overview Stats Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2">
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-center">
+          <div 
+            onClick={() => setSelectedSubTab('users')}
+            className={`p-4 rounded-2xl border text-center cursor-pointer transition ${
+              selectedSubTab === 'users' ? 'bg-slate-100 border-slate-400 ring-2 ring-slate-400' : 'bg-slate-50 hover:bg-slate-100 border-slate-200/80'
+            }`}
+          >
             <p className="text-xs text-slate-500 font-medium">Tài khoản</p>
             <p className="text-2xl font-black text-slate-800 mt-1">{stats.totalUsers}</p>
             <p className="text-[10px] text-slate-400 mt-0.5">Người dùng</p>
           </div>
 
-          <div className="p-4 rounded-2xl bg-rose-50/60 border border-rose-200/80 text-center">
+          <div 
+            onClick={() => setSelectedSubTab('couples')}
+            className={`p-4 rounded-2xl border text-center cursor-pointer transition ${
+              selectedSubTab === 'couples' ? 'bg-rose-100 border-rose-400 ring-2 ring-rose-400' : 'bg-rose-50/60 hover:bg-rose-100/60 border-rose-200/80'
+            }`}
+          >
             <p className="text-xs text-rose-600 font-medium">Cặp đôi</p>
             <p className="text-2xl font-black text-rose-700 mt-1">{stats.totalCouples}</p>
             <p className="text-[10px] text-rose-400 mt-0.5">Phòng đôi</p>
@@ -484,7 +563,12 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
             <p className="text-[10px] text-emerald-400 mt-0.5">Bữa ăn</p>
           </div>
 
-          <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200/80 text-center col-span-2 sm:col-span-1">
+          <div 
+            onClick={() => setSelectedSubTab('finances')}
+            className={`p-4 rounded-2xl border text-center col-span-2 sm:col-span-1 cursor-pointer transition ${
+              selectedSubTab === 'finances' ? 'bg-amber-100 border-amber-400 ring-2 ring-amber-400' : 'bg-amber-50/60 hover:bg-amber-100/60 border-amber-200/80'
+            }`}
+          >
             <p className="text-xs text-amber-600 font-medium">Tài chính</p>
             <p className="text-2xl font-black text-amber-700 mt-1">{stats.totalFinance}</p>
             <p className="text-[10px] text-amber-400 mt-0.5">Giao dịch</p>

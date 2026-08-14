@@ -1067,13 +1067,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                 </div>
               );
             })()}
-
-            {/* Visited Places & 63 Provinces Tracker */}
-            <VisitedPlacesTracker
-              coupleId={coupleData?.id || userProfile.coupleId || 'our_forever_couple_id'}
-              userProfile={userProfile}
-              coupleData={coupleData}
-            />
           </div>
         )}
 
@@ -1951,121 +1944,16 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
 
             {/* PLACES VISITED VIEW (BẢN ĐỒ & NƠI ĐÃ ĐI) */}
             {journalViewTab === 'places' && (
-              <div className="space-y-4">
-                <div className="bg-gradient-to-r from-rose-50 via-pink-50 to-orange-50 p-4 rounded-3xl border border-rose-100 shadow-xs">
-                  <div className="flex items-center gap-2 text-rose-600 font-bold text-sm">
-                    <MapPin className="w-4 h-4 text-rose-500" />
-                    <span>Hành Trình Ghé Thăm ({journals.filter(j => j.location).length} địa điểm)</span>
-                  </div>
-                </div>
-
-                {filteredJournals.filter(j => j.location).length === 0 ? (
-                  <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xs text-center space-y-3">
-                    <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-400 flex items-center justify-center mx-auto">
-                      <MapPin className="w-6 h-6" />
-                    </div>
-                    <p className="text-sm font-semibold text-slate-700">Chưa có địa điểm nào được lưu</p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setJournalViewTab('feed');
-                        setShowAddJournal(true);
-                      }}
-                      className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold shadow-sm transition inline-flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Thêm địa điểm kỷ niệm
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {filteredJournals.filter(j => j.location).map((item) => (
-                      <div key={item.id} className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md transition space-y-3 flex flex-col justify-between">
-                        <div className="space-y-2">
-                          {/* Photo preview */}
-                          {item.images && item.images.length > 0 ? (
-                            <div 
-                              onClick={() => handleOpenLightbox(item, item.mainImageIndex || 0)}
-                              className="h-36 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100 cursor-pointer group relative shadow-2xs hover:shadow-md transition"
-                            >
-                              <img 
-                                src={item.images[item.mainImageIndex || 0] || item.images[0]} 
-                                alt={item.title} 
-                                className="w-full h-full object-cover group-hover:scale-105 transition duration-300" 
-                              />
-                              <div className="absolute top-2 left-2 bg-amber-400 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1">
-                                <Star className="w-2.5 h-2.5 fill-slate-950" />
-                                <span>Ảnh bìa</span>
-                              </div>
-                              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                                <div className="p-1.5 rounded-full bg-white/30 backdrop-blur-md text-white">
-                                  <ZoomIn className="w-4 h-4" />
-                                </div>
-                              </div>
-                            </div>
-                          ) : item.imageUrl ? (
-                            <div 
-                              onClick={() => handleOpenLightbox(item, 0)}
-                              className="h-36 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100 cursor-pointer group relative shadow-2xs hover:shadow-md transition"
-                            >
-                              <img 
-                                src={item.imageUrl} 
-                                alt={item.title} 
-                                className="w-full h-full object-cover group-hover:scale-105 transition duration-300" 
-                              />
-                              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                                <div className="p-1.5 rounded-full bg-white/30 backdrop-blur-md text-white">
-                                  <ZoomIn className="w-4 h-4" />
-                                </div>
-                              </div>
-                            </div>
-                          ) : null}
-
-
-                          <div className="flex items-center gap-1.5 text-xs text-rose-700 font-bold bg-rose-50 px-3 py-1 rounded-xl w-fit border border-rose-100">
-                            <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                            <span>{item.location}</span>
-                          </div>
-
-                          <h4 className="font-bold text-slate-800 text-sm leading-snug">{item.title}</h4>
-                          <p className="text-[11px] text-slate-400 flex items-center gap-1">
-                            <Calendar className="w-3 h-3 text-rose-400" />
-                            <span>Ghé thăm: {formatDateVN(item.date)}</span>
-                          </p>
-                          {item.content && (
-                            <p className="text-xs text-slate-600 line-clamp-2 italic bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
-                              "{item.content}"
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-                          <a
-                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.locationAddress || item.location || '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-semibold transition cursor-pointer"
-                          >
-                            <Navigation className="w-3.5 h-3.5" />
-                            <span>Mở Bản Đồ</span>
-                          </a>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setJournalViewTab('feed');
-                              handleStartEditJournal(item);
-                            }}
-                            className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 font-semibold cursor-pointer"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>Xem nhật ký</span>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <div className="space-y-5">
+                {/* 63 Provinces & Specific Places Tracker with Memory Auto-Sync */}
+                <VisitedPlacesTracker
+                  coupleId={coupleData?.id || userProfile.coupleId || 'our_forever_couple_id'}
+                  userProfile={userProfile}
+                  coupleData={coupleData}
+                  journals={journals}
+                  onOpenJournalLightbox={handleOpenLightbox}
+                  defaultCollapsed={false}
+                />
               </div>
             )}
           </div>
