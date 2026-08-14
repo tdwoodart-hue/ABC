@@ -42,3 +42,19 @@ export const formatDateShortVN = (dateStr?: string | null): string => {
 
   return dateStr;
 };
+
+export const formatDateTimeVN = (isoStr?: string | null): string => {
+  if (!isoStr) return '';
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return isoStr;
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    return `${hours}:${minutes}, ${day}/${month}/${d.getFullYear()}`;
+  } catch {
+    return isoStr;
+  }
+};
+

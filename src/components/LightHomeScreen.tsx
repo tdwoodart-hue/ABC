@@ -3,6 +3,7 @@ import { UserProfile, CoupleData, MemoryItem, JournalEntry, JournalComment, Jour
 import { FinanceTab } from './FinanceTab';
 import { NutritionTab } from './NutritionTab';
 import { MapLocationPickerModal } from './MapLocationPickerModal';
+import { ImageLightboxModal } from './ImageLightboxModal';
 import { formatDateVN, formatDateShortVN } from '../utils/formatDate';
 import { 
   db, 
@@ -133,12 +134,18 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
   const [journalDate, setJournalDate] = useState(new Date().toISOString().split('T')[0]);
   const [journalMood, setJournalMood] = useState(MOOD_OPTIONS[0]);
   const [journalImages, setJournalImages] = useState<string[]>([]);
+  const [journalMainImageIndex, setJournalMainImageIndex] = useState(0);
   const [journalExpenses, setJournalExpenses] = useState<JournalExpense[]>([]);
   const [newExpenseTitle, setNewExpenseTitle] = useState('');
   const [newExpenseAmount, setNewExpenseAmount] = useState('');
   const [addingJournal, setAddingJournal] = useState(false);
   const [journalSearch, setJournalSearch] = useState('');
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+
+  // Lightbox & Image Comment Modal State
+  const [lightboxJournal, setLightboxJournal] = useState<JournalEntry | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   // Journal View Subtab & Location Picker Modal
   const [journalViewTab, setJournalViewTab] = useState<'feed' | 'places'>('feed');
@@ -153,6 +160,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
   const [editLocationAddress, setEditLocationAddress] = useState('');
   const [editDate, setEditDate] = useState('');
   const [editImages, setEditImages] = useState<string[]>([]);
+  const [editMainImageIndex, setEditMainImageIndex] = useState(0);
   const [editExpenses, setEditExpenses] = useState<JournalExpense[]>([]);
   const [editNewExpenseTitle, setEditNewExpenseTitle] = useState('');
   const [editNewExpenseAmount, setEditNewExpenseAmount] = useState('');
@@ -353,6 +361,84 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
     };
   }, [userProfile.coupleId]);
 
+  // Keep lightboxJournal synced with updated journals
+  useEffect(() => {
+    if (lightboxJournal) {
+      const updated = journals.find(j => j.id === lightboxJournal.id);
+      if (updated) {
+        setLightboxJournal(updated);
+      }
+    }
+  }, [journals]);
+
+  // Lightbox and Image Comment Handlers
+  const handleOpenLightbox = (journal: JournalEntry, imageIndex: number = 0) => {
+    setLightboxJournal(journal);
+    setLightboxIndex(imageIndex);
+    setIsLightboxOpen(true);
+  };
+
+  const handleSetMainImage = async (journalId: string, imageIndex: number) => {
+    if (!userProfile.coupleId) return;
+    const target = journals.find(j => j.id === journalId);
+    if (!target) return;
+    const imgs = target.images && target.images.length > 0 ? target.images : (target.imageUrl ? [target.imageUrl] : []);
+    if (imageIndex < 0 || imageIndex >= imgs.length) return;
+
+    try {
+      const journalRef = doc(db, 'couples', userProfile.coupleId, 'journals', journalId);
+      await updateDoc(journalRef, {
+        mainImageIndex: imageIndex,
+        imageUrl: imgs[imageIndex],
+        updatedAt: new Date().toISOString()
+      });
+    } catch (err) {
+      console.error('Lỗi cập nhật ảnh chính:', err);
+    }
+  };
+
+  const handleAddImageComment = async (journalId: string, imageIndex: number, imageUrl: string, content: string) => {
+    if (!userProfile.coupleId || !content.trim()) return;
+    const target = journals.find(j => j.id === journalId);
+    if (!target) return;
+
+    const newComment: ImageComment = {
+      id: Date.now().toString() + Math.random().toString(36).substring(2, 5),
+      imageIndex,
+      imageUrl,
+      authorName: userProfile.displayName,
+      authorUid: userProfile.uid,
+      content: content.trim(),
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      const currentComments = target.imageComments || [];
+      const journalRef = doc(db, 'couples', userProfile.coupleId, 'journals', journalId);
+      await updateDoc(journalRef, {
+        imageComments: [...currentComments, newComment]
+      });
+    } catch (err) {
+      console.error('Lỗi thêm bình luận cho ảnh:', err);
+    }
+  };
+
+  const handleDeleteImageComment = async (journalId: string, commentId: string) => {
+    if (!userProfile.coupleId) return;
+    const target = journals.find(j => j.id === journalId);
+    if (!target || !target.imageComments) return;
+
+    try {
+      const updatedComments = target.imageComments.filter(c => c.id !== commentId);
+      const journalRef = doc(db, 'couples', userProfile.coupleId, 'journals', journalId);
+      await updateDoc(journalRef, {
+        imageComments: updatedComments
+      });
+    } catch (err) {
+      console.error('Lỗi xóa bình luận ảnh:', err);
+    }
+  };
+
   // Calculate days together
   const getDaysTogether = (): number => {
     if (!coupleData?.anniversaryDate) return 1;
@@ -422,8 +508,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
         docData.locationAddress = journalLocationAddress.trim();
       }
       if (journalImages.length > 0) {
+        const selectedMainIdx = Math.min(Math.max(0, journalMainImageIndex), journalImages.length - 1);
         docData.images = journalImages;
-        docData.imageUrl = journalImages[0];
+        docData.mainImageIndex = selectedMainIdx;
+        docData.imageUrl = journalImages[selectedMainIdx];
       }
       if (journalExpenses.length > 0) {
         docData.expenses = journalExpenses;
@@ -435,6 +523,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
       setJournalLocation('');
       setJournalLocationAddress('');
       setJournalImages([]);
+      setJournalMainImageIndex(0);
       setJournalExpenses([]);
       setNewExpenseTitle('');
       setNewExpenseAmount('');
@@ -540,6 +629,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
       imgs = [item.imageUrl];
     }
     setEditImages(imgs);
+    setEditMainImageIndex(item.mainImageIndex || 0);
     setEditExpenses(item.expenses ? [...item.expenses] : []);
     setEditNewExpenseTitle('');
     setEditNewExpenseAmount('');
@@ -553,6 +643,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
     setEditLocationAddress('');
     setEditDate('');
     setEditImages([]);
+    setEditMainImageIndex(0);
     setEditExpenses([]);
     setEditNewExpenseTitle('');
     setEditNewExpenseAmount('');
@@ -606,6 +697,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
     setSavingEdit(true);
     try {
       const journalRef = doc(db, 'couples', userProfile.coupleId, 'journals', journalId);
+      const selectedMainIdx = editImages.length > 0
+        ? Math.min(Math.max(0, editMainImageIndex), editImages.length - 1)
+        : 0;
+
       const updates: Record<string, any> = {
         title: editTitle.trim(),
         date: editDate,
@@ -613,7 +708,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
         location: editLocation.trim() || deleteField(),
         locationAddress: editLocationAddress.trim() || deleteField(),
         images: editImages.length > 0 ? editImages : deleteField(),
-        imageUrl: editImages.length > 0 ? editImages[0] : deleteField(),
+        mainImageIndex: editImages.length > 0 ? selectedMainIdx : deleteField(),
+        imageUrl: editImages.length > 0 ? editImages[selectedMainIdx] : deleteField(),
         expenses: editExpenses.length > 0 ? editExpenses : deleteField(),
         updatedAt: new Date().toISOString()
       };
@@ -625,6 +721,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
       setSavingEdit(false);
     }
   };
+
 
   const handleAddMemory = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -951,15 +1048,49 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
                 {/* Attached images preview list */}
                 {journalImages.length > 0 && (
                   <div className="space-y-1.5">
-                    <span className="text-[11px] font-semibold text-slate-500">Đã chọn {journalImages.length} ảnh:</span>
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-slate-500">Đã chọn {journalImages.length} ảnh:</span>
+                      <span className="text-[10px] text-amber-800 font-semibold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                        Ảnh chính: #{journalMainImageIndex + 1}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {journalImages.map((img, idx) => (
-                        <div key={idx} className="relative h-20 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 group">
+                        <div 
+                          key={idx} 
+                          className={`relative h-24 rounded-xl overflow-hidden bg-slate-100 border-2 transition ${
+                            journalMainImageIndex === idx ? 'border-amber-400 shadow-sm ring-2 ring-amber-200' : 'border-slate-200'
+                          }`}
+                        >
                           <img src={img} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
+                          
+                          {/* Set main image button */}
                           <button
                             type="button"
-                            onClick={() => handleRemoveJournalImage(idx)}
-                            className="absolute top-1 right-1 p-1 bg-black/60 hover:bg-black/80 text-white rounded-full transition cursor-pointer"
+                            onClick={() => setJournalMainImageIndex(idx)}
+                            className={`absolute top-1 left-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shadow-xs ${
+                              journalMainImageIndex === idx
+                                ? 'bg-amber-400 text-slate-950'
+                                : 'bg-black/60 hover:bg-amber-400 hover:text-slate-950 text-white'
+                            }`}
+                            title="Chọn làm ảnh chính cho kỷ niệm"
+                          >
+                            <Star className={`w-3 h-3 ${journalMainImageIndex === idx ? 'fill-slate-950 text-slate-950' : 'text-amber-300'}`} />
+                            <span>{journalMainImageIndex === idx ? 'Chính' : 'Đặt'}</span>
+                          </button>
+
+                          {/* Delete image button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleRemoveJournalImage(idx);
+                              if (journalMainImageIndex === idx) {
+                                setJournalMainImageIndex(0);
+                              } else if (journalMainImageIndex > idx) {
+                                setJournalMainImageIndex(prev => prev - 1);
+                              }
+                            }}
+                            className="absolute top-1 right-1 p-1 bg-black/60 hover:bg-rose-600 text-white rounded-full transition cursor-pointer"
                             title="Xóa ảnh này"
                           >
                             <X className="w-3 h-3" />
@@ -969,6 +1100,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
                     </div>
                   </div>
                 )}
+
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">
@@ -1177,26 +1309,60 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
                       {/* Display Edit/Detail Images */}
                       {editImages.length > 0 && (
                         <div className="space-y-1.5">
-                          <span className="text-[11px] font-semibold text-slate-500">Danh sách ảnh ({editImages.length}):</span>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-semibold text-slate-500">Danh sách ảnh ({editImages.length}):</span>
+                            <span className="text-[10px] text-amber-800 font-semibold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                              Ảnh chính: #{editMainImageIndex + 1}
+                            </span>
+                          </div>
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                             {editImages.map((img, idx) => (
-                              <div key={idx} className="relative h-24 rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
+                              <div 
+                                key={idx} 
+                                className={`relative h-24 rounded-xl overflow-hidden bg-slate-100 border-2 transition ${
+                                  editMainImageIndex === idx ? 'border-amber-400 shadow-sm ring-2 ring-amber-200' : 'border-slate-200'
+                                }`}
+                              >
                                 <img src={img} alt={`Edit preview ${idx}`} className="w-full h-full object-cover" />
                                 {item.authorUid === userProfile.uid && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveEditImage(idx)}
-                                    className="absolute top-1 right-1 p-1 bg-black/60 hover:bg-black/80 text-white rounded-full transition cursor-pointer"
-                                    title="Xóa ảnh này"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </button>
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditMainImageIndex(idx)}
+                                      className={`absolute top-1 left-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shadow-xs ${
+                                        editMainImageIndex === idx
+                                          ? 'bg-amber-400 text-slate-950'
+                                          : 'bg-black/60 hover:bg-amber-400 hover:text-slate-950 text-white'
+                                      }`}
+                                      title="Chọn làm ảnh chính cho kỷ niệm"
+                                    >
+                                      <Star className={`w-3 h-3 ${editMainImageIndex === idx ? 'fill-slate-950 text-slate-950' : 'text-amber-300'}`} />
+                                      <span>{editMainImageIndex === idx ? 'Chính' : 'Đặt'}</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleRemoveEditImage(idx);
+                                        if (editMainImageIndex === idx) {
+                                          setEditMainImageIndex(0);
+                                        } else if (editMainImageIndex > idx) {
+                                          setEditMainImageIndex(prev => prev - 1);
+                                        }
+                                      }}
+                                      className="absolute top-1 right-1 p-1 bg-black/60 hover:bg-rose-600 text-white rounded-full transition cursor-pointer"
+                                      title="Xóa ảnh này"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </>
                                 )}
                               </div>
                             ))}
                           </div>
                         </div>
                       )}
+
 
                       <div>
                         <label className="block text-xs font-semibold text-slate-600 mb-1">
@@ -1401,31 +1567,84 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
                           item.images.length === 2 ? 'grid-cols-2' :
                           'grid-cols-2 sm:grid-cols-3'
                         }`}>
-                          {item.images.map((img, idx) => (
-                            <div key={idx} className="relative h-44 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100">
-                              <img
-                                src={img}
-                                alt={`${item.title} ${idx + 1}`}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  (e.target as HTMLElement).style.display = 'none';
-                                }}
-                              />
-                            </div>
-                          ))}
+                          {item.images.map((img, idx) => {
+                            const isMain = idx === (item.mainImageIndex ?? 0);
+                            const imgCommentsCount = (item.imageComments || []).filter(
+                              c => c.imageIndex === idx || (c.imageUrl && c.imageUrl === img)
+                            ).length;
+
+                            return (
+                              <div 
+                                key={idx} 
+                                onClick={() => handleOpenLightbox(item, idx)}
+                                className="relative h-44 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100 cursor-pointer group shadow-2xs hover:shadow-md transition"
+                              >
+                                <img
+                                  src={img}
+                                  alt={`${item.title} ${idx + 1}`}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                  onError={(e) => {
+                                    (e.target as HTMLElement).style.display = 'none';
+                                  }}
+                                />
+
+                                {/* Main Photo Badge */}
+                                {isMain && (
+                                  <div className="absolute top-2 left-2 bg-amber-400 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-md shadow-md flex items-center gap-1">
+                                    <Star className="w-2.5 h-2.5 fill-slate-950" />
+                                    <span>ẢNH CHÍNH</span>
+                                  </div>
+                                )}
+
+                                {/* Comment Count on Photo */}
+                                {imgCommentsCount > 0 && (
+                                  <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-xs text-white text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                                    <MessageSquare className="w-3 h-3 text-rose-400" />
+                                    <span>{imgCommentsCount}</span>
+                                  </div>
+                                )}
+
+                                {/* Hover Zoom Overlay */}
+                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                                  <div className="p-2 rounded-full bg-white/30 backdrop-blur-md text-white shadow-sm">
+                                    <ZoomIn className="w-5 h-5 drop-shadow" />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       ) : item.imageUrl ? (
-                        <div className="w-full max-h-72 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100 mt-2">
+                        <div 
+                          onClick={() => handleOpenLightbox(item, 0)}
+                          className="w-full max-h-72 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100 mt-2 cursor-pointer group relative shadow-2xs hover:shadow-md transition"
+                        >
                           <img
                             src={item.imageUrl}
                             alt={item.title}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             onError={(e) => {
                               (e.target as HTMLElement).style.display = 'none';
                             }}
                           />
+
+                          {/* Comment Count on Photo */}
+                          {(item.imageComments && item.imageComments.length > 0) && (
+                            <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                              <MessageSquare className="w-3 h-3 text-rose-400" />
+                              <span>{item.imageComments.length}</span>
+                            </div>
+                          )}
+
+                          {/* Hover Zoom Overlay */}
+                          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                            <div className="p-2 rounded-full bg-white/30 backdrop-blur-md text-white shadow-sm">
+                              <ZoomIn className="w-5 h-5 drop-shadow" />
+                            </div>
+                          </div>
                         </div>
                       ) : null}
+
 
                       {/* Partner approval delete banner */}
                       {item.deleteRequest && (
@@ -1576,14 +1795,43 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
                         <div className="space-y-2">
                           {/* Photo preview */}
                           {item.images && item.images.length > 0 ? (
-                            <div className="h-36 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100">
-                              <img src={item.images[0]} alt={item.title} className="w-full h-full object-cover" />
+                            <div 
+                              onClick={() => handleOpenLightbox(item, item.mainImageIndex || 0)}
+                              className="h-36 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100 cursor-pointer group relative shadow-2xs hover:shadow-md transition"
+                            >
+                              <img 
+                                src={item.images[item.mainImageIndex || 0] || item.images[0]} 
+                                alt={item.title} 
+                                className="w-full h-full object-cover group-hover:scale-105 transition duration-300" 
+                              />
+                              <div className="absolute top-2 left-2 bg-amber-400 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1">
+                                <Star className="w-2.5 h-2.5 fill-slate-950" />
+                                <span>Ảnh bìa</span>
+                              </div>
+                              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                                <div className="p-1.5 rounded-full bg-white/30 backdrop-blur-md text-white">
+                                  <ZoomIn className="w-4 h-4" />
+                                </div>
+                              </div>
                             </div>
                           ) : item.imageUrl ? (
-                            <div className="h-36 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100">
-                              <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+                            <div 
+                              onClick={() => handleOpenLightbox(item, 0)}
+                              className="h-36 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100 cursor-pointer group relative shadow-2xs hover:shadow-md transition"
+                            >
+                              <img 
+                                src={item.imageUrl} 
+                                alt={item.title} 
+                                className="w-full h-full object-cover group-hover:scale-105 transition duration-300" 
+                              />
+                              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                                <div className="p-1.5 rounded-full bg-white/30 backdrop-blur-md text-white">
+                                  <ZoomIn className="w-4 h-4" />
+                                </div>
+                              </div>
                             </div>
                           ) : null}
+
 
                           <div className="flex items-center gap-1.5 text-xs text-rose-700 font-bold bg-rose-50 px-3 py-1 rounded-xl w-fit border border-rose-100">
                             <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
@@ -2223,6 +2471,20 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
         }
         title="Chọn Địa Điểm Kỷ Niệm Trên Google Maps"
       />
+
+      {/* Fullscreen Lightbox with Zoom & Photo Comments */}
+      <ImageLightboxModal
+        isOpen={isLightboxOpen}
+        onClose={() => setIsLightboxOpen(false)}
+        journal={lightboxJournal}
+        initialIndex={lightboxIndex}
+        currentUser={userProfile}
+        coupleId={userProfile.coupleId}
+        onSetMainImage={handleSetMainImage}
+        onAddImageComment={handleAddImageComment}
+        onDeleteImageComment={handleDeleteImageComment}
+      />
     </div>
   );
 };
+
