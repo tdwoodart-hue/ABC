@@ -5,6 +5,8 @@ import { NutritionTab } from './NutritionTab';
 import { AdminTab } from './AdminTab';
 import { MapLocationPickerModal } from './MapLocationPickerModal';
 import { ImageLightboxModal } from './ImageLightboxModal';
+import { AvatarEditorModal } from './AvatarEditorModal';
+import { VisitedPlacesTracker } from './VisitedPlacesTracker';
 import { formatDateVN, formatDateShortVN } from '../utils/formatDate';
 import { 
   db, 
@@ -13,6 +15,7 @@ import {
   updateDoc, 
   signOut, 
   auth, 
+  updateProfile,
   collection, 
   query, 
   addDoc, 
@@ -239,6 +242,101 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const [mapModalOpen, setMapModalOpen] = useState(false);
   const [mapModalTarget, setMapModalTarget] = useState<'address' | 'favorite'>('address');
 
+  // Avatar Modal State
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false);
+  const [avatarTarget, setAvatarTarget] = useState<{
+    uid: string;
+    name: string;
+    avatar: string;
+    slot?: 'user1' | 'user2';
+  } | null>(null);
+
+  const handleOpenAvatarModal = (uid: string, name: string, currentAvatar: string, slot?: 'user1' | 'user2') => {
+    setAvatarTarget({ uid, name, avatar: currentAvatar, slot });
+    setAvatarModalOpen(true);
+  };
+
+  const getAuthorInfo = (authorUid?: string, authorNameFallback?: string, authorAvatarFallback?: string) => {
+    const isU1 = (coupleData?.user1Id === userProfile.uid) || (coupleData?.user1Uid === userProfile.uid) || (userProfile.email?.toLowerCase().includes('duong'));
+    
+    // Slot 1 (Dương)
+    const s1Uid = coupleData?.user1Id || coupleData?.user1Uid || (isU1 ? userProfile.uid : '');
+    const s1Name = coupleData?.user1Name || (isU1 ? userProfile.displayName : 'Dương');
+    const s1Avatar = (isU1 ? userProfile.avatarUrl : coupleData?.user1Avatar) || coupleData?.user1Avatar || 'https://api.dicebear.com/7.x/micah/svg?seed=duong_male&hair=fonze,full&eyes=eyes&mouth=smile';
+    
+    // Slot 2 (Chúc Gà)
+    const s2Uid = coupleData?.user2Id || coupleData?.user2Uid || (!isU1 ? userProfile.uid : '');
+    const s2Name = coupleData?.user2Name || (!isU1 ? userProfile.displayName : 'Chúc Gà');
+    const s2Avatar = (!isU1 ? userProfile.avatarUrl : coupleData?.user2Avatar) || coupleData?.user2Avatar || 'https://api.dicebear.com/7.x/micah/svg?seed=chucga_female&hair=donna,straight&eyes=eyes&mouth=smile';
+
+    // 1. Direct match with current logged-in user
+    if (authorUid && authorUid === userProfile.uid) {
+      return {
+        name: userProfile.displayName || (isU1 ? s1Name : s2Name),
+        avatar: userProfile.avatarUrl || (isU1 ? s1Avatar : s2Avatar),
+        isMe: true,
+        role: isU1 ? coupleData?.user1Role || 'Anh' : coupleData?.user2Role || 'Em'
+      };
+    }
+
+    // 2. Direct match with Slot 1
+    if (authorUid && authorUid === s1Uid) {
+      return {
+        name: s1Name,
+        avatar: s1Avatar,
+        isMe: isU1,
+        role: coupleData?.user1Role || 'Anh'
+      };
+    }
+
+    // 3. Direct match with Slot 2
+    if (authorUid && authorUid === s2Uid) {
+      return {
+        name: s2Name,
+        avatar: s2Avatar,
+        isMe: !isU1,
+        role: coupleData?.user2Role || 'Em'
+      };
+    }
+
+    // 4. Fallback name heuristics for legacy or unassigned records
+    const normalizedName = (authorNameFallback || '').toLowerCase().trim();
+    if (normalizedName.includes('dương') || normalizedName.includes('duong') || (isU1 && normalizedName === userProfile.displayName.toLowerCase().trim())) {
+      return {
+        name: s1Name,
+        avatar: s1Avatar,
+        isMe: isU1,
+        role: coupleData?.user1Role || 'Anh'
+      };
+    }
+
+    if (normalizedName.includes('chúc') || normalizedName.includes('chuc') || (!isU1 && normalizedName === userProfile.displayName.toLowerCase().trim())) {
+      return {
+        name: s2Name,
+        avatar: s2Avatar,
+        isMe: !isU1,
+        role: coupleData?.user2Role || 'Em'
+      };
+    }
+
+    // 5. If author matches userProfile.displayName
+    if (authorNameFallback && authorNameFallback === userProfile.displayName) {
+      return {
+        name: userProfile.displayName,
+        avatar: userProfile.avatarUrl || (isU1 ? s1Avatar : s2Avatar),
+        isMe: true,
+        role: isU1 ? coupleData?.user1Role || 'Anh' : coupleData?.user2Role || 'Em'
+      };
+    }
+
+    return {
+      name: authorNameFallback || 'Thành viên',
+      avatar: authorAvatarFallback || (isU1 ? s1Avatar : s2Avatar),
+      isMe: false,
+      role: ''
+    };
+  };
+
   const handleOpenMapPicker = (target: 'address' | 'favorite') => {
     setMapModalTarget(target);
     setMapModalOpen(true);
@@ -254,23 +352,27 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   };
 
   const handleStartEditProfile = () => {
+    const isU1 = (coupleData?.user1Id === userProfile.uid) || (coupleData?.user1Uid === userProfile.uid) || (userProfile.email?.toLowerCase().includes('duong'));
     if (coupleData) {
       setEditAddress(coupleData.address || '');
       setEditCity(coupleData.city || '');
-      setEditUser1Phone(coupleData.user1Phone || '');
-      setEditUser2Phone(coupleData.user2Phone || '');
+      setEditUser1Phone(coupleData.user1Phone || (isU1 ? userProfile.phoneNumber || '' : ''));
+      setEditUser2Phone(coupleData.user2Phone || (!isU1 ? userProfile.phoneNumber || '' : ''));
       setEditUser1Birthday(coupleData.user1Birthday || '');
       setEditUser2Birthday(coupleData.user2Birthday || '');
       setEditFavoritePlaces(coupleData.favoritePlaces || '');
       setEditLoveStory(coupleData.loveStory || '');
-      setEditUser1Name(coupleData.user1Name || '');
-      setEditUser2Name(coupleData.user2Name || '');
+      setEditUser1Name(coupleData.user1Name || (isU1 ? userProfile.displayName : 'Dương'));
+      setEditUser2Name(coupleData.user2Name || (!isU1 ? userProfile.displayName : 'Chúc Gà'));
       setEditUser1Gender(coupleData.user1Gender || 'male');
       setEditUser2Gender(coupleData.user2Gender || 'female');
-      setEditUser1Role(coupleData.user1Role || (coupleData.user1Gender === 'female' ? 'Em ♀' : 'Anh ♂'));
-      setEditUser2Role(coupleData.user2Role || (coupleData.user2Gender === 'male' ? 'Anh ♂' : 'Em ♀'));
+      setEditUser1Role(coupleData.user1Role || (coupleData.user1Gender === 'female' ? 'Em' : 'Anh'));
+      setEditUser2Role(coupleData.user2Role || (coupleData.user2Gender === 'male' ? 'Anh' : 'Em'));
       setEditAnniversaryDateProfile(coupleData.anniversaryDate || '');
       setEditStatusMessageProfile(coupleData.statusMessage || '');
+    } else {
+      setEditUser1Name(isU1 ? userProfile.displayName : 'Dương');
+      setEditUser2Name(!isU1 ? userProfile.displayName : 'Chúc Gà');
     }
     setIsEditingProfile(true);
   };
@@ -302,8 +404,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       });
 
       // Also update users collection for current user
-      const isU1 = (coupleData?.user1Id === userProfile.uid) || (coupleData?.user1Uid === userProfile.uid);
-      const isU2 = (coupleData?.user2Id === userProfile.uid) || (coupleData?.user2Uid === userProfile.uid);
+      const isU1 = (coupleData?.user1Id === userProfile.uid) || (coupleData?.user1Uid === userProfile.uid) || (userProfile.email?.toLowerCase().includes('duong'));
+      const isU2 = (coupleData?.user2Id === userProfile.uid) || (coupleData?.user2Uid === userProfile.uid) || (userProfile.email?.toLowerCase().includes('chucga'));
       const myGender = isU1 ? editUser1Gender : (isU2 ? editUser2Gender : userProfile.gender);
       const myRole = isU1 ? editUser1Role : (isU2 ? editUser2Role : userProfile.roleTitle);
       const myName = isU1 ? editUser1Name : (isU2 ? editUser2Name : userProfile.displayName);
@@ -314,6 +416,18 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         gender: myGender,
         roleTitle: myRole.trim()
       });
+
+      if (auth.currentUser) {
+        try {
+          await updateProfile(auth.currentUser, { displayName: myName.trim() });
+        } catch (e) {
+          console.warn('Auth displayName update error:', e);
+        }
+      }
+
+      if (onRefreshProfile) {
+        onRefreshProfile();
+      }
 
       setIsEditingProfile(false);
     } catch (err) {
@@ -868,35 +982,33 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
               const isU1 = (coupleData?.user1Id === userProfile.uid) || (coupleData?.user1Uid === userProfile.uid) || (userProfile.email?.toLowerCase().includes('duong'));
               const isU2 = (coupleData?.user2Id === userProfile.uid) || (coupleData?.user2Uid === userProfile.uid) || (userProfile.email?.toLowerCase().includes('chucga'));
 
-              let u1Name = coupleData?.user1Name || 'Dương';
-              let u2Name = coupleData?.user2Name || 'Chúc Gà';
-              if (u1Name.toLowerCase().trim() === u2Name.toLowerCase().trim()) {
-                u1Name = 'Dương';
-                u2Name = 'Chúc Gà';
-              }
+              const u1Name = isU1 ? (userProfile.displayName || coupleData?.user1Name || 'Dương') : (coupleData?.user1Name || 'Dương');
+              const u2Name = isU2 ? (userProfile.displayName || coupleData?.user2Name || 'Chúc Gà') : (coupleData?.user2Name || 'Chúc Gà');
 
-              const u1Avatar = coupleData?.user1Avatar || (isU1 ? userProfile.avatarUrl : null) || 'https://api.dicebear.com/7.x/micah/svg?seed=duong_male&hair=fonze,full&eyes=eyes&mouth=smile';
-              const u2Avatar = coupleData?.user2Avatar || (isU2 ? userProfile.avatarUrl : null) || 'https://api.dicebear.com/7.x/micah/svg?seed=chucga_female&hair=donna,straight&eyes=eyes&mouth=smile';
+              const u1Avatar = (isU1 ? userProfile.avatarUrl : coupleData?.user1Avatar) || coupleData?.user1Avatar || 'https://api.dicebear.com/7.x/micah/svg?seed=duong_male&hair=fonze,full&eyes=eyes&mouth=smile';
+              const u2Avatar = (isU2 ? userProfile.avatarUrl : coupleData?.user2Avatar) || coupleData?.user2Avatar || 'https://api.dicebear.com/7.x/micah/svg?seed=chucga_female&hair=donna,straight&eyes=eyes&mouth=smile';
 
               return (
                 <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-md space-y-6">
                   {/* Partners Cards */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
                     {/* Partner 1 Card */}
-                    <div className="p-4 rounded-2xl border border-rose-100/80 bg-rose-50/40 hover:bg-rose-50/70 transition flex items-center gap-3.5 relative overflow-hidden">
-                      <div className="w-16 h-16 rounded-full border-2 border-rose-300 p-0.5 overflow-hidden shrink-0 shadow-xs bg-white">
-                        <img
-                          src={u1Avatar}
-                          alt={u1Name}
-                          className="w-full h-full object-cover rounded-full"
-                        />
+                    <div className="p-4 rounded-2xl border border-rose-100/80 bg-rose-50/40 hover:bg-rose-50/70 transition flex items-center gap-3.5 relative overflow-hidden group">
+                      <div className="relative shrink-0">
+                        <div className="w-14 h-14 rounded-full border-2 border-rose-300 p-0.5 overflow-hidden block shadow-xs bg-white">
+                          <img
+                            src={u1Avatar}
+                            alt={u1Name}
+                            className="w-full h-full object-cover rounded-full"
+                          />
+                        </div>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-bold text-slate-800 text-sm sm:text-base truncate">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-800 text-base sm:text-lg truncate">
                             {u1Name}
                           </span>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
                             isU1
                               ? 'bg-rose-500 text-white shadow-xs'
                               : 'bg-slate-200 text-slate-700'
@@ -908,20 +1020,22 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                     </div>
 
                     {/* Partner 2 Card */}
-                    <div className="p-4 rounded-2xl border border-rose-100/80 bg-rose-50/40 hover:bg-rose-50/70 transition flex items-center gap-3.5 relative overflow-hidden">
-                      <div className="w-16 h-16 rounded-full border-2 border-rose-300 p-0.5 overflow-hidden shrink-0 shadow-xs bg-white">
-                        <img
-                          src={u2Avatar}
-                          alt={u2Name}
-                          className="w-full h-full object-cover rounded-full"
-                        />
+                    <div className="p-4 rounded-2xl border border-rose-100/80 bg-rose-50/40 hover:bg-rose-50/70 transition flex items-center gap-3.5 relative overflow-hidden group">
+                      <div className="relative shrink-0">
+                        <div className="w-14 h-14 rounded-full border-2 border-rose-300 p-0.5 overflow-hidden block shadow-xs bg-white">
+                          <img
+                            src={u2Avatar}
+                            alt={u2Name}
+                            className="w-full h-full object-cover rounded-full"
+                          />
+                        </div>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-bold text-slate-800 text-sm sm:text-base truncate">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-800 text-base sm:text-lg truncate">
                             {u2Name}
                           </span>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
                             isU2
                               ? 'bg-rose-500 text-white shadow-xs'
                               : 'bg-slate-200 text-slate-700'
@@ -954,55 +1068,12 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
               );
             })()}
 
-            {/* Status Note Box */}
-            <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-md">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2 text-slate-800 font-bold">
-                  <MessageCircle className="w-5 h-5 text-rose-500" />
-                  <span>Lời Nhắn Hôm Nay</span>
-                </div>
-                {!isEditingNote && (
-                  <button
-                    onClick={() => setIsEditingNote(true)}
-                    className="flex items-center gap-1 text-xs text-rose-600 hover:text-rose-700 font-semibold cursor-pointer"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    Sửa lời nhắn
-                  </button>
-                )}
-              </div>
-
-              {isEditingNote ? (
-                <div className="space-y-3">
-                  <textarea
-                    rows={3}
-                    value={statusInput}
-                    onChange={(e) => setStatusInput(e.target.value)}
-                    placeholder="Nhập lời nhắn gửi nửa kia..."
-                    className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white transition"
-                  />
-                  <div className="flex justify-end gap-2">
-                    <button
-                      onClick={() => setIsEditingNote(false)}
-                      className="px-4 py-2 rounded-xl text-slate-500 hover:bg-slate-100 text-xs font-semibold transition cursor-pointer"
-                    >
-                      Hủy
-                    </button>
-                    <button
-                      onClick={handleUpdateStatusNote}
-                      disabled={updating}
-                      className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold shadow-sm transition flex items-center gap-1.5 cursor-pointer"
-                    >
-                      {updating ? 'Đang lưu...' : 'Lưu lời nhắn'}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-slate-700 text-sm italic relative">
-                  "{coupleData?.statusMessage || 'Chưa có lời nhắn nào.'}"
-                </div>
-              )}
-            </div>
+            {/* Visited Places & 63 Provinces Tracker */}
+            <VisitedPlacesTracker
+              coupleId={coupleData?.id || userProfile.coupleId || 'our_forever_couple_id'}
+              userProfile={userProfile}
+              coupleData={coupleData}
+            />
           </div>
         )}
 
@@ -1568,40 +1639,45 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                   ) : (
                     <div key={item.id} className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-3 relative group">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-rose-100 border border-white shadow-xs overflow-hidden shrink-0">
-                            <img
-                              src={`https://api.dicebear.com/7.x/micah/svg?seed=${item.authorUid}`}
-                              alt={item.authorName}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-slate-800 text-sm">
-                                {item.authorName}
-                              </span>
-                              {item.authorUid === userProfile.uid ? (
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 font-semibold border border-rose-100">
-                                  Bài của bạn
+                        {(() => {
+                          const author = getAuthorInfo(item.authorUid, item.authorName, item.authorAvatar);
+                          return (
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-rose-100 border border-white shadow-xs overflow-hidden shrink-0">
+                                <img
+                                  src={author.avatar}
+                                  alt={author.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-slate-800 text-sm">
+                                    {author.name}
+                                  </span>
+                                  {author.isMe ? (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 font-semibold border border-rose-100">
+                                      Bài của bạn
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium border border-slate-200">
+                                      Bài đối phương
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                                  <Calendar className="w-3 h-3 text-rose-400" />
+                                  {formatDateVN(item.date)}
+                                  {item.updatedAt && (
+                                    <span className="text-rose-500 font-medium italic text-[10px]">
+                                      (Đã chỉnh sửa)
+                                    </span>
+                                  )}
                                 </span>
-                              ) : (
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium border border-slate-200">
-                                  Bài đối phương
-                                </span>
-                              )}
+                              </div>
                             </div>
-                            <span className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-                              <Calendar className="w-3 h-3 text-rose-400" />
-                              {formatDateVN(item.date)}
-                              {item.updatedAt && (
-                                <span className="text-rose-500 font-medium italic text-[10px]">
-                                  (Đã chỉnh sửa)
-                                </span>
-                              )}
-                            </span>
-                          </div>
-                        </div>
+                          );
+                        })()}
 
                         <div className="flex items-center gap-1 shrink-0">
                           {/* View detail button for both or Edit for author */}
@@ -1809,32 +1885,42 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
 
                         {item.comments && item.comments.length > 0 && (
                           <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                            {item.comments.map((comment) => (
-                              <div key={comment.id} className="flex items-start justify-between gap-2 text-xs bg-slate-50/80 p-2.5 rounded-2xl border border-slate-100 group/cmt">
-                                <div className="flex items-start gap-2 flex-1 min-w-0">
-                                  <div className="w-6 h-6 rounded-full bg-rose-100 overflow-hidden shrink-0 mt-0.5">
-                                    <img
-                                      src={`https://api.dicebear.com/7.x/micah/svg?seed=${comment.authorUid}`}
-                                      alt={comment.authorName}
-                                      className="w-full h-full object-cover"
-                                    />
+                            {item.comments.map((comment) => {
+                              const cAuthor = getAuthorInfo(comment.authorUid, comment.authorName, comment.authorAvatar);
+                              return (
+                                <div key={comment.id} className="flex items-start justify-between gap-2 text-xs bg-slate-50/80 p-2.5 rounded-2xl border border-slate-100 group/cmt">
+                                  <div className="flex items-start gap-2 flex-1 min-w-0">
+                                    <div className="w-6 h-6 rounded-full bg-rose-100 overflow-hidden shrink-0 mt-0.5">
+                                      <img
+                                        src={cAuthor.avatar}
+                                        alt={cAuthor.name}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="font-bold text-slate-800 text-[11px]">{cAuthor.name}</span>
+                                        {cAuthor.isMe && (
+                                          <span className="text-[9px] px-1.5 py-0.2 bg-rose-100 text-rose-700 rounded-md font-bold">
+                                            Bạn
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className="text-slate-600 mt-0.5 leading-snug break-words">{comment.content}</p>
+                                    </div>
                                   </div>
-                                  <div className="flex-1 min-w-0">
-                                    <span className="font-bold text-slate-800 text-[11px] block">{comment.authorName}</span>
-                                    <p className="text-slate-600 mt-0.5 leading-snug break-words">{comment.content}</p>
-                                  </div>
+                                  {(comment.authorUid === userProfile.uid || item.authorUid === userProfile.uid || cAuthor.isMe) && (
+                                    <button
+                                      onClick={() => handleDeleteComment(item.id, comment.id)}
+                                      className="text-slate-300 hover:text-rose-500 p-1 transition cursor-pointer shrink-0 opacity-80 group-hover/cmt:opacity-100"
+                                      title="Xóa bình luận này"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
                                 </div>
-                                {(comment.authorUid === userProfile.uid || item.authorUid === userProfile.uid) && (
-                                  <button
-                                    onClick={() => handleDeleteComment(item.id, comment.id)}
-                                    className="text-slate-300 hover:text-rose-500 p-1 transition cursor-pointer shrink-0 opacity-80 group-hover/cmt:opacity-100"
-                                    title="Xóa bình luận này"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
 
@@ -2036,16 +2122,38 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
               {/* 2-Column User & Partner Identification Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* 1. MY PROFILE CARD */}
-                <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3 relative overflow-hidden">
+                <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3 relative overflow-hidden group">
                   <div className="flex items-center justify-between">
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500 text-white shadow-xs">
                       BẠN
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAvatarModal(userProfile.uid, userProfile.displayName, myAvatar, isU1 ? 'user1' : 'user2')}
+                      className="text-[11px] text-rose-500 hover:text-rose-700 font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>Đổi ảnh đại diện</span>
+                    </button>
                   </div>
 
                   <div className="flex items-center gap-3.5 pt-1">
-                    <div className="w-14 h-14 rounded-full border-2 border-rose-300 p-0.5 overflow-hidden shrink-0 bg-white shadow-xs">
-                      <img src={myAvatar} alt={userProfile.displayName} className="w-full h-full object-cover rounded-full" />
+                    <div className="relative shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAvatarModal(userProfile.uid, userProfile.displayName, myAvatar, isU1 ? 'user1' : 'user2')}
+                        className="w-14 h-14 rounded-full border-2 border-rose-300 p-0.5 overflow-hidden block bg-white shadow-xs cursor-pointer hover:opacity-90 transition"
+                        title="Bấm để đổi avatar"
+                      >
+                        <img src={myAvatar} alt={userProfile.displayName} className="w-full h-full object-cover rounded-full" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAvatarModal(userProfile.uid, userProfile.displayName, myAvatar, isU1 ? 'user1' : 'user2')}
+                        className="absolute -bottom-1 -right-1 w-5 h-5 bg-rose-500 hover:bg-rose-600 text-white rounded-full flex items-center justify-center shadow-xs cursor-pointer transition"
+                      >
+                        <Camera className="w-2.5 h-2.5" />
+                      </button>
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-base font-bold text-slate-800 truncate">{userProfile.displayName}</h3>
@@ -2070,16 +2178,38 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                 </div>
 
                 {/* 2. PARTNER PROFILE CARD */}
-                <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3 relative overflow-hidden">
+                <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3 relative overflow-hidden group">
                   <div className="flex items-center justify-between">
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-700 text-white shadow-xs">
                       NỬA KIA
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAvatarModal(isU1 ? (coupleData?.user2Id || coupleData?.user2Uid || '') : (coupleData?.user1Id || coupleData?.user1Uid || ''), partnerName, partnerAvatar, isU1 ? 'user2' : 'user1')}
+                      className="text-[11px] text-slate-500 hover:text-slate-700 font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>Đổi ảnh nửa kia</span>
+                    </button>
                   </div>
 
                   <div className="flex items-center gap-3.5 pt-1">
-                    <div className="w-14 h-14 rounded-full border-2 border-slate-300 p-0.5 overflow-hidden shrink-0 bg-white shadow-xs">
-                      <img src={partnerAvatar} alt={partnerName} className="w-full h-full object-cover rounded-full" />
+                    <div className="relative shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAvatarModal(isU1 ? (coupleData?.user2Id || coupleData?.user2Uid || '') : (coupleData?.user1Id || coupleData?.user1Uid || ''), partnerName, partnerAvatar, isU1 ? 'user2' : 'user1')}
+                        className="w-14 h-14 rounded-full border-2 border-slate-300 p-0.5 overflow-hidden block bg-white shadow-xs cursor-pointer hover:opacity-90 transition"
+                        title="Bấm để đổi avatar"
+                      >
+                        <img src={partnerAvatar} alt={partnerName} className="w-full h-full object-cover rounded-full" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAvatarModal(isU1 ? (coupleData?.user2Id || coupleData?.user2Uid || '') : (coupleData?.user1Id || coupleData?.user1Uid || ''), partnerName, partnerAvatar, isU1 ? 'user2' : 'user1')}
+                        className="absolute -bottom-1 -right-1 w-5 h-5 bg-slate-700 hover:bg-slate-800 text-white rounded-full flex items-center justify-center shadow-xs cursor-pointer transition"
+                      >
+                        <Camera className="w-2.5 h-2.5" />
+                      </button>
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-base font-bold text-slate-800 truncate">{partnerName}</h3>
@@ -2619,10 +2749,27 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         initialIndex={lightboxIndex}
         currentUser={userProfile}
         coupleId={userProfile.coupleId}
+        coupleData={coupleData}
         onSetMainImage={handleSetMainImage}
         onAddImageComment={handleAddImageComment}
         onDeleteImageComment={handleDeleteImageComment}
       />
+
+      {/* Avatar Editor & Global Synchronization Modal */}
+      {avatarTarget && (
+        <AvatarEditorModal
+          isOpen={avatarModalOpen}
+          onClose={() => setAvatarModalOpen(false)}
+          currentAvatar={avatarTarget.avatar}
+          userUid={avatarTarget.uid}
+          userName={avatarTarget.name}
+          coupleId={userProfile.coupleId}
+          targetSlot={avatarTarget.slot}
+          onAvatarUpdated={() => {
+            if (onRefreshProfile) onRefreshProfile();
+          }}
+        />
+      )}
     </div>
   );
 };

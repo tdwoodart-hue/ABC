@@ -160,3 +160,28 @@ export interface NutritionRecipe {
   createdAt: string;
 }
 
+export interface VisitedPlace {
+  id: string;
+  name: string;
+  province: string;
+  region?: 'bac' | 'trung' | 'nam';
+  dateVisited?: string;
+  note?: string;
+  imageUrl?: string;
+  rating?: number;
+  addedByUid: string;
+  addedByName: string;
+  createdAt: string;
+}
+
+export interface VisitedProvinceRecord {
+  id: string;
+  provinceName: string;
+  region: 'bac' | 'trung' | 'nam';
+  visitedAt?: string;
+  notes?: string;
+  addedByUid?: string;
+  addedByName?: string;
+  createdAt: string;
+}
+

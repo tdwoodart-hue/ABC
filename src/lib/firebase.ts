@@ -12,6 +12,9 @@ import {
 } from 'firebase/auth';
 import { 
   getFirestore, 
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   doc, 
   setDoc, 
   getDoc, 
@@ -29,14 +32,59 @@ import {
 import firebaseConfig from '../../firebase-applet-config.json';
 import { UserProfile, CoupleData } from '../types';
 
+// Global listener to gracefully catch transient browser/iframe database closing or hidden events
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event?.reason;
+    const msg = typeof reason === 'string' ? reason : (reason?.message || reason?.code || String(reason || ''));
+    if (
+      msg.includes('Database is closing') || 
+      msg.includes('closing/hidden') || 
+      msg.includes('database is closing or hidden') ||
+      msg.includes('connection is closing')
+    ) {
+      event.preventDefault();
+      console.warn('Ignored transient Firestore closing/hidden event:', msg);
+    }
+  });
+
+  window.addEventListener('error', (event) => {
+    const msg = event?.message || String(event?.error?.message || '');
+    if (
+      msg.includes('Database is closing') || 
+      msg.includes('closing/hidden') || 
+      msg.includes('database is closing or hidden') ||
+      msg.includes('connection is closing')
+    ) {
+      event.preventDefault();
+      console.warn('Ignored transient Firestore closing/hidden error:', msg);
+    }
+  });
+}
+
 // Initialize Firebase
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 
-// Use custom firestore database ID if specified in config, else default
-export const db = firebaseConfig.firestoreDatabaseId
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
-  : getFirestore(app);
+// Use custom firestore database ID if specified in config, with resilient cache config
+let firestoreInstance;
+try {
+  firestoreInstance = initializeFirestore(
+    app,
+    {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
+    },
+    firebaseConfig.firestoreDatabaseId || undefined
+  );
+} catch (e) {
+  firestoreInstance = firebaseConfig.firestoreDatabaseId
+    ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+    : getFirestore(app);
+}
+
+export const db = firestoreInstance;
 
 export const googleProvider = new GoogleAuthProvider();
 
@@ -361,52 +409,69 @@ export async function updateUserGenderAndRole(
 export async function updateUserAvatar(
   uid: string,
   avatarUrl: string,
-  coupleId: string = OUR_COUPLE_ID
+  coupleId: string = OUR_COUPLE_ID,
+  targetSlot?: 'user1' | 'user2'
 ): Promise<void> {
-  if (!uid || !avatarUrl) return;
+  if (!avatarUrl) return;
 
-  // 1. Update user document
-  const userRef = doc(db, 'users', uid);
-  const userSnap = await getDoc(userRef);
-  const userData = userSnap.exists() ? (userSnap.data() as UserProfile) : null;
-  const userEmail = (userData?.email || '').toLowerCase().trim();
-
-  await updateDoc(userRef, {
-    avatarUrl,
-    photoURL: avatarUrl
-  });
-
-  // Also update Firebase Auth profile if current user
-  if (auth.currentUser && auth.currentUser.uid === uid) {
+  // 1. Update user document if uid exists
+  if (uid) {
     try {
-      await updateProfile(auth.currentUser, { photoURL: avatarUrl });
+      const userRef = doc(db, 'users', uid);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        await updateDoc(userRef, {
+          avatarUrl,
+          photoURL: avatarUrl
+        });
+      }
     } catch (e) {
-      console.warn('Auth photoURL update warning:', e);
+      console.warn('Error updating user document avatar:', e);
+    }
+
+    // Also update Firebase Auth profile if current user
+    if (auth.currentUser && auth.currentUser.uid === uid) {
+      try {
+        await updateProfile(auth.currentUser, { photoURL: avatarUrl });
+      } catch (e) {
+        console.warn('Auth photoURL update warning:', e);
+      }
     }
   }
 
   // 2. Synchronize to couple document
-  const coupleRef = doc(db, 'couples', coupleId);
-  const coupleSnap = await getDoc(coupleRef);
-  if (coupleSnap.exists()) {
-    const coupleData = coupleSnap.data() as CoupleData;
-    const isU1 = coupleData.user1Id === uid || coupleData.user1Uid === uid || isDuongAccount(userEmail);
-    const isU2 = coupleData.user2Id === uid || coupleData.user2Uid === uid || isChucGaAccount(userEmail);
+  try {
+    const coupleRef = doc(db, 'couples', coupleId);
+    const coupleSnap = await getDoc(coupleRef);
+    if (coupleSnap.exists()) {
+      const coupleData = coupleSnap.data() as CoupleData;
+      const coupleUpdates: Partial<CoupleData> = {};
 
-    const coupleUpdates: Partial<CoupleData> = {};
-    if (isU1) {
-      coupleUpdates.user1Avatar = avatarUrl;
-    } else if (isU2) {
-      coupleUpdates.user2Avatar = avatarUrl;
-    } else {
-      // Fallback based on slot emptiness or role
-      if (!coupleData.user1Avatar) coupleUpdates.user1Avatar = avatarUrl;
-      else if (!coupleData.user2Avatar) coupleUpdates.user2Avatar = avatarUrl;
-    }
+      if (targetSlot === 'user1') {
+        coupleUpdates.user1Avatar = avatarUrl;
+      } else if (targetSlot === 'user2') {
+        coupleUpdates.user2Avatar = avatarUrl;
+      } else {
+        const isU1 = uid && (coupleData.user1Id === uid || coupleData.user1Uid === uid);
+        const isU2 = uid && (coupleData.user2Id === uid || coupleData.user2Uid === uid);
 
-    if (Object.keys(coupleUpdates).length > 0) {
-      await updateDoc(coupleRef, coupleUpdates);
+        if (isU1) {
+          coupleUpdates.user1Avatar = avatarUrl;
+        } else if (isU2) {
+          coupleUpdates.user2Avatar = avatarUrl;
+        } else {
+          // Fallback: assign to user1 if current user or user2
+          if (!coupleData.user1Avatar) coupleUpdates.user1Avatar = avatarUrl;
+          else coupleUpdates.user2Avatar = avatarUrl;
+        }
+      }
+
+      if (Object.keys(coupleUpdates).length > 0) {
+        await updateDoc(coupleRef, coupleUpdates);
+      }
     }
+  } catch (e) {
+    console.warn('Error updating couple avatar:', e);
   }
 }
 

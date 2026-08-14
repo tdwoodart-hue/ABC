@@ -7,9 +7,10 @@ interface AvatarEditorModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentAvatar: string;
-  userUid: string;
+  userUid?: string;
   userName: string;
   coupleId?: string;
+  targetSlot?: 'user1' | 'user2';
   onAvatarUpdated: (newAvatar: string) => void;
 }
 
@@ -38,6 +39,7 @@ export const AvatarEditorModal: React.FC<AvatarEditorModalProps> = ({
   userUid,
   userName,
   coupleId,
+  targetSlot,
   onAvatarUpdated
 }) => {
   const [selectedAvatar, setSelectedAvatar] = useState(currentAvatar);
@@ -45,6 +47,13 @@ export const AvatarEditorModal: React.FC<AvatarEditorModalProps> = ({
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState<'presets' | 'upload' | 'url'>('presets');
+
+  // Reset selectedAvatar when currentAvatar changes or modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      setSelectedAvatar(currentAvatar);
+    }
+  }, [isOpen, currentAvatar]);
 
   if (!isOpen) return null;
 
@@ -72,10 +81,10 @@ export const AvatarEditorModal: React.FC<AvatarEditorModalProps> = ({
   };
 
   const handleSaveAvatar = async () => {
-    if (!selectedAvatar || !userUid) return;
+    if (!selectedAvatar) return;
     setSaving(true);
     try {
-      await updateUserAvatar(userUid, selectedAvatar, coupleId);
+      await updateUserAvatar(userUid || '', selectedAvatar, coupleId, targetSlot);
       onAvatarUpdated(selectedAvatar);
       onClose();
     } catch (err: any) {

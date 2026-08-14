@@ -24,8 +24,10 @@ import {
   Receipt, 
   X, 
   Users,
-  Scale
+  Scale,
+  Edit3
 } from 'lucide-react';
+import { EditTransactionModal } from './EditTransactionModal';
 
 interface FinanceTabProps {
   userProfile: UserProfile;
@@ -72,6 +74,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
   // Filter state
   const [selectedPayer, setSelectedPayer] = useState<'all' | 'me' | 'partner'>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [editingTx, setEditingTx] = useState<FinanceTransaction | null>(null);
 
   // Identify Couple Partners with Gender & Roles
   const currentUserIsUser1 = (coupleData?.user1Uid === userProfile.uid) || (coupleData?.user1Id === userProfile.uid) || (userProfile.email?.toLowerCase().includes('duong'));
@@ -894,13 +897,22 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <span className={`font-bold text-xs ${tx.type === 'income' ? 'text-emerald-600' : 'text-slate-800'}`}>
                       {tx.type === 'income' ? '+' : '-'}{tx.amount.toLocaleString('vi-VN')} đ
                     </span>
                     <button
+                      type="button"
+                      onClick={() => setEditingTx(tx)}
+                      className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                      title="Chỉnh sửa / Đổi người chi trả"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => handleDeleteTransaction(tx.id)}
-                      className="text-slate-300 hover:text-rose-500 transition"
+                      className="p-1 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition cursor-pointer"
                       title="Xóa"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -929,6 +941,25 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
             </div>
           ))}
         </div>
+      )}
+
+      {/* Edit Transaction Modal */}
+      {editingTx && userProfile.coupleId && (
+        <EditTransactionModal
+          isOpen={!!editingTx}
+          onClose={() => setEditingTx(null)}
+          coupleId={userProfile.coupleId}
+          transaction={editingTx}
+          partner1={{
+            uid: currentUserIsUser1 ? myUid : (partnerUid || 'partner1'),
+            name: currentUserIsUser1 ? myName : partnerName
+          }}
+          partner2={{
+            uid: currentUserIsUser1 ? (partnerUid || 'partner2') : myUid,
+            name: currentUserIsUser1 ? partnerName : myName
+          }}
+          onDelete={(id) => handleDeleteTransaction(id)}
+        />
       )}
     </div>
   );

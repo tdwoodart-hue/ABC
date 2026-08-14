@@ -1,7 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check, DollarSign, Calendar, Tag, User, Trash2 } from 'lucide-react';
-import { FINANCE_CATEGORIES } from '../types';
 import { updateFinanceTransaction } from '../lib/firebase';
+
+const FINANCE_CATEGORIES = [
+  { id: 'food', name: 'Ăn uống' },
+  { id: 'dating', name: 'Hẹn hò' },
+  { id: 'shopping', name: 'Mua sắm' },
+  { id: 'travel', name: 'Du lịch' },
+  { id: 'bills', name: 'Hóa đơn / Tiện ích' },
+  { id: 'health', name: 'Sức khỏe & Làm đẹp' },
+  { id: 'entertainment', name: 'Giải trí' },
+  { id: 'transport', name: 'Di chuyển / Xăng xe' },
+  { id: 'gift', name: 'Quà tặng' },
+  { id: 'savings', name: 'Tiết kiệm chung' },
+  { id: 'salary', name: 'Lương & Thưởng' },
+  { id: 'other', name: 'Khoản khác' }
+];
 
 interface EditTransactionModalProps {
   isOpen: boolean;

@@ -9,7 +9,9 @@ import {
   setDoc,
   ADMIN_EMAILS,
   OUR_COUPLE_ID,
-  repairCoupleSlots
+  repairCoupleSlots,
+  updateFinanceTransaction,
+  batchReassignFinancePayer
 } from '../lib/firebase';
 import { UserProfile, CoupleData } from '../types';
 import { 
@@ -30,9 +32,14 @@ import {
   Mail,
   MapPin,
   Lock,
-  UserCheck
+  UserCheck,
+  DollarSign,
+  Receipt,
+  ArrowLeftRight,
+  User as UserIcon
 } from 'lucide-react';
-import { formatDateVN } from '../utils/formatDate';
+import { formatDateVN, formatDateShortVN } from '../utils/formatDate';
+import { EditTransactionModal } from './EditTransactionModal';
 
 interface AdminTabProps {
   currentUser: UserProfile;
@@ -42,10 +49,14 @@ interface AdminTabProps {
 export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfile }) => {
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [couplesList, setCouplesList] = useState<CoupleData[]>([]);
+  const [financeList, setFinanceList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSubTab, setSelectedSubTab] = useState<'users' | 'couples' | 'system'>('users');
+  const [financeSearchTerm, setFinanceSearchTerm] = useState('');
+  const [selectedSubTab, setSelectedSubTab] = useState<'users' | 'couples' | 'finances' | 'system'>('users');
+  const [editingAdminTx, setEditingAdminTx] = useState<any | null>(null);
+  const [processingFinance, setProcessingFinance] = useState(false);
 
   // Stats
   const [stats, setStats] = useState({
@@ -103,6 +114,7 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
       // 2. Fetch Couples
       const couplesSnap = await getDocs(collection(db, 'couples'));
       const fetchedCouples: CoupleData[] = [];
+      const allFinances: any[] = [];
       let totalJournalsCount = 0;
       let totalMealsCount = 0;
       let totalFinanceCount = 0;
@@ -117,7 +129,7 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
           anniversaryDate: c.anniversaryDate || new Date().toISOString().split('T')[0]
         });
 
-        // Count subcollections
+        // Count subcollections & fetch finances
         try {
           const jSnap = await getDocs(collection(db, 'couples', coupleDoc.id, 'journals'));
           totalJournalsCount += jSnap.size;
@@ -131,13 +143,21 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
           // ignore
         }
         try {
-          const fSnap = await getDocs(collection(db, 'couples', coupleDoc.id, 'finance_transactions'));
+          const fSnap = await getDocs(collection(db, 'couples', coupleDoc.id, 'finances'));
+          fSnap.forEach(docSnap => {
+            allFinances.push({
+              id: docSnap.id,
+              coupleId: coupleDoc.id,
+              ...docSnap.data()
+            });
+          });
           totalFinanceCount += fSnap.size;
         } catch {
           // ignore
         }
       }
       setCouplesList(fetchedCouples);
+      setFinanceList(allFinances);
 
       setStats({
         totalUsers: fetchedUsers.length,
@@ -304,6 +324,54 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
     }
   };
 
+  // 1-Click Reassign Payer for Single Transaction
+  const handleReassignPayerSingle = async (coupleId: string, txId: string, targetUid: string, targetName: string) => {
+    setProcessingFinance(true);
+    try {
+      await updateFinanceTransaction(coupleId, txId, {
+        paidByUid: targetUid,
+        paidByName: targetName
+      });
+      showNotification('success', `Đã chuyển người thanh toán giao dịch sang "${targetName}" thành công!`);
+      await fetchAdminData();
+    } catch (err: any) {
+      showNotification('error', 'Lỗi đổi người thanh toán: ' + err.message);
+    } finally {
+      setProcessingFinance(false);
+    }
+  };
+
+  // Batch Reassign All Transactions for a Couple
+  const handleBatchReassignAll = async (targetUid: string, targetName: string) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn chuyển TẤT CẢ các khoản thu chi hiện có sang "${targetName}"?`)) {
+      return;
+    }
+    setProcessingFinance(true);
+    try {
+      // Find couple ID (default to OUR_COUPLE_ID or currentUser.coupleId)
+      const targetCoupleId = currentUser.coupleId || OUR_COUPLE_ID;
+      const count = await batchReassignFinancePayer(targetCoupleId, targetUid, targetName);
+      showNotification('success', `Đã đồng bộ & chuyển toàn bộ ${count} giao dịch sang "${targetName}"!`);
+      await fetchAdminData();
+    } catch (err: any) {
+      showNotification('error', 'Lỗi chuyển giao dịch hàng loạt: ' + err.message);
+    } finally {
+      setProcessingFinance(false);
+    }
+  };
+
+  // Delete Finance Transaction from Admin
+  const handleDeleteFinanceTx = async (coupleId: string, txId: string) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa giao dịch này?')) return;
+    try {
+      await deleteDoc(doc(db, 'couples', coupleId, 'finances', txId));
+      showNotification('success', 'Đã xóa giao dịch thành công.');
+      await fetchAdminData();
+    } catch (err: any) {
+      showNotification('error', 'Lỗi xóa giao dịch: ' + err.message);
+    }
+  };
+
   // Confirm delete
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
@@ -450,6 +518,19 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
         >
           <Heart className="w-4 h-4" />
           <span>Quản lý Cặp đôi ({couplesList.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSelectedSubTab('finances')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+            selectedSubTab === 'finances'
+              ? 'bg-rose-500 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <DollarSign className="w-4 h-4" />
+          <span>Sửa Thu Chi & Người Trả ({financeList.length})</span>
         </button>
 
         <button
@@ -711,6 +792,214 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* SUB-TAB: FINANCES MANAGEMENT */}
+      {selectedSubTab === 'finances' && (
+        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+            <div>
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-amber-500" />
+                Quản lý Thu Chi & Đổi Người Chi Trả (Admin Master)
+              </h3>
+              <p className="text-xs text-slate-500">
+                Sửa người đã thanh toán các giao dịch (Ví dụ: Chúc nhập nhưng bị nhận nhầm thành Dương)
+              </p>
+            </div>
+
+            {/* Search Tx */}
+            <div className="relative w-full sm:w-64">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Tìm giao dịch, tên người trả..."
+                value={financeSearchTerm}
+                onChange={(e) => setFinanceSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-rose-500 transition"
+              />
+            </div>
+          </div>
+
+          {/* Quick Batch Assignment Tools */}
+          {(() => {
+            const duongUser = usersList.find(u => u.email?.toLowerCase().includes('duong') || u.email?.toLowerCase().includes('tdwoodart')) || { uid: 'duong-uid', displayName: 'Dương' };
+            const chucUser = usersList.find(u => u.email?.toLowerCase().includes('chucga')) || { uid: 'chucga-uid', displayName: 'Chúc Gà' };
+
+            return (
+              <div className="p-4 bg-amber-50/50 border border-amber-200/80 rounded-2xl space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
+                  <ArrowLeftRight className="w-4 h-4 text-amber-600" />
+                  <span>Công cụ Chuyển đổi Hàng loạt Nhanh (Batch Reassignment):</span>
+                </div>
+                <p className="text-[11px] text-amber-700">
+                  Nếu trước đó toàn bộ chi tiêu do Chúc nhập bị gán nhầm sang Dương (hoặc ngược lại), dùng nút dưới đây để đổi ngay lập tức:
+                </p>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <button
+                    type="button"
+                    disabled={processingFinance}
+                    onClick={() => handleBatchReassignAll(chucUser.uid, chucUser.displayName || 'Chúc Gà')}
+                    className="px-3.5 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <UserIcon className="w-3.5 h-3.5" />
+                    <span>Chuyển TẤT CẢ giao dịch sang: {chucUser.displayName || 'Chúc Gà'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={processingFinance}
+                    onClick={() => handleBatchReassignAll(duongUser.uid, duongUser.displayName || 'Dương')}
+                    className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <UserIcon className="w-3.5 h-3.5" />
+                    <span>Chuyển TẤT CẢ giao dịch sang: {duongUser.displayName || 'Dương'}</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Transactions List */}
+          {(() => {
+            const duongUser = usersList.find(u => u.email?.toLowerCase().includes('duong') || u.email?.toLowerCase().includes('tdwoodart')) || { uid: 'duong-uid', displayName: 'Dương' };
+            const chucUser = usersList.find(u => u.email?.toLowerCase().includes('chucga')) || { uid: 'chucga-uid', displayName: 'Chúc Gà' };
+
+            const filteredFinances = financeList.filter(tx => {
+              if (!financeSearchTerm.trim()) return true;
+              const q = financeSearchTerm.toLowerCase();
+              return (
+                (tx.title && tx.title.toLowerCase().includes(q)) ||
+                (tx.paidByName && tx.paidByName.toLowerCase().includes(q)) ||
+                (tx.category && tx.category.toLowerCase().includes(q)) ||
+                (tx.amount && tx.amount.toString().includes(q))
+              );
+            });
+
+            if (filteredFinances.length === 0) {
+              return (
+                <div className="py-12 text-center text-xs text-slate-400 italic">
+                  Chưa có giao dịch thu chi nào trong hệ thống.
+                </div>
+              );
+            }
+
+            return (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-500 font-semibold px-2">
+                  <span>Tìm thấy {filteredFinances.length} giao dịch:</span>
+                  <span className="text-[11px] text-slate-400">Click nút để đổi người trả ngay lập tức</span>
+                </div>
+
+                <div className="divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden bg-slate-50/40">
+                  {filteredFinances.map(tx => {
+                    const isPaidByChuc = tx.paidByUid === chucUser.uid || tx.paidByName?.toLowerCase().includes('chúc') || tx.paidByName?.toLowerCase().includes('chuc');
+                    const isPaidByDuong = tx.paidByUid === duongUser.uid || tx.paidByName?.toLowerCase().includes('dương') || tx.paidByName?.toLowerCase().includes('duong');
+
+                    return (
+                      <div key={tx.id} className="p-3.5 bg-white hover:bg-slate-50/80 flex flex-col md:flex-row md:items-center justify-between gap-3 transition">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+                            tx.type === 'income' 
+                              ? 'bg-emerald-50 text-emerald-600 border-emerald-200' 
+                              : 'bg-rose-50 text-rose-600 border-rose-200'
+                          }`}>
+                            <Receipt className="w-4 h-4" />
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-xs font-bold text-slate-800 truncate">{tx.title}</h4>
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">
+                                {tx.category || 'Khác'}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {tx.date ? formatDateShortVN(tx.date) : ''}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 text-[11px] mt-1">
+                              <span className="text-slate-500">Người chi:</span>
+                              <span className={`font-bold px-2 py-0.5 rounded-md text-[10px] ${
+                                isPaidByChuc 
+                                  ? 'bg-rose-100 text-rose-700' 
+                                  : isPaidByDuong 
+                                    ? 'bg-blue-100 text-blue-700' 
+                                    : 'bg-slate-200 text-slate-700'
+                              }`}>
+                                {tx.paidByName || (isPaidByChuc ? chucUser.displayName : isPaidByDuong ? duongUser.displayName : 'Chưa rõ')}
+                              </span>
+                              <span className="text-[10px] font-mono text-slate-400">({tx.paidByUid ? tx.paidByUid.slice(0, 8) + '...' : 'Không có UID'})</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Amount & Admin Actions */}
+                        <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
+                          <span className={`font-black text-xs ${tx.type === 'income' ? 'text-emerald-600' : 'text-slate-800'}`}>
+                            {tx.type === 'income' ? '+' : '-'}{(tx.amount || 0).toLocaleString('vi-VN')} đ
+                          </span>
+
+                          <div className="flex items-center gap-1.5">
+                            {/* Quick Switch Button 1: Chuc Ga */}
+                            <button
+                              type="button"
+                              disabled={processingFinance || isPaidByChuc}
+                              onClick={() => handleReassignPayerSingle(tx.coupleId || OUR_COUPLE_ID, tx.id, chucUser.uid, chucUser.displayName || 'Chúc Gà')}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer ${
+                                isPaidByChuc
+                                  ? 'bg-rose-50 text-rose-300 border border-rose-100 cursor-default'
+                                  : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+                              }`}
+                              title="Gán người trả cho Chúc Gà"
+                            >
+                              Gán: {chucUser.displayName || 'Chúc'}
+                            </button>
+
+                            {/* Quick Switch Button 2: Duong */}
+                            <button
+                              type="button"
+                              disabled={processingFinance || isPaidByDuong}
+                              onClick={() => handleReassignPayerSingle(tx.coupleId || OUR_COUPLE_ID, tx.id, duongUser.uid, duongUser.displayName || 'Dương')}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer ${
+                                isPaidByDuong
+                                  ? 'bg-blue-50 text-blue-300 border border-blue-100 cursor-default'
+                                  : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200'
+                              }`}
+                              title="Gán người trả cho Dương"
+                            >
+                              Gán: {duongUser.displayName || 'Dương'}
+                            </button>
+
+                            {/* Detailed Edit */}
+                            <button
+                              type="button"
+                              onClick={() => setEditingAdminTx(tx)}
+                              className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition cursor-pointer"
+                              title="Chỉnh sửa chi tiết"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+
+                            {/* Delete */}
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteFinanceTx(tx.coupleId || OUR_COUPLE_ID, tx.id)}
+                              className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition cursor-pointer"
+                              title="Xóa giao dịch"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -1013,6 +1302,28 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
             </div>
           </div>
         </div>
+      )}
+
+      {/* MODAL: EDIT FINANCE TRANSACTION */}
+      {editingAdminTx && (
+        <EditTransactionModal
+          isOpen={!!editingAdminTx}
+          onClose={() => setEditingAdminTx(null)}
+          coupleId={editingAdminTx.coupleId || currentUser.coupleId || OUR_COUPLE_ID}
+          transaction={editingAdminTx}
+          partner1={{
+            uid: usersList.find(u => u.email?.toLowerCase().includes('duong'))?.uid || currentUser.uid,
+            name: usersList.find(u => u.email?.toLowerCase().includes('duong'))?.displayName || 'Dương'
+          }}
+          partner2={{
+            uid: usersList.find(u => u.email?.toLowerCase().includes('chucga'))?.uid || 'chucga-uid',
+            name: usersList.find(u => u.email?.toLowerCase().includes('chucga'))?.displayName || 'Chúc Gà'
+          }}
+          onDelete={async (txId) => {
+            await handleDeleteFinanceTx(editingAdminTx.coupleId || OUR_COUPLE_ID, txId);
+            setEditingAdminTx(null);
+          }}
+        />
       )}
     </div>
   );

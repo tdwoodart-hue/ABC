@@ -84,6 +84,9 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
       const list: NutritionMeal[] = [];
       snapshot.forEach((d) => list.push({ id: d.id, ...d.data() } as NutritionMeal));
       setMeals(list);
+    }, (err) => {
+      if (err?.message?.includes('closing') || err?.message?.includes('hidden')) return;
+      console.warn('Lỗi tải bữa ăn dinh dưỡng:', err);
     });
 
     // Recipes sync
@@ -93,6 +96,9 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
       const list: NutritionRecipe[] = [];
       snapshot.forEach((d) => list.push({ id: d.id, ...d.data() } as NutritionRecipe));
       setRecipes(list);
+    }, (err) => {
+      if (err?.message?.includes('closing') || err?.message?.includes('hidden')) return;
+      console.warn('Lỗi tải công thức nấu ăn:', err);
     });
 
     return () => {

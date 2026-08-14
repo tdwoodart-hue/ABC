@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { JournalEntry, UserProfile, ImageComment } from '../types';
+import { JournalEntry, UserProfile, ImageComment, CoupleData } from '../types';
 import { formatDateTimeVN, formatDateVN } from '../utils/formatDate';
 import {
   X,
@@ -25,6 +25,7 @@ interface ImageLightboxModalProps {
   initialIndex?: number;
   currentUser: UserProfile;
   coupleId: string;
+  coupleData?: CoupleData | null;
   onSetMainImage: (journalId: string, imageIndex: number) => Promise<void>;
   onAddImageComment: (journalId: string, imageIndex: number, imageUrl: string, content: string) => Promise<void>;
   onDeleteImageComment: (journalId: string, commentId: string) => Promise<void>;
@@ -36,6 +37,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
   journal,
   initialIndex = 0,
   currentUser,
+  coupleData,
   onSetMainImage,
   onAddImageComment,
   onDeleteImageComment,
@@ -464,7 +466,42 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                   </p>
                 </div>
               ) : (
-                currentImageComments.map((comment) => (
+                currentImageComments.map((comment) => {
+                  const isU1 = (coupleData?.user1Id === currentUser.uid) || (coupleData?.user1Uid === currentUser.uid) || (currentUser.email?.toLowerCase().includes('duong'));
+                  const s1Uid = coupleData?.user1Id || coupleData?.user1Uid || (isU1 ? currentUser.uid : '');
+                  const s1Name = coupleData?.user1Name || (isU1 ? currentUser.displayName : 'Dương');
+                  const s1Avatar = coupleData?.user1Avatar || (isU1 ? currentUser.avatarUrl : null) || 'https://api.dicebear.com/7.x/micah/svg?seed=duong_male';
+                  const s2Uid = coupleData?.user2Id || coupleData?.user2Uid || (!isU1 ? currentUser.uid : '');
+                  const s2Name = coupleData?.user2Name || (!isU1 ? currentUser.displayName : 'Chúc Gà');
+                  const s2Avatar = coupleData?.user2Avatar || (!isU1 ? currentUser.avatarUrl : null) || 'https://api.dicebear.com/7.x/micah/svg?seed=chucga_female';
+
+                  let cName = comment.authorName;
+                  let cAvatar = `https://api.dicebear.com/7.x/micah/svg?seed=${comment.authorUid || 'user'}`;
+                  let isMe = comment.authorUid === currentUser.uid;
+
+                  if (comment.authorUid === currentUser.uid) {
+                    cName = currentUser.displayName || (isU1 ? s1Name : s2Name);
+                    cAvatar = currentUser.avatarUrl || (isU1 ? s1Avatar : s2Avatar);
+                    isMe = true;
+                  } else if (comment.authorUid === s1Uid) {
+                    cName = s1Name;
+                    cAvatar = s1Avatar;
+                    isMe = isU1;
+                  } else if (comment.authorUid === s2Uid) {
+                    cName = s2Name;
+                    cAvatar = s2Avatar;
+                    isMe = !isU1;
+                  } else if (comment.authorName?.toLowerCase().includes('dương') || comment.authorName?.toLowerCase().includes('duong')) {
+                    cName = s1Name;
+                    cAvatar = s1Avatar;
+                    isMe = isU1;
+                  } else if (comment.authorName?.toLowerCase().includes('chúc') || comment.authorName?.toLowerCase().includes('chuc')) {
+                    cName = s2Name;
+                    cAvatar = s2Avatar;
+                    isMe = !isU1;
+                  }
+
+                  return (
                   <div 
                     key={comment.id} 
                     className="p-3 bg-white hover:bg-rose-50/30 rounded-2xl border border-slate-200/80 shadow-2xs space-y-1.5 group transition"
@@ -473,15 +510,15 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full bg-rose-100 border border-rose-200 overflow-hidden shrink-0">
                           <img
-                            src={`https://api.dicebear.com/7.x/micah/svg?seed=${comment.authorUid}`}
-                            alt={comment.authorName}
+                            src={cAvatar}
+                            alt={cName}
                             className="w-full h-full object-cover"
                           />
                         </div>
                         <span className="text-xs font-bold text-slate-800">
-                          {comment.authorName}
+                          {cName}
                         </span>
-                        {comment.authorUid === currentUser.uid && (
+                        {isMe && (
                           <span className="text-[9px] px-1.5 py-0.2 bg-rose-100 text-rose-700 rounded-md font-bold">
                             Bạn
                           </span>
@@ -492,7 +529,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                         <span className="text-[10px] text-slate-400 font-medium">
                           {formatDateTimeVN(comment.createdAt)}
                         </span>
-                        {(comment.authorUid === currentUser.uid || journal.authorUid === currentUser.uid) && (
+                        {(isMe || journal.authorUid === currentUser.uid) && (
                           <button
                             type="button"
                             onClick={() => handleDeleteComment(comment.id)}
@@ -509,7 +546,8 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                       {comment.content}
                     </p>
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
 
