@@ -9,6 +9,8 @@ export interface UserProfile {
   address?: string;
   birthday?: string;
   avatarUrl?: string;
+  gender?: 'male' | 'female'; // 'male' | 'female'
+  roleTitle?: string; // e.g. 'Anh', 'Em', 'Chồng', 'Vợ', 'Bạn trai', 'Bạn gái'
 }
 
 export interface CoupleData {
@@ -21,6 +23,10 @@ export interface CoupleData {
   user2Avatar?: string;
   user1Uid?: string;
   user2Uid?: string;
+  user1Gender?: 'male' | 'female';
+  user2Gender?: 'male' | 'female';
+  user1Role?: string; // 'Anh ♂', 'Nam', etc.
+  user2Role?: string; // 'Em ♀', 'Nữ', etc.
   anniversaryDate: string; // ISO string YYYY-MM-DD
   statusMessage?: string;
   createdAt: string;

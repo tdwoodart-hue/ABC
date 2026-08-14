@@ -17,7 +17,8 @@ import {
   addDoc, 
   deleteDoc, 
   deleteField,
-  orderBy 
+  orderBy,
+  swapCoupleSlots 
 } from '../lib/firebase';
 import { 
   Heart, 
@@ -57,7 +58,10 @@ import {
   ChevronLeft,
   ChevronRight,
   ZoomIn,
-  MessageSquare
+  MessageSquare,
+  ShieldCheck,
+  ArrowLeftRight,
+  UserCheck
 } from 'lucide-react';
 
 interface LightHomeScreenProps {
@@ -115,7 +119,7 @@ const compressAndConvertToBase64 = (file: File): Promise<string> => {
   });
 };
 
-export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile }) => {
+export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, onRefreshProfile }) => {
   const [activeTab, setActiveTab] = useState<'home' | 'journal' | 'nutrition' | 'finance' | 'profile'>('home');
   const [coupleData, setCoupleData] = useState<CoupleData | null>(null);
   const [statusInput, setStatusInput] = useState('');
@@ -179,6 +183,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
 
   // Profile editing state
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [showGenderModal, setShowGenderModal] = useState(false);
   const [editAddress, setEditAddress] = useState('');
   const [editCity, setEditCity] = useState('');
   const [editUser1Phone, setEditUser1Phone] = useState('');
@@ -189,9 +194,14 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
   const [editLoveStory, setEditLoveStory] = useState('');
   const [editUser1Name, setEditUser1Name] = useState('');
   const [editUser2Name, setEditUser2Name] = useState('');
+  const [editUser1Gender, setEditUser1Gender] = useState<'male' | 'female'>('male');
+  const [editUser2Gender, setEditUser2Gender] = useState<'male' | 'female'>('female');
+  const [editUser1Role, setEditUser1Role] = useState('Anh ♂');
+  const [editUser2Role, setEditUser2Role] = useState('Em ♀');
   const [editAnniversaryDateProfile, setEditAnniversaryDateProfile] = useState('');
   const [editStatusMessageProfile, setEditStatusMessageProfile] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
+  const [swappingSlots, setSwappingSlots] = useState(false);
 
   const [mapModalOpen, setMapModalOpen] = useState(false);
   const [mapModalTarget, setMapModalTarget] = useState<'address' | 'favorite'>('address');
@@ -222,6 +232,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
       setEditLoveStory(coupleData.loveStory || '');
       setEditUser1Name(coupleData.user1Name || '');
       setEditUser2Name(coupleData.user2Name || '');
+      setEditUser1Gender(coupleData.user1Gender || 'male');
+      setEditUser2Gender(coupleData.user2Gender || 'female');
+      setEditUser1Role(coupleData.user1Role || (coupleData.user1Gender === 'female' ? 'Em ♀' : 'Anh ♂'));
+      setEditUser2Role(coupleData.user2Role || (coupleData.user2Gender === 'male' ? 'Anh ♂' : 'Em ♀'));
       setEditAnniversaryDateProfile(coupleData.anniversaryDate || '');
       setEditStatusMessageProfile(coupleData.statusMessage || '');
     }
@@ -246,14 +260,44 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
         loveStory: editLoveStory.trim(),
         user1Name: editUser1Name.trim() || coupleData?.user1Name,
         user2Name: editUser2Name.trim() || coupleData?.user2Name,
+        user1Gender: editUser1Gender,
+        user2Gender: editUser2Gender,
+        user1Role: editUser1Role.trim(),
+        user2Role: editUser2Role.trim(),
         anniversaryDate: editAnniversaryDateProfile || coupleData?.anniversaryDate,
         statusMessage: editStatusMessageProfile.trim() || coupleData?.statusMessage,
       });
+
+      // Also update users collection for current user
+      const isU1 = (coupleData?.user1Id === userProfile.uid) || (coupleData?.user1Uid === userProfile.uid);
+      const isU2 = (coupleData?.user2Id === userProfile.uid) || (coupleData?.user2Uid === userProfile.uid);
+      const myGender = isU1 ? editUser1Gender : (isU2 ? editUser2Gender : userProfile.gender);
+      const myRole = isU1 ? editUser1Role : (isU2 ? editUser2Role : userProfile.roleTitle);
+      const myName = isU1 ? editUser1Name : (isU2 ? editUser2Name : userProfile.displayName);
+
+      const userRef = doc(db, 'users', userProfile.uid);
+      await updateDoc(userRef, {
+        displayName: myName.trim(),
+        gender: myGender,
+        roleTitle: myRole.trim()
+      });
+
       setIsEditingProfile(false);
     } catch (err) {
       console.error('Lỗi lưu thông tin tài khoản:', err);
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  const handleSwapSlots = async () => {
+    setSwappingSlots(true);
+    try {
+      await swapCoupleSlots();
+    } catch (err) {
+      console.error('Lỗi đổi vai vế:', err);
+    } finally {
+      setSwappingSlots(false);
     }
   };
 
@@ -787,69 +831,91 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
             </div>
 
             {/* Couple Card */}
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-md">
-              {/* Partners Avatars & Names */}
-              <div className="flex items-center justify-around my-2">
-                {/* User 1 */}
-                <div className="flex flex-col items-center text-center">
-                  <div className="w-20 h-20 rounded-full bg-rose-100 border-4 border-white shadow-md flex items-center justify-center overflow-hidden mb-2">
-                    <img
-                      src={`https://api.dicebear.com/7.x/micah/svg?seed=${coupleData?.user1Id || 'p1'}`}
-                      alt="User 1"
-                      className="w-full h-full object-cover"
-                    />
+            {(() => {
+              const isU1 = (coupleData?.user1Id === userProfile.uid) || (coupleData?.user1Uid === userProfile.uid);
+              const isU2 = (coupleData?.user2Id === userProfile.uid) || (coupleData?.user2Uid === userProfile.uid);
+
+              const u1Name = coupleData?.user1Name || (isU1 ? userProfile.displayName : 'Người yêu 1');
+              const u1Avatar = coupleData?.user1Avatar || (isU1 ? userProfile.avatarUrl : null) || 'https://api.dicebear.com/7.x/micah/svg?seed=Partner1&hair=fonze,full,pixie&eyes=eyes&mouth=smile';
+
+              const u2Name = coupleData?.user2Name || (isU2 ? userProfile.displayName : (coupleData?.user2Uid ? 'Người yêu 2' : 'Chờ người yêu vào...'));
+              const u2Avatar = coupleData?.user2Avatar || (isU2 ? userProfile.avatarUrl : null) || 'https://api.dicebear.com/7.x/micah/svg?seed=Partner2&hair=donna,straight&eyes=eyes&mouth=smile';
+
+              return (
+                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-md space-y-6">
+                  {/* Partners Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                    {/* Partner 1 Card */}
+                    <div className="p-4 rounded-2xl border border-rose-100/80 bg-rose-50/40 hover:bg-rose-50/70 transition flex items-center gap-3.5 relative overflow-hidden">
+                      <div className="w-16 h-16 rounded-full border-2 border-rose-300 p-0.5 overflow-hidden shrink-0 shadow-xs bg-white">
+                        <img
+                          src={u1Avatar}
+                          alt={u1Name}
+                          className="w-full h-full object-cover rounded-full"
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-slate-800 text-sm sm:text-base truncate">
+                            {u1Name}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            isU1
+                              ? 'bg-rose-500 text-white shadow-xs'
+                              : 'bg-slate-200 text-slate-700'
+                          }`}>
+                            {isU1 ? 'Bạn' : 'Nửa kia'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Partner 2 Card */}
+                    <div className="p-4 rounded-2xl border border-rose-100/80 bg-rose-50/40 hover:bg-rose-50/70 transition flex items-center gap-3.5 relative overflow-hidden">
+                      <div className="w-16 h-16 rounded-full border-2 border-rose-300 p-0.5 overflow-hidden shrink-0 shadow-xs bg-white">
+                        <img
+                          src={u2Avatar}
+                          alt={u2Name}
+                          className="w-full h-full object-cover rounded-full"
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-slate-800 text-sm sm:text-base truncate">
+                            {u2Name}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            isU2
+                              ? 'bg-rose-500 text-white shadow-xs'
+                              : 'bg-slate-200 text-slate-700'
+                          }`}>
+                            {isU2 ? 'Bạn' : 'Nửa kia'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <span className="font-bold text-slate-800 text-sm sm:text-base">
-                    {coupleData?.user1Name || 'Người yêu 1'}
-                  </span>
-                  <span className="text-[11px] text-slate-400">
-                    {coupleData?.user1Id === userProfile.uid ? '(Bạn)' : '(Nửa kia)'}
-                  </span>
-                </div>
 
-                {/* Heart Divider */}
-                <div className="flex flex-col items-center gap-1">
-                  <div className="w-11 h-11 rounded-2xl bg-rose-50 text-rose-500 border border-rose-200 flex items-center justify-center shadow-inner animate-pulse">
-                    <Heart className="w-5 h-5 fill-rose-500 stroke-rose-500" />
+                  {/* Days Together Counter */}
+                  <div className="bg-gradient-to-br from-rose-50 to-pink-50/50 rounded-2xl p-6 border border-rose-100/80 text-center">
+                    <span className="text-xs font-bold text-rose-500 uppercase tracking-wider block mb-1">
+                      Số Ngày Bên Nhau
+                    </span>
+                    <div className="text-5xl font-black text-rose-600 tracking-tight my-2">
+                      {getDaysTogether()}{' '}
+                      <span className="text-xl font-bold text-rose-400">ngày</span>
+                    </div>
+
+                    {/* Anniversary Date Display */}
+                    <div className="mt-4 pt-3 border-t border-rose-100/80 flex items-center justify-center gap-2 text-xs text-slate-500">
+                      <Calendar className="w-4 h-4 text-rose-400" />
+                      <span>Ngày bắt đầu:</span>
+                      <span className="font-bold text-slate-700">{formatDateVN(coupleData?.anniversaryDate)}</span>
+                    </div>
                   </div>
                 </div>
-
-                {/* User 2 */}
-                <div className="flex flex-col items-center text-center">
-                  <div className="w-20 h-20 rounded-full bg-pink-100 border-4 border-white shadow-md flex items-center justify-center overflow-hidden mb-2">
-                    <img
-                      src={`https://api.dicebear.com/7.x/micah/svg?seed=${coupleData?.user2Id || 'p2'}`}
-                      alt="User 2"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <span className="font-bold text-slate-800 text-sm sm:text-base">
-                    {coupleData?.user2Name || 'Chờ người yêu vào...'}
-                  </span>
-                  <span className="text-[11px] text-slate-400">
-                    {coupleData?.user2Id === userProfile.uid ? '(Bạn)' : '(Nửa kia)'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Days Together Counter */}
-              <div className="mt-6 bg-gradient-to-br from-rose-50 to-pink-50/50 rounded-2xl p-6 border border-rose-100/80 text-center">
-                <span className="text-xs font-bold text-rose-500 uppercase tracking-wider block mb-1">
-                  Số Ngày Bên Nhau
-                </span>
-                <div className="text-5xl font-black text-rose-600 tracking-tight my-2">
-                  {getDaysTogether()}{' '}
-                  <span className="text-xl font-bold text-rose-400">ngày</span>
-                </div>
-
-                {/* Anniversary Date Display */}
-                <div className="mt-4 pt-3 border-t border-rose-100/80 flex items-center justify-center gap-2 text-xs text-slate-500">
-                  <Calendar className="w-4 h-4 text-rose-400" />
-                  <span>Ngày bắt đầu:</span>
-                  <span className="font-bold text-slate-700">{formatDateVN(coupleData?.anniversaryDate)}</span>
-                </div>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* Status Note Box */}
             <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-md">
@@ -1893,225 +1959,236 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile })
         )}
 
         {/* TAB 5: PROFILE */}
-        {activeTab === 'profile' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-slate-800">Tài Khoản & Thông Tin 👤</h2>
-                <p className="text-xs text-slate-500">Thông tin cá nhân, địa chỉ và đôi lứa</p>
-              </div>
-              <button
-                onClick={handleStartEditProfile}
-                className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-semibold border border-rose-200/60 shadow-xs transition cursor-pointer flex items-center gap-1.5"
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                Sửa thông tin
-              </button>
-            </div>
+        {activeTab === 'profile' && (() => {
+          const isU1 = (coupleData?.user1Id === userProfile.uid) || (coupleData?.user1Uid === userProfile.uid);
+          const isU2 = (coupleData?.user2Id === userProfile.uid) || (coupleData?.user2Uid === userProfile.uid);
 
-            {/* Account Info Card */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full bg-rose-100 border border-slate-200 overflow-hidden shrink-0 shadow-xs">
-                  <img
-                    src={`https://api.dicebear.com/7.x/micah/svg?seed=${userProfile.uid}`}
-                    alt={userProfile.displayName}
-                    className="w-full h-full object-cover"
-                  />
+          const myPhone = isU1 ? coupleData?.user1Phone : coupleData?.user2Phone;
+          const myBirthday = isU1 ? coupleData?.user1Birthday : coupleData?.user2Birthday;
+          const myAvatar = userProfile.avatarUrl || (isU1 ? coupleData?.user1Avatar : coupleData?.user2Avatar) || 'https://api.dicebear.com/7.x/micah/svg?seed=Felix&hair=fonze,full,pixie&eyes=eyes&mouth=smile';
+
+          const partnerName = isU1 ? (coupleData?.user2Name || 'Người ấy') : (coupleData?.user1Name || 'Người ấy');
+          const partnerPhone = isU1 ? coupleData?.user2Phone : coupleData?.user1Phone;
+          const partnerBirthday = isU1 ? coupleData?.user2Birthday : coupleData?.user1Birthday;
+          const partnerAvatar = isU1 
+            ? (coupleData?.user2Avatar || 'https://api.dicebear.com/7.x/micah/svg?seed=Mia&hair=donna,straight&eyes=eyes&mouth=smile')
+            : (coupleData?.user1Avatar || 'https://api.dicebear.com/7.x/micah/svg?seed=Partner1&hair=fonze&eyes=eyes&mouth=smile');
+
+          return (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800">Tài Khoản & Hồ Sơ Đôi 👤</h2>
+                  <p className="text-xs text-slate-500">Thông tin cá nhân, nửa kia và địa chỉ chung</p>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-base font-bold text-slate-800 truncate">{userProfile.displayName}</h3>
-                  <p className="text-xs text-slate-400 truncate">{userProfile.email}</p>
-                  <span className="inline-block mt-1 px-2 py-0.5 bg-rose-50 text-rose-600 font-semibold rounded-md text-[10px] border border-rose-100">
-                    Thành viên Us Couple
-                  </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleStartEditProfile}
+                    className="px-3.5 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    Chỉnh sửa thông tin
+                  </button>
                 </div>
               </div>
-            </div>
 
-            {/* Detailed Couple & Personal Information */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
-              <h3 className="text-sm font-bold text-slate-800 pb-2 border-b border-slate-100 flex items-center justify-between">
-                <span>Hồ Sơ Đôi Lứa</span>
-                <span className="text-[11px] font-normal text-slate-400">Đồng bộ hai người</span>
-              </h3>
-
-              <div className="space-y-3 text-xs">
-                {/* Names */}
-                <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50/80 rounded-xl border border-slate-100">
-                  <div>
-                    <span className="text-slate-400 text-[10px] block">Người yêu 1</span>
-                    <span className="font-bold text-slate-800">{coupleData?.user1Name || '---'}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px] block">Người yêu 2</span>
-                    <span className="font-bold text-slate-800">{coupleData?.user2Name || '---'}</span>
-                  </div>
-                </div>
-
-                {/* Anniversary */}
-                <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-500 flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-rose-500" />
-                    Ngày kỷ niệm yêu nhau:
-                  </span>
-                  <span className="font-bold text-rose-600">{formatDateVN(coupleData?.anniversaryDate)}</span>
-                </div>
-
-                {/* Address */}
-                <div className="py-1.5 border-b border-slate-100 space-y-1.5">
-                  <div className="flex items-start justify-between">
-                    <span className="text-slate-500 flex items-center gap-1.5 shrink-0">
-                      <MapPin className="w-3.5 h-3.5 text-sky-500" />
-                      Địa chỉ / Nơi ở:
-                    </span>
-                    <span className="font-medium text-slate-800 text-right">
-                      {coupleData?.address ? (
-                        <>
-                          {coupleData.address}
-                          {coupleData.city && <span className="block text-[11px] text-slate-400">{coupleData.city}</span>}
-                        </>
-                      ) : (
-                        <span className="text-slate-400 italic">Chưa cập nhật</span>
-                      )}
+              {/* 2-Column User & Partner Identification Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* 1. MY PROFILE CARD */}
+                <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3 relative overflow-hidden">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500 text-white shadow-xs">
+                      👤 BẠN
                     </span>
                   </div>
 
+                  <div className="flex items-center gap-3.5 pt-1">
+                    <div className="w-14 h-14 rounded-full border-2 border-rose-300 p-0.5 overflow-hidden shrink-0 bg-white shadow-xs">
+                      <img src={myAvatar} alt={userProfile.displayName} className="w-full h-full object-cover rounded-full" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-base font-bold text-slate-800 truncate">{userProfile.displayName}</h3>
+                      <p className="text-[11px] text-slate-500 truncate">{userProfile.email}</p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 space-y-1.5 text-xs text-slate-600">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-slate-500">
+                        <Phone className="w-3.5 h-3.5 text-emerald-500" /> SĐT:
+                      </span>
+                      <span className="font-mono font-medium text-slate-800">{myPhone || 'Chưa cập nhật'}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-slate-500">
+                        <Cake className="w-3.5 h-3.5 text-amber-500" /> Sinh nhật:
+                      </span>
+                      <span className="font-medium text-slate-800">{formatDateVN(myBirthday)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. PARTNER PROFILE CARD */}
+                <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3 relative overflow-hidden">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-700 text-white shadow-xs">
+                      💖 NỬA KIA
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3.5 pt-1">
+                    <div className="w-14 h-14 rounded-full border-2 border-slate-300 p-0.5 overflow-hidden shrink-0 bg-white shadow-xs">
+                      <img src={partnerAvatar} alt={partnerName} className="w-full h-full object-cover rounded-full" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-base font-bold text-slate-800 truncate">{partnerName}</h3>
+                      <p className="text-[11px] text-slate-400">Đồng hành trong tình yêu</p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 space-y-1.5 text-xs text-slate-600">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-slate-500">
+                        <Phone className="w-3.5 h-3.5 text-emerald-500" /> SĐT:
+                      </span>
+                      <span className="font-mono font-medium text-slate-800">{partnerPhone || 'Chưa cập nhật'}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-slate-500">
+                        <Cake className="w-3.5 h-3.5 text-amber-500" /> Sinh nhật:
+                      </span>
+                      <span className="font-medium text-slate-800">{formatDateVN(partnerBirthday)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Detailed Couple & Living Information */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
+                <h3 className="text-sm font-bold text-slate-800 pb-2 border-b border-slate-100 flex items-center justify-between">
+                  <span>Thông Tin Chung & Hẹn Hò</span>
+                  <span className="text-[11px] font-normal text-slate-400">Đồng bộ hai người</span>
+                </h3>
+
+                <div className="space-y-3 text-xs">
+                  {/* Anniversary */}
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
+                    <span className="text-slate-500 flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-rose-500" />
+                      Ngày kỷ niệm yêu nhau:
+                    </span>
+                    <span className="font-bold text-rose-600">{formatDateVN(coupleData?.anniversaryDate)}</span>
+                  </div>
+
+                  {/* Address */}
+                  <div className="py-1.5 border-b border-slate-100 space-y-1.5">
+                    <div className="flex items-start justify-between">
+                      <span className="text-slate-500 flex items-center gap-1.5 shrink-0">
+                        <MapPin className="w-3.5 h-3.5 text-sky-500" />
+                        Địa chỉ / Nơi ở:
+                      </span>
+                      <span className="font-medium text-slate-800 text-right">
+                        {coupleData?.address ? (
+                          <>
+                            {coupleData.address}
+                            {coupleData.city && <span className="block text-[11px] text-slate-400">{coupleData.city}</span>}
+                          </>
+                        ) : (
+                          <span className="text-slate-400 italic">Chưa cập nhật</span>
+                        )}
+                      </span>
+                    </div>
+
+                    {(coupleData?.address || coupleData?.city) && (
+                      <div className="pt-1 flex justify-end">
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(((coupleData.address || '') + ' ' + (coupleData.city || '')).trim())}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-sky-50 hover:bg-sky-100 text-sky-600 rounded-lg text-[11px] font-semibold border border-sky-200/60 transition cursor-pointer"
+                        >
+                          <Map className="w-3 h-3 text-sky-500" />
+                          <span>Mở Google Maps / Chỉ đường</span>
+                          <ExternalLink className="w-2.5 h-2.5 text-sky-400 ml-0.5" />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Embedded Google Maps Widget if Address Exists */}
                   {(coupleData?.address || coupleData?.city) && (
-                    <div className="pt-1 flex justify-end">
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(((coupleData.address || '') + ' ' + (coupleData.city || '')).trim())}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-sky-50 hover:bg-sky-100 text-sky-600 rounded-lg text-[11px] font-semibold border border-sky-200/60 transition cursor-pointer"
-                      >
-                        <Map className="w-3 h-3 text-sky-500" />
-                        <span>Mở Google Maps / Chỉ đường</span>
-                        <ExternalLink className="w-2.5 h-2.5 text-sky-400 ml-0.5" />
-                      </a>
+                    <div className="my-2 rounded-xl border border-sky-100 overflow-hidden bg-slate-50 shadow-2xs">
+                      <iframe
+                        title="Google Maps Location"
+                        width="100%"
+                        height="150"
+                        style={{ border: 0 }}
+                        loading="lazy"
+                        src={`https://maps.google.com/maps?q=${encodeURIComponent(((coupleData?.address || '') + ' ' + (coupleData?.city || '')).trim())}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
+                      />
                     </div>
                   )}
-                </div>
 
-                {/* Embedded Google Maps Widget if Address Exists */}
-                {(coupleData?.address || coupleData?.city) && (
-                  <div className="my-2 rounded-xl border border-sky-100 overflow-hidden bg-slate-50 shadow-2xs">
-                    <iframe
-                      title="Google Maps Location"
-                      width="100%"
-                      height="150"
-                      style={{ border: 0 }}
-                      loading="lazy"
-                      src={`https://maps.google.com/maps?q=${encodeURIComponent(((coupleData?.address || '') + ' ' + (coupleData?.city || '')).trim())}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
-                    />
-                  </div>
-                )}
-
-                {/* Phone Numbers */}
-                <div className="flex items-start justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-500 flex items-center gap-1.5 shrink-0">
-                    <Phone className="w-3.5 h-3.5 text-emerald-500" />
-                    Số điện thoại:
-                  </span>
-                  <div className="text-right space-y-0.5">
-                    {coupleData?.user1Phone && (
-                      <div className="font-medium text-slate-800">
-                        {coupleData.user1Name || 'Partner 1'}: <span className="font-mono">{coupleData.user1Phone}</span>
-                      </div>
-                    )}
-                    {coupleData?.user2Phone && (
-                      <div className="font-medium text-slate-800">
-                        {coupleData.user2Name || 'Partner 2'}: <span className="font-mono">{coupleData.user2Phone}</span>
-                      </div>
-                    )}
-                    {!coupleData?.user1Phone && !coupleData?.user2Phone && (
-                      <span className="text-slate-400 italic">Chưa cập nhật</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Birthdays */}
-                <div className="flex items-start justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-500 flex items-center gap-1.5 shrink-0">
-                    <Cake className="w-3.5 h-3.5 text-amber-500" />
-                    Ngày sinh nhật:
-                  </span>
-                  <div className="text-right space-y-0.5">
-                    {coupleData?.user1Birthday && (
-                      <div className="font-medium text-slate-800">
-                        {coupleData.user1Name || 'Partner 1'}: {formatDateVN(coupleData.user1Birthday)}
-                      </div>
-                    )}
-                    {coupleData?.user2Birthday && (
-                      <div className="font-medium text-slate-800">
-                        {coupleData.user2Name || 'Partner 2'}: {formatDateVN(coupleData.user2Birthday)}
-                      </div>
-                    )}
-                    {!coupleData?.user1Birthday && !coupleData?.user2Birthday && (
-                      <span className="text-slate-400 italic">Chưa cập nhật</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Favorite Places */}
-                <div className="py-1.5 border-b border-slate-100 space-y-1.5">
-                  <div className="flex items-start justify-between">
-                    <span className="text-slate-500 flex items-center gap-1.5 shrink-0">
-                      <Heart className="w-3.5 h-3.5 text-rose-500" />
-                      Địa điểm hẹn hò yêu thích:
-                    </span>
-                    <span className="font-medium text-slate-800 text-right max-w-xs">
-                      {coupleData?.favoritePlaces || <span className="text-slate-400 italic">Chưa cập nhật</span>}
-                    </span>
-                  </div>
-                  {coupleData?.favoritePlaces && (
-                    <div className="pt-0.5 flex justify-end">
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coupleData.favoritePlaces)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-[11px] font-semibold border border-rose-200/60 transition cursor-pointer"
-                      >
-                        <Navigation className="w-3 h-3 text-rose-500" />
-                        <span>Tìm địa điểm trên Google Maps</span>
-                        <ExternalLink className="w-2.5 h-2.5 text-rose-400 ml-0.5" />
-                      </a>
+                  {/* Favorite Places */}
+                  <div className="py-1.5 border-b border-slate-100 space-y-1.5">
+                    <div className="flex items-start justify-between">
+                      <span className="text-slate-500 flex items-center gap-1.5 shrink-0">
+                        <Heart className="w-3.5 h-3.5 text-rose-500" />
+                        Địa điểm hẹn hò yêu thích:
+                      </span>
+                      <span className="font-medium text-slate-800 text-right max-w-xs">
+                        {coupleData?.favoritePlaces || <span className="text-slate-400 italic">Chưa cập nhật</span>}
+                      </span>
                     </div>
-                  )}
-                </div>
+                    {coupleData?.favoritePlaces && (
+                      <div className="pt-0.5 flex justify-end">
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coupleData.favoritePlaces)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-[11px] font-semibold border border-rose-200/60 transition cursor-pointer"
+                        >
+                          <Navigation className="w-3 h-3 text-rose-500" />
+                          <span>Tìm địa điểm trên Google Maps</span>
+                          <ExternalLink className="w-2.5 h-2.5 text-rose-400 ml-0.5" />
+                        </a>
+                      </div>
+                    )}
+                  </div>
 
-                {/* Status Message */}
-                <div className="py-1.5 border-b border-slate-100">
-                  <span className="text-slate-500 block mb-1">Lời nhắn tình yêu / Slogan:</span>
-                  <p className="font-medium text-slate-800 italic bg-rose-50/50 p-2.5 rounded-xl border border-rose-100/60">
-                    "{coupleData?.statusMessage || 'Hành trình tình yêu bắt đầu từ những điều nhỏ nhất'}"
-                  </p>
-                </div>
-
-                {/* Love Story / Memory Note */}
-                {coupleData?.loveStory && (
-                  <div className="py-1.5">
-                    <span className="text-slate-500 block mb-1">Kỷ niệm quen nhau / Ghi chú tình yêu:</span>
-                    <p className="text-slate-700 leading-relaxed bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                      {coupleData.loveStory}
+                  {/* Status Message */}
+                  <div className="py-1.5 border-b border-slate-100">
+                    <span className="text-slate-500 block mb-1">Lời nhắn tình yêu / Slogan:</span>
+                    <p className="font-medium text-slate-800 italic bg-rose-50/50 p-2.5 rounded-xl border border-rose-100/60">
+                      "{coupleData?.statusMessage || 'Hành trình tình yêu bắt đầu từ những điều nhỏ nhất'}"
                     </p>
                   </div>
-                )}
+
+                  {/* Love Story / Memory Note */}
+                  {coupleData?.loveStory && (
+                    <div className="py-1.5">
+                      <span className="text-slate-500 block mb-1">Kỷ niệm quen nhau / Ghi chú tình yêu:</span>
+                      <p className="text-slate-700 leading-relaxed bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                        {coupleData.loveStory}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Logout Button */}
+              <div className="pt-2">
+                <button
+                  onClick={handleSignOut}
+                  className="w-full py-3 px-4 bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold rounded-2xl text-xs transition flex items-center justify-center gap-2 cursor-pointer border border-rose-200/60"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Đăng xuất tài khoản
+                </button>
               </div>
             </div>
-
-            {/* Logout Button */}
-            <div className="pt-2">
-              <button
-                onClick={handleSignOut}
-                className="w-full py-3 px-4 bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold rounded-2xl text-xs transition flex items-center justify-center gap-2 cursor-pointer border border-rose-200/60"
-              >
-                <LogOut className="w-4 h-4" />
-                Đăng xuất tài khoản
-              </button>
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Modal Chỉnh Sửa Thông Tin Profile & Đôi Lứa */}
         {isEditingProfile && (

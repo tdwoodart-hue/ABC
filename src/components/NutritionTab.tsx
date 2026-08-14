@@ -177,6 +177,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
 
       // Save directly to Firestore
       const mealsRef = collection(db, 'couples', userProfile.coupleId, 'nutrition_meals');
+
       const mealData: Record<string, any> = {
         foodName: analyzed.foodName,
         mealType: analyzed.mealType,
@@ -212,7 +213,8 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
 
     setAddingManual(true);
     try {
-      const mealsRef = collection(db, 'couples', userProfile.coupleId, 'nutrition_meals');
+       const mealsRef = collection(db, 'couples', userProfile.coupleId, 'nutrition_meals');
+
       const mealData: Record<string, any> = {
         foodName: manualFoodName.trim(),
         mealType: manualMealType,
@@ -652,14 +654,23 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-0.5">
+                          <div className="flex items-center gap-2.5 text-[11px] text-slate-500 mt-1 flex-wrap">
                             {meal.calories > 0 && (
-                              <span className="font-semibold text-amber-600 flex items-center gap-0.5">
+                              <span className="font-bold text-amber-600 flex items-center gap-0.5 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
                                 <Flame className="w-3 h-3 text-amber-500" />
                                 {meal.calories} kcal
                               </span>
                             )}
-                            <span>Ghi bởi: <strong className="text-slate-700">{meal.loggedByName}</strong></span>
+                            <div className="flex items-center gap-1">
+                              <span>Ghi bởi:</span>
+                              <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
+                                meal.loggedByUid === userProfile.uid
+                                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                  : 'bg-slate-100 text-slate-700 border border-slate-200'
+                              }`}>
+                                {meal.loggedByUid === userProfile.uid ? 'Bạn' : (meal.loggedByName || 'Nửa kia')}
+                              </span>
+                            </div>
                             <span>• {formatDateShortVN(meal.date)}</span>
                           </div>
 

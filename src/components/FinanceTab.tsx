@@ -73,23 +73,31 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
   const [selectedPayer, setSelectedPayer] = useState<'all' | 'me' | 'partner'>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  // Identify Couple Partners
-  const currentUserIsUser1 = coupleData?.user1Uid === userProfile.uid;
+  // Identify Couple Partners with Gender & Roles
+  const currentUserIsUser1 = (coupleData?.user1Uid === userProfile.uid) || (coupleData?.user1Id === userProfile.uid);
   const myUid = userProfile.uid;
   const myName = userProfile.displayName || 'Bạn';
-  const myAvatar = userProfile.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userProfile.uid}`;
+  const myGender = userProfile.gender || (currentUserIsUser1 ? coupleData?.user1Gender : coupleData?.user2Gender) || 'male';
+  const myRole = userProfile.roleTitle || (currentUserIsUser1 ? coupleData?.user1Role : coupleData?.user2Role) || (myGender === 'male' ? 'Anh ♂' : 'Em ♀');
+  const myAvatar = userProfile.avatarUrl || (myGender === 'female' ? 'https://api.dicebear.com/7.x/micah/svg?seed=female_me' : 'https://api.dicebear.com/7.x/micah/svg?seed=male_me');
 
   const partnerUid = coupleData 
-    ? (currentUserIsUser1 ? coupleData.user2Uid : coupleData.user1Uid) 
+    ? (currentUserIsUser1 ? (coupleData.user2Uid || coupleData.user2Id) : (coupleData.user1Uid || coupleData.user1Id)) 
     : null;
   const partnerName = coupleData 
     ? (currentUserIsUser1 ? (coupleData.user2Name || 'Người ấy') : (coupleData.user1Name || 'Người ấy')) 
     : 'Người ấy';
+  const partnerGender = coupleData 
+    ? (currentUserIsUser1 ? (coupleData.user2Gender || (myGender === 'male' ? 'female' : 'male')) : (coupleData.user1Gender || (myGender === 'male' ? 'female' : 'male')))
+    : (myGender === 'male' ? 'female' : 'male');
+  const partnerRole = coupleData 
+    ? (currentUserIsUser1 ? (coupleData.user2Role || (partnerGender === 'male' ? 'Anh ♂' : 'Em ♀')) : (coupleData.user1Role || (partnerGender === 'male' ? 'Anh ♂' : 'Em ♀')))
+    : (partnerGender === 'male' ? 'Anh ♂' : 'Em ♀');
   const partnerAvatar = coupleData 
     ? (currentUserIsUser1 
-        ? (coupleData.user2Avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${coupleData.user2Uid || 'partner'}`) 
-        : (coupleData.user1Avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${coupleData.user1Uid || 'partner'}`)) 
-    : `https://api.dicebear.com/7.x/avataaars/svg?seed=partner`;
+        ? (coupleData.user2Avatar || (partnerGender === 'male' ? 'https://api.dicebear.com/7.x/micah/svg?seed=male_partner' : 'https://api.dicebear.com/7.x/micah/svg?seed=female_partner')) 
+        : (coupleData.user1Avatar || (partnerGender === 'male' ? 'https://api.dicebear.com/7.x/micah/svg?seed=male_partner' : 'https://api.dicebear.com/7.x/micah/svg?seed=female_partner'))) 
+    : (partnerGender === 'male' ? 'https://api.dicebear.com/7.x/micah/svg?seed=male_partner' : 'https://api.dicebear.com/7.x/micah/svg?seed=female_partner');
 
   // Real-time Firestore sync
   useEffect(() => {
@@ -472,12 +480,12 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
                 onClick={() => setTxPayerUid(myUid)}
                 className={`py-2 px-3 rounded-xl border text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 ${
                   txPayerUid === myUid
-                    ? 'bg-rose-50 border-rose-300 text-rose-700'
-                    : 'bg-slate-50 border-slate-200 text-slate-600'
+                    ? 'bg-rose-50 border-rose-400 text-rose-800 ring-1 ring-rose-300'
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                <img src={myAvatar} alt="" className="w-4 h-4 rounded-full" />
-                <span>Bạn ({myName})</span>
+                <img src={myAvatar} alt="" className="w-5 h-5 rounded-full object-cover border border-white" />
+                <span className="truncate">{myName} (Bạn)</span>
               </button>
 
               <button
@@ -485,12 +493,12 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
                 onClick={() => setTxPayerUid(partnerUid || 'partner')}
                 className={`py-2 px-3 rounded-xl border text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 ${
                   txPayerUid !== myUid
-                    ? 'bg-rose-50 border-rose-300 text-rose-700'
-                    : 'bg-slate-50 border-slate-200 text-slate-600'
+                    ? 'bg-rose-50 border-rose-400 text-rose-800 ring-1 ring-rose-300'
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                <img src={partnerAvatar} alt="" className="w-4 h-4 rounded-full" />
-                <span>{partnerName}</span>
+                <img src={partnerAvatar} alt="" className="w-5 h-5 rounded-full object-cover border border-white" />
+                <span className="truncate">{partnerName} (Nửa kia)</span>
               </button>
             </div>
           </div>
@@ -679,24 +687,26 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
                 <button
                   type="button"
                   onClick={() => setDepositPayerUid(myUid)}
-                  className={`py-1.5 px-2 rounded-xl border text-xs font-medium flex items-center justify-center gap-1 ${
+                  className={`py-2 px-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer ${
                     depositPayerUid === myUid
-                      ? 'bg-rose-50 border-rose-300 text-rose-700'
-                      : 'bg-slate-50 border-slate-200 text-slate-600'
+                      ? 'bg-amber-50 border-amber-400 text-amber-800 ring-1 ring-amber-300'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                   }`}
                 >
-                  <span>Bạn</span>
+                  <img src={myAvatar} alt="" className="w-4 h-4 rounded-full object-cover" />
+                  <span className="truncate">{myName} (Bạn)</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setDepositPayerUid(partnerUid || 'partner')}
-                  className={`py-1.5 px-2 rounded-xl border text-xs font-medium flex items-center justify-center gap-1 ${
+                  className={`py-2 px-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer ${
                     depositPayerUid !== myUid
-                      ? 'bg-rose-50 border-rose-300 text-rose-700'
-                      : 'bg-slate-50 border-slate-200 text-slate-600'
+                      ? 'bg-amber-50 border-amber-400 text-amber-800 ring-1 ring-amber-300'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                   }`}
                 >
-                  <span>{partnerName}</span>
+                  <img src={partnerAvatar} alt="" className="w-4 h-4 rounded-full object-cover" />
+                  <span className="truncate">{partnerName} (Nửa kia)</span>
                 </button>
               </div>
 
