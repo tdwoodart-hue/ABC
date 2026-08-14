@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { UserProfile, CoupleData, MemoryItem, JournalEntry, JournalComment, JournalExpense, ImageComment } from '../types';
 import { FinanceTab } from './FinanceTab';
 import { NutritionTab } from './NutritionTab';
+import { AdminTab } from './AdminTab';
 import { MapLocationPickerModal } from './MapLocationPickerModal';
 import { ImageLightboxModal } from './ImageLightboxModal';
 import { formatDateVN, formatDateShortVN } from '../utils/formatDate';
@@ -18,7 +19,8 @@ import {
   deleteDoc, 
   deleteField,
   orderBy,
-  swapCoupleSlots 
+  swapCoupleSlots,
+  checkIsAdmin
 } from '../lib/firebase';
 import { 
   Heart, 
@@ -60,6 +62,7 @@ import {
   ZoomIn,
   MessageSquare,
   ShieldCheck,
+  Shield,
   ArrowLeftRight,
   UserCheck
 } from 'lucide-react';
@@ -69,15 +72,28 @@ interface LightHomeScreenProps {
   onRefreshProfile?: () => void;
 }
 
+export type TabType = 'home' | 'journal' | 'nutrition' | 'finance' | 'profile' | 'admin';
+
+const getTabFromUrl = (): TabType => {
+  if (typeof window === 'undefined') return 'home';
+  const cleanPath = window.location.pathname.toLowerCase().replace(/^\/+/, '').split('/')[0];
+  if (cleanPath === 'journal') return 'journal';
+  if (cleanPath === 'nutrition') return 'nutrition';
+  if (cleanPath === 'finance') return 'finance';
+  if (cleanPath === 'profile') return 'profile';
+  if (cleanPath === 'admin') return 'admin';
+  return 'home';
+};
+
 const MOOD_OPTIONS = [
-  '💕 Hạnh phúc',
-  '😊 Vui vẻ',
-  '🥺 Nhớ nhung',
-  '🍕 Đi ăn lẩu',
-  '☕ Cà phê',
-  '✈️ Đi du lịch',
-  '😴 Mệt mỏi',
-  '🎉 Kỷ niệm'
+  'Hạnh phúc',
+  'Vui vẻ',
+  'Nhớ nhung',
+  'Đi ăn lẩu',
+  'Cà phê',
+  'Đi du lịch',
+  'Mệt mỏi',
+  'Kỷ niệm'
 ];
 
 const compressAndConvertToBase64 = (file: File): Promise<string> => {
@@ -120,7 +136,24 @@ const compressAndConvertToBase64 = (file: File): Promise<string> => {
 };
 
 export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, onRefreshProfile }) => {
-  const [activeTab, setActiveTab] = useState<'home' | 'journal' | 'nutrition' | 'finance' | 'profile'>('home');
+  const isAdminUser = checkIsAdmin(userProfile);
+  const [activeTab, setActiveTabState] = useState<TabType>(() => getTabFromUrl());
+
+  const handleNavigateTab = (tab: TabType) => {
+    setActiveTabState(tab);
+    const targetPath = tab === 'home' ? '/' : `/${tab}`;
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState(null, '', targetPath);
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setActiveTabState(getTabFromUrl());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
   const [coupleData, setCoupleData] = useState<CoupleData | null>(null);
   const [statusInput, setStatusInput] = useState('');
   const [isEditingNote, setIsEditingNote] = useState(false);
@@ -826,7 +859,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             <div className="bg-gradient-to-r from-rose-100/70 via-pink-50 to-orange-50 p-6 sm:p-8 rounded-3xl border border-rose-100/80 shadow-xs text-center relative overflow-hidden">
               <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-rose-200/30 rounded-full blur-2xl pointer-events-none" />
               <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-                Xin chào, {userProfile.displayName}! 💕
+                Xin chào, {userProfile.displayName}!
               </h2>
             </div>
 
@@ -956,7 +989,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                       disabled={updating}
                       className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold shadow-sm transition flex items-center gap-1.5 cursor-pointer"
                     >
-                      {updating ? 'Đang lưu...' : 'Lưu lời nhắn 💕'}
+                      {updating ? 'Đang lưu...' : 'Lưu lời nhắn'}
                     </button>
                   </div>
                 </div>
@@ -975,7 +1008,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  Nhật Ký Tình Yêu 📖
+                  Nhật Ký Tình Yêu
                 </h2>
               </div>
               <button
@@ -1011,7 +1044,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                 }`}
               >
                 <MapPin className="w-3.5 h-3.5" />
-                <span>Nơi đã đi ({journals.filter(j => j.location).length}) 📍</span>
+                <span>Nơi đã đi ({journals.filter(j => j.location).length})</span>
               </button>
             </div>
 
@@ -1978,7 +2011,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-800">Tài Khoản & Hồ Sơ Đôi 👤</h2>
+                  <h2 className="text-xl font-bold text-slate-800">Tài Khoản & Hồ Sơ Đôi</h2>
                   <p className="text-xs text-slate-500">Thông tin cá nhân, nửa kia và địa chỉ chung</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1998,7 +2031,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                 <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3 relative overflow-hidden">
                   <div className="flex items-center justify-between">
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500 text-white shadow-xs">
-                      👤 BẠN
+                      BẠN
                     </span>
                   </div>
 
@@ -2032,7 +2065,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                 <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3 relative overflow-hidden">
                   <div className="flex items-center justify-between">
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-700 text-white shadow-xs">
-                      💖 NỬA KIA
+                      NỬA KIA
                     </span>
                   </div>
 
@@ -2251,7 +2284,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                       type="text"
                       value={editStatusMessageProfile}
                       onChange={(e) => setEditStatusMessageProfile(e.target.value)}
-                      placeholder="VD: Cùng nhau đi qua bão giông 💕"
+                      placeholder="VD: Cùng nhau đi qua bão giông"
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-400"
                     />
                   </div>
@@ -2445,27 +2478,32 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             </form>
           </div>
         )}
+
+        {/* TAB 6: ADMIN */}
+        {activeTab === 'admin' && (
+          <AdminTab currentUser={userProfile} onRefreshProfile={onRefreshProfile} />
+        )}
       </main>
 
       {/* Fixed Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-rose-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-3 py-2">
-        <div className="max-w-md mx-auto flex items-center justify-around">
-          {/* Tab 1: Home */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-rose-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-2 sm:px-3 py-2">
+        <div className="max-w-lg mx-auto flex items-center justify-around">
+          {/* Tab 1: Home (/home or /) */}
           <button
-            onClick={() => setActiveTab('home')}
-            className={`flex flex-col items-center gap-1 py-1.5 px-3 sm:px-4 rounded-2xl transition cursor-pointer ${
+            onClick={() => handleNavigateTab('home')}
+            className={`flex flex-col items-center gap-1 py-1.5 px-2.5 sm:px-3 rounded-2xl transition cursor-pointer ${
               activeTab === 'home'
                 ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
                 : 'text-slate-400 hover:text-slate-600'
             }`}
           >
             <Home className="w-5 h-5" />
-            <span className="text-[11px]">Trang chủ</span>
+            <span className="text-[10px] sm:text-[11px]">Trang chủ</span>
           </button>
 
-          {/* Tab 2: Journal */}
+          {/* Tab 2: Journal (/journal) */}
           <button
-            onClick={() => setActiveTab('journal')}
+            onClick={() => handleNavigateTab('journal')}
             className={`flex flex-col items-center gap-1 py-1.5 px-2.5 sm:px-3 rounded-2xl transition cursor-pointer ${
               activeTab === 'journal'
                 ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
@@ -2473,12 +2511,12 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             }`}
           >
             <BookOpen className="w-5 h-5" />
-            <span className="text-[11px]">Nhật ký</span>
+            <span className="text-[10px] sm:text-[11px]">Nhật ký</span>
           </button>
 
-          {/* Tab 3: Nutrition */}
+          {/* Tab 3: Nutrition (/nutrition) */}
           <button
-            onClick={() => setActiveTab('nutrition')}
+            onClick={() => handleNavigateTab('nutrition')}
             className={`flex flex-col items-center gap-1 py-1.5 px-2.5 sm:px-3 rounded-2xl transition cursor-pointer ${
               activeTab === 'nutrition'
                 ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
@@ -2486,34 +2524,49 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             }`}
           >
             <Apple className="w-5 h-5" />
-            <span className="text-[11px]">Dinh dưỡng</span>
+            <span className="text-[10px] sm:text-[11px]">Dinh dưỡng</span>
           </button>
 
-          {/* Tab 4: Finance */}
+          {/* Tab 4: Finance (/finance) */}
           <button
-            onClick={() => setActiveTab('finance')}
-            className={`flex flex-col items-center gap-1 py-1.5 px-3 sm:px-4 rounded-2xl transition cursor-pointer ${
+            onClick={() => handleNavigateTab('finance')}
+            className={`flex flex-col items-center gap-1 py-1.5 px-2.5 sm:px-3 rounded-2xl transition cursor-pointer ${
               activeTab === 'finance'
                 ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
                 : 'text-slate-400 hover:text-slate-600'
             }`}
           >
             <Wallet className="w-5 h-5" />
-            <span className="text-[11px]">Tài chính</span>
+            <span className="text-[10px] sm:text-[11px]">Tài chính</span>
           </button>
 
-          {/* Tab 4: Profile */}
+          {/* Tab 5: Profile (/profile) */}
           <button
-            onClick={() => setActiveTab('profile')}
-            className={`flex flex-col items-center gap-1 py-1.5 px-3 sm:px-4 rounded-2xl transition cursor-pointer ${
+            onClick={() => handleNavigateTab('profile')}
+            className={`flex flex-col items-center gap-1 py-1.5 px-2.5 sm:px-3 rounded-2xl transition cursor-pointer ${
               activeTab === 'profile'
                 ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
                 : 'text-slate-400 hover:text-slate-600'
             }`}
           >
             <UserIcon className="w-5 h-5" />
-            <span className="text-[11px]">Tài khoản</span>
+            <span className="text-[10px] sm:text-[11px]">Tài khoản</span>
           </button>
+
+          {/* Tab 6: Admin (/admin) */}
+          {(isAdminUser || activeTab === 'admin') && (
+            <button
+              onClick={() => handleNavigateTab('admin')}
+              className={`flex flex-col items-center gap-1 py-1.5 px-2.5 sm:px-3 rounded-2xl transition cursor-pointer ${
+                activeTab === 'admin'
+                  ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <Shield className="w-5 h-5 text-rose-500" />
+              <span className="text-[10px] sm:text-[11px] font-bold text-rose-600">Quản trị</span>
+            </button>
+          )}
         </div>
       </nav>
 

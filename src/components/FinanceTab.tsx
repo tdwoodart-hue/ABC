@@ -34,12 +34,12 @@ interface FinanceTabProps {
 }
 
 const FINANCE_CATEGORIES = [
-  { id: 'food', name: 'Ăn uống', icon: '🍜' },
-  { id: 'dating', name: 'Hẹn hò', icon: '🕯️' },
-  { id: 'shopping', name: 'Mua sắm', icon: '🛍️' },
-  { id: 'travel', name: 'Du lịch', icon: '✈️' },
-  { id: 'fund', name: 'Đóng quỹ chung', icon: '💰' },
-  { id: 'other', name: 'Khác', icon: '🎈' },
+  { id: 'food', name: 'Ăn uống' },
+  { id: 'dating', name: 'Hẹn hò' },
+  { id: 'shopping', name: 'Mua sắm' },
+  { id: 'travel', name: 'Du lịch' },
+  { id: 'fund', name: 'Đóng quỹ chung' },
+  { id: 'other', name: 'Khác' },
 ];
 
 export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData, journals }) => {
@@ -332,7 +332,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
       {/* Clean Header matching other tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Tài Chính & Quỹ Chung 💰</h2>
+          <h2 className="text-xl font-bold text-slate-800">Tài Chính & Quỹ Chung</h2>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -560,7 +560,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-400"
                 >
                   {FINANCE_CATEGORIES.map(cat => (
-                    <option key={cat.id} value={cat.name}>{cat.icon} {cat.name}</option>
+                    <option key={cat.id} value={cat.name}>{cat.name}</option>
                   ))}
                 </select>
               </div>
@@ -854,7 +854,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
             >
               <option value="all">Tất cả danh mục</option>
               {FINANCE_CATEGORIES.map(c => (
-                <option key={c.id} value={c.name}>{c.icon} {c.name}</option>
+                <option key={c.id} value={c.name}>{c.name}</option>
               ))}
             </select>
           </div>
@@ -867,14 +867,15 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
             {filteredTransactions.map((tx) => {
-              const catObj = FINANCE_CATEGORIES.find(c => c.name === tx.category) || FINANCE_CATEGORIES[5];
               const isPayerMe = tx.paidByUid === myUid;
               const payerDisplayName = isPayerMe ? 'Bạn' : tx.paidByName || partnerName;
 
               return (
                 <div key={tx.id} className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100 transition">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="text-base shrink-0">{catObj.icon}</span>
+                    <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shrink-0">
+                      <Receipt className="w-4 h-4" />
+                    </div>
                     <div className="min-w-0">
                       <h5 className="font-semibold text-slate-800 text-xs truncate">{tx.title}</h5>
                       <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">

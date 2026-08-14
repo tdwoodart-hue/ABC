@@ -9,8 +9,9 @@ export interface UserProfile {
   address?: string;
   birthday?: string;
   avatarUrl?: string;
-  gender?: 'male' | 'female'; // 'male' | 'female'
-  roleTitle?: string; // e.g. 'Anh', 'Em', 'Chồng', 'Vợ', 'Bạn trai', 'Bạn gái'
+  gender?: 'male' | 'female';
+  roleTitle?: string;
+  isAdmin?: boolean;
 }
 
 export interface CoupleData {

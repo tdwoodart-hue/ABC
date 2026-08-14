@@ -35,10 +35,10 @@ interface NutritionTabProps {
 }
 
 const MEAL_TYPES = [
-  { id: 'breakfast', label: 'Bữa sáng', icon: '🌅', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-  { id: 'lunch', label: 'Bữa trưa', icon: '☀️', color: 'bg-rose-50 text-rose-700 border-rose-200' },
-  { id: 'dinner', label: 'Bữa tối', icon: '🌙', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-  { id: 'snack', label: 'Bữa phụ', icon: '🍎', color: 'bg-pink-50 text-pink-700 border-pink-200' },
+  { id: 'breakfast', label: 'Bữa sáng', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+  { id: 'lunch', label: 'Bữa trưa', color: 'bg-rose-50 text-rose-700 border-rose-200' },
+  { id: 'dinner', label: 'Bữa tối', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+  { id: 'snack', label: 'Bữa phụ', color: 'bg-pink-50 text-pink-700 border-pink-200' },
 ] as const;
 
 export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleData }) => {
@@ -194,7 +194,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
 
       const mealTypeName = MEAL_TYPES.find((t) => t.id === analyzed.mealType)?.label || 'bữa ăn';
       setAiResultSuccess(
-        `✨ AI đã ghi nhận: "${analyzed.foodName}" (~${analyzed.calories} kcal) cho ${mealTypeName}!`
+        `AI đã ghi nhận: "${analyzed.foodName}" (~${analyzed.calories} kcal) cho ${mealTypeName}!`
       );
       setAiPrompt('');
       setAiImage('');
@@ -298,14 +298,14 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
           <div className="space-y-1">
             <span className="text-xs font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1.5">
               <Apple className="w-4 h-4 text-rose-500" />
-              Góc Dinh Dưỡng & Sức Khỏe Đôi 💕
+              Góc Dinh Dưỡng & Sức Khỏe Đôi
             </span>
             <h2 className="text-xl sm:text-2xl font-extrabold text-slate-800">
-              Nhật Ký Dinh Dưỡng AI Smart 🤖
+              Nhật Ký Dinh Dưỡng AI Smart
             </h2>
           </div>
-          <div className="w-14 h-14 rounded-2xl bg-rose-500/10 text-rose-600 flex items-center justify-center text-2xl shrink-0 shadow-inner">
-            🥗
+          <div className="w-14 h-14 rounded-2xl bg-rose-500/10 text-rose-600 flex items-center justify-center shrink-0 shadow-inner">
+            <Utensils className="w-7 h-7" />
           </div>
         </div>
 
@@ -540,7 +540,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
                     >
                       {MEAL_TYPES.map((t) => (
                         <option key={t.id} value={t.id}>
-                          {t.icon} {t.label}
+                          {t.label}
                         </option>
                       ))}
                     </select>
@@ -639,8 +639,8 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
                             className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
                           />
                         ) : (
-                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0 border ${mealMeta.color}`}>
-                            {mealMeta.icon}
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${mealMeta.color}`}>
+                            <Utensils className="w-5 h-5" />
                           </div>
                         )}
 

@@ -43,6 +43,15 @@ export const googleProvider = new GoogleAuthProvider();
 // Shared single couple document ID for this dedicated app
 export const OUR_COUPLE_ID = 'our_couple';
 
+export const ADMIN_EMAILS = ['tdwoodart@gmail.com'];
+
+export function checkIsAdmin(profile?: UserProfile | null): boolean {
+  if (!profile) return false;
+  if (profile.isAdmin) return true;
+  if (profile.email && ADMIN_EMAILS.includes(profile.email.toLowerCase().trim())) return true;
+  return false;
+}
+
 // Fetch or create user document in Firestore and automatically assign to couple space
 export async function syncUserProfile(
   user: User, 
@@ -54,6 +63,7 @@ export async function syncUserProfile(
   const snap = await getDoc(userRef);
 
   const nameToUse = customName || user.displayName || user.email?.split('@')[0] || 'Người dùng';
+  const isAdminUser = ADMIN_EMAILS.includes((user.email || '').toLowerCase().trim());
 
   // Ensure our_couple document exists
   const coupleRef = doc(db, 'couples', OUR_COUPLE_ID);
@@ -88,7 +98,7 @@ export async function syncUserProfile(
       user2Role: initialGender === 'female' ? 'Anh ♂' : 'Em ♀',
       user2Avatar: `https://api.dicebear.com/7.x/micah/svg?seed=partner_slot2`,
       anniversaryDate: new Date().toISOString().split('T')[0],
-      statusMessage: 'Chào mừng hai bạn đến với không gian yêu thương! 💕',
+      statusMessage: 'Chào mừng hai bạn đến với không gian yêu thương!',
       createdAt: new Date().toISOString()
     };
     await setDoc(coupleRef, initialCouple);
@@ -114,16 +124,11 @@ export async function syncUserProfile(
       if (initialGender) coupleUpdates.user2Gender = initialGender;
       if (initialRole) coupleUpdates.user2Role = initialRole;
     } else if (!coupleData.user2Id || coupleData.user2Id === '') {
-      // User 2 joins the couple!
       coupleUpdates.user2Id = user.uid;
       coupleUpdates.user2Uid = user.uid;
       coupleUpdates.user2Name = nameToUse;
       if (initialGender) coupleUpdates.user2Gender = initialGender;
       if (initialRole) coupleUpdates.user2Role = initialRole;
-      else if (coupleData.user1Gender === 'male') {
-        coupleUpdates.user2Gender = 'female';
-        coupleUpdates.user2Role = 'Em ♀';
-      }
     } else if (!coupleData.user1Id || coupleData.user1Id === '') {
       coupleUpdates.user1Id = user.uid;
       coupleUpdates.user1Uid = user.uid;
@@ -146,11 +151,8 @@ export async function syncUserProfile(
     if (existing.coupleId !== OUR_COUPLE_ID) {
       userUpdates.coupleId = OUR_COUPLE_ID;
     }
-    if (initialGender && existing.gender !== initialGender) {
-      userUpdates.gender = initialGender;
-    }
-    if (initialRole && existing.roleTitle !== initialRole) {
-      userUpdates.roleTitle = initialRole;
+    if (isAdminUser && !existing.isAdmin) {
+      userUpdates.isAdmin = true;
     }
 
     if (Object.keys(userUpdates).length > 0) {
@@ -167,8 +169,7 @@ export async function syncUserProfile(
       avatarUrl: defaultAvatar,
       coupleId: OUR_COUPLE_ID,
       createdAt: new Date().toISOString(),
-      gender: initialGender || 'male',
-      roleTitle: initialRole || (initialGender === 'female' ? 'Em' : 'Anh')
+      isAdmin: isAdminUser
     };
     await setDoc(userRef, newProfile);
     return newProfile;
