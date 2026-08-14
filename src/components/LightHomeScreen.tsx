@@ -969,14 +969,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         {/* TAB 1: HOME */}
         {activeTab === 'home' && (
           <div className="space-y-6">
-            {/* Welcome Banner */}
-            <div className="bg-gradient-to-r from-rose-100/70 via-pink-50 to-orange-50 p-6 sm:p-8 rounded-3xl border border-rose-100/80 shadow-xs text-center relative overflow-hidden">
-              <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-rose-200/30 rounded-full blur-2xl pointer-events-none" />
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-                Xin chào, {userProfile.displayName}!
-              </h2>
-            </div>
-
             {/* Couple Card */}
             {(() => {
               const isU1 = (coupleData?.user1Id === userProfile.uid) || (coupleData?.user1Uid === userProfile.uid) || (userProfile.email?.toLowerCase().includes('duong'));
