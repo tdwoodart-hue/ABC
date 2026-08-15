@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserProfile, CoupleData, MemoryItem, JournalEntry, JournalComment, JournalExpense, ImageComment } from '../types';
+import { UserProfile, CoupleData, MemoryItem, JournalEntry, JournalComment, JournalExpense, ImageComment, WakeUpLog } from '../types';
 import { FinanceTab } from './FinanceTab';
 import { NutritionTab } from './NutritionTab';
 import { AchievementsTab } from './AchievementsTab';
@@ -9,6 +9,7 @@ import { ImageLightboxModal } from './ImageLightboxModal';
 import { AvatarEditorModal } from './AvatarEditorModal';
 import { VisitedPlacesTracker } from './VisitedPlacesTracker';
 import { CameraCaptureModal } from './CameraCaptureModal';
+import { WakeUpChallengeCard } from './WakeUpChallengeCard';
 import { formatDateVN, formatDateShortVN } from '../utils/formatDate';
 import { 
   db, 
@@ -228,6 +229,9 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const [addingMemory, setAddingMemory] = useState(false);
   const [journalImageLoading, setJournalImageLoading] = useState(false);
   const [memoryImageLoading, setMemoryImageLoading] = useState(false);
+
+  // Early Bird Wake-up Logs state
+  const [wakeUpLogs, setWakeUpLogs] = useState<WakeUpLog[]>([]);
 
   // Profile editing state
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -630,10 +634,24 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       console.warn('Error listening to memories:', err);
     });
 
+    // Subscribe to early bird wake up logs
+    const wakeUpRef = collection(db, 'couples', userProfile.coupleId, 'wakeUpLogs');
+    const qWakeUp = query(wakeUpRef, orderBy('createdAt', 'desc'));
+    const unsubscribeWakeUp = onSnapshot(qWakeUp, (snapshot) => {
+      const logs: WakeUpLog[] = [];
+      snapshot.forEach((d) => {
+        logs.push({ id: d.id, ...d.data() } as WakeUpLog);
+      });
+      setWakeUpLogs(logs);
+    }, (err) => {
+      console.warn('Error listening to wake up logs:', err);
+    });
+
     return () => {
       unsubscribeCouple();
       unsubscribeJournals();
       unsubscribeMemories();
+      unsubscribeWakeUp();
     };
   }, [userProfile.coupleId]);
 
@@ -1161,6 +1179,16 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                     </div>
                     <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-rose-500 group-hover:translate-x-0.5 transition shrink-0" />
                   </div>
+
+                  {/* Early Bird Wake-Up Challenge Home Card */}
+                  <WakeUpChallengeCard
+                    compact={true}
+                    userProfile={userProfile}
+                    coupleData={coupleData}
+                    todayLog={wakeUpLogs.find(l => l.date === new Date().toISOString().split('T')[0]) || null}
+                    allLogs={wakeUpLogs}
+                    onNavigateToFinance={() => handleNavigateTab('finance')}
+                  />
                 </div>
               );
             })()}

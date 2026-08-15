@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserProfile, CoupleData, JournalEntry, FinanceTransaction, SavingsGoal } from '../types';
+import { UserProfile, CoupleData, JournalEntry, FinanceTransaction, SavingsGoal, WakeUpLog } from '../types';
 import { formatDateVN, formatDateShortVN } from '../utils/formatDate';
 import { 
   db, 
@@ -25,9 +25,11 @@ import {
   X, 
   Users,
   Scale,
-  Edit3
+  Edit3,
+  Sun
 } from 'lucide-react';
 import { EditTransactionModal } from './EditTransactionModal';
+import { WakeUpChallengeCard } from './WakeUpChallengeCard';
 
 interface FinanceTabProps {
   userProfile: UserProfile;
@@ -41,12 +43,14 @@ const FINANCE_CATEGORIES = [
   { id: 'shopping', name: 'Mua sắm' },
   { id: 'travel', name: 'Du lịch' },
   { id: 'fund', name: 'Đóng quỹ chung' },
+  { id: 'wakeup', name: 'Phạt dậy muộn (5.000đ)' },
   { id: 'other', name: 'Khác' },
 ];
 
 export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData, journals }) => {
   const [transactions, setTransactions] = useState<FinanceTransaction[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
+  const [wakeUpLogs, setWakeUpLogs] = useState<WakeUpLog[]>([]);
 
   // Form states - Add Transaction
   const [showAddTransaction, setShowAddTransaction] = useState(false);
@@ -138,9 +142,23 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
       console.error('Lỗi tải mục tiêu tiết kiệm:', err);
     });
 
+    // Wake-up Challenge Logs listener
+    const wakeUpRef = collection(db, 'couples', userProfile.coupleId, 'wakeUpLogs');
+    const wakeUpQuery = query(wakeUpRef, orderBy('createdAt', 'desc'));
+    const unsubscribeWakeUp = onSnapshot(wakeUpQuery, (snapshot) => {
+      const logs: WakeUpLog[] = [];
+      snapshot.forEach((doc) => {
+        logs.push({ id: doc.id, ...doc.data() } as WakeUpLog);
+      });
+      setWakeUpLogs(logs);
+    }, (err) => {
+      console.error('Lỗi tải nhật ký dậy sớm:', err);
+    });
+
     return () => {
       unsubscribeTx();
       unsubscribeGoals();
+      unsubscribeWakeUp();
     };
   }, [userProfile.coupleId]);
 
@@ -336,6 +354,9 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
     return true;
   });
 
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayWakeUpLog = wakeUpLogs.find(l => l.date === todayStr) || null;
+
   return (
     <div className="space-y-6">
       {/* Clean Header matching other tabs */}
@@ -363,6 +384,14 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
           </button>
         </div>
       </div>
+
+      {/* Early Bird Wake-Up Challenge (Thử thách dậy sớm phạt 5k) */}
+      <WakeUpChallengeCard
+        userProfile={userProfile}
+        coupleData={coupleData}
+        todayLog={todayWakeUpLog}
+        allLogs={wakeUpLogs}
+      />
 
       {/* Clean Overview Card: Bạn vs Người ấy */}
       <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">

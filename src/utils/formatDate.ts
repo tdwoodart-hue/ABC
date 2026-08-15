@@ -58,3 +58,17 @@ export const formatDateTimeVN = (isoStr?: string | null): string => {
   }
 };
 
+export const formatTimeVN = (dateOrStr?: Date | string | null): string => {
+  if (!dateOrStr) return '';
+  try {
+    const d = typeof dateOrStr === 'string' ? new Date(dateOrStr) : dateOrStr;
+    if (isNaN(d.getTime())) return typeof dateOrStr === 'string' ? dateOrStr : '';
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  } catch {
+    return '';
+  }
+};
+
+

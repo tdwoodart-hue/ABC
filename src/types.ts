@@ -89,6 +89,21 @@ export interface SavingsGoal {
   createdAt: string;
 }
 
+export interface WakeUpLog {
+  id: string; // Date string: YYYY-MM-DD
+  date: string; // YYYY-MM-DD
+  winnerUid: string;
+  winnerName: string;
+  winnerTime: string; // e.g. "06:30" or full time string
+  loserUid: string;
+  loserName: string;
+  loserWokeUpAt?: string; // Optional: when the second person tapped
+  fineAmount: number; // 5000 VND
+  finePaid: boolean;
+  transactionId?: string;
+  createdAt: string;
+}
+
 export interface ImageComment {
   id: string;
   imageIndex: number;
