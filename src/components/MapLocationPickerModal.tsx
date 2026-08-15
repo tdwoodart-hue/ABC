@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MapPin, Search, Navigation, Check, X, Loader2, ExternalLink, Layers } from 'lucide-react';
-import { Loader } from '@googlemaps/js-api-loader';
 
 interface MapLocationPickerModalProps {
   isOpen: boolean;
@@ -305,40 +304,32 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
       }
     };
 
-    // Use Google Maps JS Loader
-    const loader: any = new Loader({
-      apiKey: API_KEY || '',
-      version: 'weekly',
-      libraries: ['places', 'geometry']
-    });
-
-    const loadPromise: Promise<any> = typeof loader.importLibrary === 'function'
-      ? loader.importLibrary('maps')
-      : typeof loader.load === 'function'
-      ? loader.load()
-      : Promise.resolve();
-
-    loadPromise
-      .then(() => {
-        initMap();
-      })
-      .catch((err: any) => {
-        console.warn('Google Maps JS loader warning (switching to interactive fallback):', err);
-        // If Google Maps loader encounters issue, load via script or OSM fallback
-        if (!document.getElementById('google-maps-script')) {
-          const script = document.createElement('script');
-          script.id = 'google-maps-script';
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places`;
-          script.async = true;
-          script.onload = () => initMap();
-          script.onerror = () => {
-            setLoading(false);
-          };
-          document.head.appendChild(script);
+    // Load Google Maps API via script tag
+    if ((window as any).google?.maps) {
+      initMap();
+    } else {
+      const existingScript = document.getElementById('google-maps-script') as HTMLScriptElement | null;
+      if (existingScript) {
+        if ((window as any).google?.maps) {
+          initMap();
         } else {
-          setLoading(false);
+          existingScript.addEventListener('load', () => initMap());
         }
-      });
+      } else {
+        const script = document.createElement('script');
+        script.id = 'google-maps-script';
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places,geometry`;
+        script.async = true;
+        script.onload = () => {
+          initMap();
+        };
+        script.onerror = () => {
+          console.warn('Google Maps script load failed, falling back to basic locator');
+          setLoading(false);
+        };
+        document.head.appendChild(script);
+      }
+    }
 
     return () => {
       googleMapRef.current = null;

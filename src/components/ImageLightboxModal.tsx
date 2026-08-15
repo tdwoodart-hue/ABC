@@ -270,45 +270,45 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
           </div>
         </header>
 
-        {/* Rounded Image Container (White Card Framed, NOT edge-to-edge full width) */}
-        <div className="relative w-full rounded-3xl overflow-hidden bg-white shadow-sm border border-slate-200/80 group shrink-0">
-          <div className="relative w-full flex items-center justify-center bg-slate-100/50">
+        {/* Rounded Image Container (Tightly wraps photo with rounded-3xl and clean border, NO white letterboxing gaps) */}
+        <div className="relative w-full flex justify-center shrink-0">
+          <div className="relative max-w-full rounded-3xl overflow-hidden shadow-sm border border-slate-200/80 group">
             <img
               src={currentImageUrl}
               alt={`Kỷ niệm ${currentIndex + 1}`}
-              className="w-full h-auto max-h-[62vh] sm:max-h-[68vh] object-cover sm:object-contain rounded-3xl"
+              className="max-h-[68vh] sm:max-h-[72vh] w-auto max-w-full object-contain rounded-3xl block"
             />
+
+            {/* Left / Right Floating Navigation Buttons */}
+            {imageList.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={handlePrev}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 hover:bg-black/65 text-white backdrop-blur-xs flex items-center justify-center transition cursor-pointer shadow-md"
+                  title="Ảnh trước"
+                >
+                  <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 hover:bg-black/65 text-white backdrop-blur-xs flex items-center justify-center transition cursor-pointer shadow-md"
+                  title="Ảnh tiếp theo"
+                >
+                  <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
+                </button>
+              </>
+            )}
+
+            {/* Photo indicator (e.g. 1/3) if multiple photos */}
+            {imageList.length > 1 && (
+              <div className="absolute bottom-3 right-3 bg-black/50 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-1 rounded-full">
+                {currentIndex + 1} / {imageList.length}
+              </div>
+            )}
           </div>
-
-          {/* Left / Right Floating Navigation Buttons */}
-          {imageList.length > 1 && (
-            <>
-              <button
-                type="button"
-                onClick={handlePrev}
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 hover:bg-black/65 text-white backdrop-blur-xs flex items-center justify-center transition cursor-pointer shadow-md"
-                title="Ảnh trước"
-              >
-                <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
-              </button>
-
-              <button
-                type="button"
-                onClick={handleNext}
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 hover:bg-black/65 text-white backdrop-blur-xs flex items-center justify-center transition cursor-pointer shadow-md"
-                title="Ảnh tiếp theo"
-              >
-                <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
-              </button>
-            </>
-          )}
-
-          {/* Photo indicator (e.g. 1/3) if multiple photos */}
-          {imageList.length > 1 && (
-            <div className="absolute bottom-3 right-3 bg-black/50 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-1 rounded-full">
-              {currentIndex + 1} / {imageList.length}
-            </div>
-          )}
         </div>
 
         {/* Thumbnail Selector Strip (if multiple photos) */}
