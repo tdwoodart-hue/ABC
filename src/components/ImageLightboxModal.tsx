@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { JournalEntry, UserProfile, ImageComment, CoupleData } from '../types';
 import { formatDateTimeVN, formatDateVN } from '../utils/formatDate';
 import {
@@ -6,9 +6,6 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
   Star,
   MessageSquare,
   Send,
@@ -17,7 +14,11 @@ import {
   MapPin,
   Sparkles,
   Heart,
-  Share2
+  MoreVertical,
+  Reply,
+  Image as ImageIcon,
+  ChevronDown,
+  Camera
 } from 'lucide-react';
 
 interface ImageLightboxModalProps {
@@ -45,19 +46,14 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
   onDeleteImageComment,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
-  const [zoomScale, setZoomScale] = useState(1);
-  const [showComments, setShowComments] = useState(true);
   const [commentText, setCommentText] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [settingMainImage, setSettingMainImage] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+  const [activeMenuCommentId, setActiveMenuCommentId] = useState<string | null>(null);
 
-  // Pan state for dragging zoomed images
-  const [panPosition, setPanPosition] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-
-  const imageList: string[] = React.useMemo(() => {
+  const imageList: string[] = useMemo(() => {
     if (!journal) return [];
     if (journal.images && journal.images.length > 0) {
       return journal.images;
@@ -71,18 +67,17 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
   const currentMainIndex = journal?.mainImageIndex ?? 0;
   const isCurrentMain = currentIndex === currentMainIndex;
 
-  // Sync initialIndex when modal opens or initialIndex changes
+  // Sync index on open
   useEffect(() => {
     if (isOpen) {
       const validIndex = Math.min(Math.max(0, initialIndex), Math.max(0, imageList.length - 1));
       setCurrentIndex(validIndex);
-      setZoomScale(1);
-      setPanPosition({ x: 0, y: 0 });
       setCommentText('');
+      setActiveMenuCommentId(null);
     }
   }, [isOpen, initialIndex, imageList.length]);
 
-  // Keyboard navigation
+  // Keyboard navigation (Arrow keys, Esc)
   useEffect(() => {
     if (!isOpen) return;
 
@@ -93,10 +88,6 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
         handlePrev();
       } else if (e.key === 'ArrowRight') {
         handleNext();
-      } else if (e.key === '+' || e.key === '=') {
-        handleZoomIn();
-      } else if (e.key === '-' || e.key === '_') {
-        handleZoomOut();
       }
     };
 
@@ -109,69 +100,32 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
   const currentImageUrl = imageList[currentIndex] || '';
 
   // Filter image-specific comments
-  const currentImageComments: ImageComment[] = (journal.imageComments || []).filter(
+  const rawComments: ImageComment[] = (journal.imageComments || []).filter(
     (c) => c.imageIndex === currentIndex || (c.imageUrl && c.imageUrl === currentImageUrl)
   );
+
+  const sortedComments = [...rawComments].sort((a, b) => {
+    const timeA = typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : ((a.createdAt as any)?.toMillis?.() || 0);
+    const timeB = typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : ((b.createdAt as any)?.toMillis?.() || 0);
+    return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
+  });
 
   const handlePrev = () => {
     if (currentIndex > 0) {
       setCurrentIndex(prev => prev - 1);
-      setZoomScale(1);
-      setPanPosition({ x: 0, y: 0 });
     } else {
       setCurrentIndex(imageList.length - 1);
-      setZoomScale(1);
-      setPanPosition({ x: 0, y: 0 });
     }
+    setActiveMenuCommentId(null);
   };
 
   const handleNext = () => {
     if (currentIndex < imageList.length - 1) {
       setCurrentIndex(prev => prev + 1);
-      setZoomScale(1);
-      setPanPosition({ x: 0, y: 0 });
     } else {
       setCurrentIndex(0);
-      setZoomScale(1);
-      setPanPosition({ x: 0, y: 0 });
     }
-  };
-
-  const handleZoomIn = () => {
-    setZoomScale(prev => Math.min(prev + 0.3, 3.5));
-  };
-
-  const handleZoomOut = () => {
-    setZoomScale(prev => {
-      const next = Math.max(prev - 0.3, 1);
-      if (next === 1) setPanPosition({ x: 0, y: 0 });
-      return next;
-    });
-  };
-
-  const handleResetZoom = () => {
-    setZoomScale(1);
-    setPanPosition({ x: 0, y: 0 });
-  };
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (zoomScale > 1) {
-      setIsDragging(true);
-      setDragStart({ x: e.clientX - panPosition.x, y: e.clientY - panPosition.y });
-    }
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging && zoomScale > 1) {
-      setPanPosition({
-        x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y
-      });
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
+    setActiveMenuCommentId(null);
   };
 
   const handleSetMain = async () => {
@@ -195,7 +149,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
     try {
       await onAddImageComment(journal.id, currentIndex, currentImageUrl, commentText.trim());
       setCommentText('');
-      showToast('Đã gửi bình luận cho ảnh 💕');
+      showToast('Đã gửi bình luận cho bức ảnh 💕');
     } catch (err) {
       console.error('Lỗi thêm bình luận ảnh:', err);
     } finally {
@@ -206,6 +160,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
   const handleDeleteComment = async (commentId: string) => {
     try {
       await onDeleteImageComment(journal.id, commentId);
+      setActiveMenuCommentId(null);
       showToast('Đã xóa bình luận');
     } catch (err) {
       console.error('Lỗi xóa bình luận ảnh:', err);
@@ -219,405 +174,346 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
     }, 2500);
   };
 
+  // Resolve user avatars & names
+  const isU1 = (coupleData?.user1Id === currentUser.uid) || (coupleData?.user1Uid === currentUser.uid) || (currentUser.email?.toLowerCase().includes('duong'));
+  const s1Uid = coupleData?.user1Id || coupleData?.user1Uid || (isU1 ? currentUser.uid : '');
+  const s1Name = coupleData?.user1Name || (isU1 ? currentUser.displayName : 'Dương');
+  const s1Avatar = coupleData?.user1Avatar || (isU1 ? currentUser.avatarUrl : null) || 'https://api.dicebear.com/7.x/micah/svg?seed=duong_male';
+  const s2Uid = coupleData?.user2Id || coupleData?.user2Uid || (!isU1 ? currentUser.uid : '');
+  const s2Name = coupleData?.user2Name || (!isU1 ? currentUser.displayName : 'Chúc Gà');
+  const s2Avatar = coupleData?.user2Avatar || (!isU1 ? currentUser.avatarUrl : null) || 'https://api.dicebear.com/7.x/micah/svg?seed=chucga_female';
+
   return (
     <div 
-      id="image-fullscreen-page"
-      className="fixed inset-0 z-50 flex flex-col w-screen h-screen bg-slate-950 text-white select-none overflow-hidden"
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      id="image-viewer-page"
+      className="fixed inset-0 z-50 bg-[#F4F6F9] overflow-y-auto select-none"
     >
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-60 px-4 py-2 bg-rose-500 text-white text-xs font-bold rounded-2xl shadow-xl flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-yellow-200" />
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-60 px-4 py-2.5 bg-slate-900 text-white text-xs font-bold rounded-2xl shadow-xl flex items-center gap-2 animate-bounce">
+          <Sparkles className="w-4 h-4 text-amber-400" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Top Header Bar - Full Width Dedicated App Bar */}
-      <header className="w-full shrink-0 z-40 flex items-center justify-between px-3 sm:px-5 py-2.5 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 text-white shadow-md">
-        {/* Left: Back Arrow + Title */}
-        <div className="flex items-center gap-2.5 min-w-0 pr-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 -ml-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition cursor-pointer shrink-0"
-            title="Quay lại (Esc)"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div className="min-w-0">
-            <h3 className="text-sm sm:text-base font-bold text-white truncate max-w-[180px] sm:max-w-md">
-              {journal.title}
-            </h3>
-            <div className="flex items-center gap-2 text-[11px] text-slate-400 font-medium">
-              <span className="flex items-center gap-1">
-                <Calendar className="w-3 h-3 text-rose-400" />
-                {formatDateVN(journal.date)}
-              </span>
-              {journal.location && (
-                <span className="hidden sm:flex items-center gap-1 text-rose-300 bg-rose-950/60 px-2 py-0.5 rounded-md border border-rose-800/60 truncate max-w-xs font-medium">
-                  <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
-                  {journal.location}
-                </span>
-              )}
+      {/* Main Centered Container */}
+      <div className="max-w-2xl mx-auto min-h-screen px-3 sm:px-4 py-3 sm:py-6 flex flex-col">
+        
+        {/* Top Header Bar */}
+        <header className="flex items-center justify-between gap-2 mb-3 sm:mb-4 shrink-0">
+          {/* Left: Back Button + Title + Date */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-10 h-10 rounded-full bg-white hover:bg-slate-100 text-slate-700 shadow-2xs border border-slate-200/80 flex items-center justify-center transition cursor-pointer shrink-0"
+              title="Quay lại"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate leading-tight">
+                {journal.title || 'Chi tiết ảnh kỷ niệm'}
+              </h2>
+              <div className="flex items-center gap-1 text-xs text-slate-500 font-medium mt-0.5">
+                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                <span>{formatDateVN(journal.date)}</span>
+                {journal.location && (
+                  <>
+                    <span className="text-slate-300">•</span>
+                    <span className="truncate max-w-[150px] sm:max-w-xs">{journal.location}</span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Right: Actions Bar */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Main Photo Action Button */}
-          <button
-            id="set-main-image-btn"
-            type="button"
-            onClick={handleSetMain}
-            disabled={settingMainImage}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer shadow-xs ${
-              isCurrentMain
-                ? 'bg-amber-400 text-slate-950 font-bold border border-amber-300'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
-            }`}
-            title={isCurrentMain ? 'Đây là ảnh chính của kỷ niệm' : 'Bấm để đặt làm ảnh chính'}
-          >
-            <Star className={`w-3.5 h-3.5 ${isCurrentMain ? 'fill-slate-950 text-slate-950' : 'text-amber-400'}`} />
-            <span className="hidden sm:inline">
-              {isCurrentMain ? 'Ảnh chính ⭐' : 'Đặt làm ảnh chính'}
-            </span>
-          </button>
+          {/* Right: Actions */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Main Photo Badge/Button */}
+            <button
+              type="button"
+              onClick={handleSetMain}
+              disabled={settingMainImage}
+              className={`flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-2xl text-xs font-bold transition cursor-pointer shadow-2xs ${
+                isCurrentMain
+                  ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200'
+              }`}
+              title={isCurrentMain ? 'Đây là ảnh chính' : 'Bấm để đặt làm ảnh chính'}
+            >
+              <Star className={`w-3.5 h-3.5 ${isCurrentMain ? 'fill-amber-500 text-amber-500' : 'text-amber-500'}`} />
+              <span className="whitespace-nowrap">Ảnh chính</span>
+            </button>
 
-          {/* Toggle Comments Button */}
-          <button
-            id="toggle-comments-btn"
-            type="button"
-            onClick={() => setShowComments(!showComments)}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer shadow-xs ${
-              showComments
-                ? 'bg-rose-500 text-white font-bold border border-rose-400 shadow-sm shadow-rose-500/30'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
-            }`}
-            title="Bình luận riêng cho ảnh"
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Bình luận</span>
-            {currentImageComments.length > 0 && (
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                showComments ? 'bg-white text-rose-600' : 'bg-rose-500 text-white'
-              }`}>
-                {currentImageComments.length}
+            {/* Comments Counter Pill */}
+            <div 
+              className="flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-2xl text-xs font-bold bg-rose-50 text-rose-600 border border-rose-100 shadow-2xs"
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-rose-500" />
+              <span className="whitespace-nowrap">Bình luận</span>
+              <span className="w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] flex items-center justify-center font-bold">
+                {rawComments.length}
               </span>
-            )}
-          </button>
+            </div>
 
-          {/* Close Button */}
-          <button
-            id="close-lightbox-btn"
-            type="button"
-            onClick={onClose}
-            className="p-2 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white rounded-full transition cursor-pointer border border-slate-700"
-            title="Đóng (Esc)"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      </header>
+            {/* Close / More Button */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-9 h-9 rounded-full bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 shadow-2xs border border-slate-200/80 flex items-center justify-center transition cursor-pointer shrink-0"
+              title="Đóng"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </header>
 
-      {/* Main Dedicated Stage: Full Viewport Image Area + Side Comments Panel */}
-      <div className="flex-1 flex flex-col md:flex-row relative overflow-hidden w-full h-full">
-        
-        {/* Central / Full-Screen Image Viewport */}
-        <div 
-          className="flex-1 relative flex items-center justify-center overflow-hidden bg-slate-950 w-full h-full cursor-grab active:cursor-grabbing"
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-        >
-          {/* Main Displayed Image (Natural Size & Aspect Ratio) */}
-          <div 
-            className="relative transition-transform duration-75 flex items-center justify-center max-w-full max-h-full p-2 sm:p-4"
-            style={{
-              transform: `scale(${zoomScale}) translate(${panPosition.x / zoomScale}px, ${panPosition.y / zoomScale}px)`,
-              cursor: zoomScale > 1 ? 'grab' : 'zoom-in'
-            }}
-            onClick={() => {
-              if (zoomScale === 1) handleZoomIn();
-            }}
-          >
+        {/* Rounded Image Container (White Card Framed, NOT edge-to-edge full width) */}
+        <div className="relative w-full rounded-3xl overflow-hidden bg-white shadow-sm border border-slate-200/80 group shrink-0">
+          <div className="relative w-full flex items-center justify-center bg-slate-100/50">
             <img
               src={currentImageUrl}
-              alt={`Photo ${currentIndex + 1}`}
-              className="max-h-[calc(100vh-140px)] max-w-full object-contain rounded-xl shadow-2xl transition-all duration-150"
-              draggable={false}
+              alt={`Kỷ niệm ${currentIndex + 1}`}
+              className="w-full h-auto max-h-[62vh] sm:max-h-[68vh] object-cover sm:object-contain rounded-3xl"
             />
-
-            {/* Main Badge Overlay */}
-            {isCurrentMain && (
-              <div className="absolute top-5 left-5 bg-amber-400 text-slate-950 font-black text-xs px-3 py-1 rounded-full shadow-lg flex items-center gap-1.5 pointer-events-none border border-amber-300">
-                <Star className="w-3.5 h-3.5 fill-slate-950" />
-                <span>ẢNH CHÍNH</span>
-              </div>
-            )}
           </div>
 
-          {/* Navigation Arrows (Prev / Next) */}
+          {/* Left / Right Floating Navigation Buttons */}
           {imageList.length > 1 && (
             <>
               <button
-                id="lightbox-prev-btn"
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handlePrev();
-                }}
-                className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 p-2.5 sm:p-3 rounded-full bg-slate-900/80 hover:bg-rose-500 text-white backdrop-blur-md border border-slate-700/80 transition cursor-pointer shadow-xl z-30"
-                title="Ảnh trước (Mũi tên trái)"
+                onClick={handlePrev}
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 hover:bg-black/65 text-white backdrop-blur-xs flex items-center justify-center transition cursor-pointer shadow-md"
+                title="Ảnh trước"
               >
                 <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
 
               <button
-                id="lightbox-next-btn"
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleNext();
-                }}
-                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-2.5 sm:p-3 rounded-full bg-slate-900/80 hover:bg-rose-500 text-white backdrop-blur-md border border-slate-700/80 transition cursor-pointer shadow-xl z-30"
-                title="Ảnh tiếp theo (Mũi tên phải)"
+                onClick={handleNext}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 hover:bg-black/65 text-white backdrop-blur-xs flex items-center justify-center transition cursor-pointer shadow-md"
+                title="Ảnh tiếp theo"
               >
                 <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             </>
           )}
 
-          {/* Floating Zoom & Page Counter Control Bar */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 sm:gap-2 px-3 py-1.5 bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-700 text-white text-xs shadow-xl">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleZoomOut();
-              }}
-              disabled={zoomScale <= 1}
-              className="p-1.5 hover:bg-slate-800 hover:text-rose-400 rounded-xl transition cursor-pointer disabled:opacity-30"
-              title="Thu nhỏ"
-            >
-              <ZoomOut className="w-4 h-4" />
-            </button>
-
-            <span className="font-mono font-bold text-[11px] px-1 text-slate-200">
-              {Math.round(zoomScale * 100)}%
-            </span>
-
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleZoomIn();
-              }}
-              disabled={zoomScale >= 3.5}
-              className="p-1.5 hover:bg-slate-800 hover:text-rose-400 rounded-xl transition cursor-pointer disabled:opacity-30"
-              title="Phóng to"
-            >
-              <ZoomIn className="w-4 h-4" />
-            </button>
-
-            {zoomScale > 1 && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleResetZoom();
-                }}
-                className="p-1.5 hover:bg-slate-800 text-rose-400 rounded-xl transition cursor-pointer"
-                title="Về kích thước chuẩn"
-              >
-                <RotateCcw className="w-4 h-4" />
-              </button>
-            )}
-
-            <div className="h-3 w-px bg-slate-700 mx-1" />
-
-            <span className="font-bold text-slate-300 text-[11px]">
+          {/* Photo indicator (e.g. 1/3) if multiple photos */}
+          {imageList.length > 1 && (
+            <div className="absolute bottom-3 right-3 bg-black/50 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-1 rounded-full">
               {currentIndex + 1} / {imageList.length}
-            </span>
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* Dedicated Comments Panel: Side on Desktop, Bottom Sheet on Mobile */}
-        {showComments && (
-          <div className="w-full md:w-80 lg:w-96 bg-white text-slate-900 flex flex-col border-t md:border-t-0 md:border-l border-slate-200 h-[45vh] md:h-full shrink-0 z-40 shadow-2xl overflow-hidden">
-            {/* Drawer Header */}
-            <div className="p-3.5 border-b border-rose-100 flex items-center justify-between bg-rose-50/70 shrink-0">
-              <div className="flex items-center gap-2 text-slate-800">
-                <div className="w-7 h-7 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-500">
-                  <MessageSquare className="w-4 h-4" />
-                </div>
-                <span className="font-bold text-sm">Bình luận ảnh ({currentIndex + 1}/{imageList.length})</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowComments(false)}
-                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg transition cursor-pointer"
-                title="Ẩn bình luận"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Comments List */}
-            <div className="flex-1 p-3.5 space-y-2.5 overflow-y-auto bg-slate-50/60">
-              {currentImageComments.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-2 text-slate-400">
-                  <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shadow-2xs">
-                    <Heart className="w-6 h-6 fill-rose-100 text-rose-500" />
-                  </div>
-                  <p className="text-xs font-bold text-slate-700">Chưa có bình luận cho ảnh này</p>
-                  <p className="text-[11px] text-slate-500 leading-relaxed max-w-xs">
-                    Hãy là người đầu tiên để lại lời nhắn yêu thương cho bức ảnh kỷ niệm này nhé!
-                  </p>
-                </div>
-              ) : (
-                currentImageComments.map((comment) => {
-                  const isU1 = (coupleData?.user1Id === currentUser.uid) || (coupleData?.user1Uid === currentUser.uid) || (currentUser.email?.toLowerCase().includes('duong'));
-                  const s1Uid = coupleData?.user1Id || coupleData?.user1Uid || (isU1 ? currentUser.uid : '');
-                  const s1Name = coupleData?.user1Name || (isU1 ? currentUser.displayName : 'Dương');
-                  const s1Avatar = coupleData?.user1Avatar || (isU1 ? currentUser.avatarUrl : null) || 'https://api.dicebear.com/7.x/micah/svg?seed=duong_male';
-                  const s2Uid = coupleData?.user2Id || coupleData?.user2Uid || (!isU1 ? currentUser.uid : '');
-                  const s2Name = coupleData?.user2Name || (!isU1 ? currentUser.displayName : 'Chúc Gà');
-                  const s2Avatar = coupleData?.user2Avatar || (!isU1 ? currentUser.avatarUrl : null) || 'https://api.dicebear.com/7.x/micah/svg?seed=chucga_female';
-
-                  let cName = comment.authorName;
-                  let cAvatar = `https://api.dicebear.com/7.x/micah/svg?seed=${comment.authorUid || 'user'}`;
-                  let isMe = comment.authorUid === currentUser.uid;
-
-                  if (comment.authorUid === currentUser.uid) {
-                    cName = currentUser.displayName || (isU1 ? s1Name : s2Name);
-                    cAvatar = currentUser.avatarUrl || (isU1 ? s1Avatar : s2Avatar);
-                    isMe = true;
-                  } else if (comment.authorUid === s1Uid) {
-                    cName = s1Name;
-                    cAvatar = s1Avatar;
-                    isMe = isU1;
-                  } else if (comment.authorUid === s2Uid) {
-                    cName = s2Name;
-                    cAvatar = s2Avatar;
-                    isMe = !isU1;
-                  } else if (comment.authorName?.toLowerCase().includes('dương') || comment.authorName?.toLowerCase().includes('duong')) {
-                    cName = s1Name;
-                    cAvatar = s1Avatar;
-                    isMe = isU1;
-                  } else if (comment.authorName?.toLowerCase().includes('chúc') || comment.authorName?.toLowerCase().includes('chuc')) {
-                    cName = s2Name;
-                    cAvatar = s2Avatar;
-                    isMe = !isU1;
-                  }
-
-                  return (
-                    <div 
-                      key={comment.id} 
-                      className="p-3 bg-white hover:bg-rose-50/30 rounded-2xl border border-slate-200/80 shadow-2xs space-y-1.5 group transition"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-rose-100 border border-rose-200 overflow-hidden shrink-0">
-                            <img
-                              src={cAvatar}
-                              alt={cName}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          <span className="text-xs font-bold text-slate-800">
-                            {cName}
-                          </span>
-                          {isMe && (
-                            <span className="text-[9px] px-1.5 py-0.2 bg-rose-100 text-rose-700 rounded-md font-bold">
-                              Bạn
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-slate-400 font-medium">
-                            {formatDateTimeVN(comment.createdAt)}
-                          </span>
-                          {(isMe || journal.authorUid === currentUser.uid) && (
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteComment(comment.id)}
-                              className="p-1 text-slate-400 hover:text-rose-600 transition opacity-80 group-hover:opacity-100 cursor-pointer"
-                              title="Xóa bình luận"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      <p className="text-xs text-slate-700 pl-8 leading-relaxed break-words whitespace-pre-line font-normal">
-                        {comment.content}
-                      </p>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Comment Input Form */}
-            <form onSubmit={handleSendComment} className="p-3 bg-white border-t border-rose-100 flex items-center gap-2 shadow-xs shrink-0">
-              <input
-                type="text"
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Viết bình luận cho bức ảnh này..."
-                className="flex-1 px-3.5 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-rose-400 focus:bg-white transition"
-              />
-              <button
-                type="submit"
-                disabled={!commentText.trim() || submittingComment}
-                className="p-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl transition cursor-pointer disabled:opacity-40 shadow-sm"
-                title="Gửi bình luận"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </form>
-          </div>
-        )}
-      </div>
-
-      {/* Bottom Thumbnail Strip for Multi-image memories */}
-      {imageList.length > 1 && !showComments && (
-        <div className="w-full shrink-0 z-30 p-2 bg-slate-900/80 backdrop-blur-md border-t border-slate-800 flex items-center justify-center">
-          <div className="flex items-center gap-2 overflow-x-auto max-w-full px-2 py-1">
+        {/* Thumbnail Selector Strip (if multiple photos) */}
+        {imageList.length > 1 && (
+          <div className="flex items-center gap-2 overflow-x-auto py-2.5 px-1 mt-1">
             {imageList.map((img, idx) => {
-              const isMain = idx === currentMainIndex;
               const isSelected = idx === currentIndex;
               return (
                 <button
                   key={idx}
                   type="button"
-                  onClick={() => {
-                    setCurrentIndex(idx);
-                    setZoomScale(1);
-                    setPanPosition({ x: 0, y: 0 });
-                  }}
-                  className={`relative w-12 h-12 rounded-xl overflow-hidden shrink-0 border-2 transition cursor-pointer ${
+                  onClick={() => setCurrentIndex(idx)}
+                  className={`relative w-14 h-14 rounded-2xl overflow-hidden shrink-0 border-2 transition cursor-pointer ${
                     isSelected
-                      ? 'border-rose-500 scale-105 shadow-md shadow-rose-500/30 ring-2 ring-rose-400'
-                      : 'border-slate-700 opacity-60 hover:opacity-100 hover:border-slate-500'
+                      ? 'border-rose-500 shadow-md ring-2 ring-rose-300 scale-105'
+                      : 'border-white opacity-60 hover:opacity-100 hover:border-slate-300'
                   }`}
                 >
-                  <img src={img} alt={`Thumb ${idx}`} className="w-full h-full object-cover" />
-                  {isMain && (
-                    <div className="absolute top-0.5 right-0.5 bg-amber-400 p-0.5 rounded-full shadow-xs">
-                      <Star className="w-2.5 h-2.5 fill-slate-950 text-slate-950" />
+                  <img src={img} alt={`Thumbnail ${idx}`} className="w-full h-full object-cover" />
+                  {idx === currentMainIndex && (
+                    <div className="absolute top-1 right-1 bg-amber-400 p-0.5 rounded-full shadow-xs">
+                      <Star className="w-2.5 h-2.5 fill-slate-900 text-slate-900" />
                     </div>
                   )}
                 </button>
               );
             })}
           </div>
+        )}
+
+        {/* Comments Section */}
+        <div className="mt-4 sm:mt-5 flex-1 flex flex-col">
+          {/* Comments Header Bar */}
+          <div className="flex items-center justify-between mb-3 px-1">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center">
+                <MessageSquare className="w-4 h-4" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-900">
+                Bình luận ({rawComments.length})
+              </h3>
+            </div>
+
+            {/* Sort order toggle */}
+            <button
+              type="button"
+              onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
+              className="flex items-center gap-1 text-xs font-semibold text-slate-600 bg-white border border-slate-200/80 px-2.5 py-1 rounded-xl shadow-2xs hover:bg-slate-50 transition cursor-pointer"
+            >
+              <span>{sortOrder === 'newest' ? 'Mới nhất' : 'Cũ nhất'}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+          </div>
+
+          {/* Comments List Cards */}
+          <div className="space-y-2.5 flex-1">
+            {sortedComments.length === 0 ? (
+              <div className="p-8 bg-white rounded-3xl border border-slate-200/60 text-center space-y-2">
+                <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-400 flex items-center justify-center mx-auto">
+                  <Heart className="w-6 h-6 fill-rose-100" />
+                </div>
+                <p className="text-xs font-bold text-slate-700">Chưa có bình luận cho ảnh này</p>
+                <p className="text-[11px] text-slate-400">
+                  Hãy gửi lời nhắn hoặc cảm xúc của bạn về khoảnh khắc này ở khung bên dưới nhé!
+                </p>
+              </div>
+            ) : (
+              sortedComments.map((comment) => {
+                let cName = comment.authorName;
+                let cAvatar = `https://api.dicebear.com/7.x/micah/svg?seed=${comment.authorUid || 'user'}`;
+                let isMe = comment.authorUid === currentUser.uid;
+
+                if (comment.authorUid === currentUser.uid) {
+                  cName = currentUser.displayName || (isU1 ? s1Name : s2Name);
+                  cAvatar = currentUser.avatarUrl || (isU1 ? s1Avatar : s2Avatar);
+                  isMe = true;
+                } else if (comment.authorUid === s1Uid) {
+                  cName = s1Name;
+                  cAvatar = s1Avatar;
+                  isMe = isU1;
+                } else if (comment.authorUid === s2Uid) {
+                  cName = s2Name;
+                  cAvatar = s2Avatar;
+                  isMe = !isU1;
+                } else if (comment.authorName?.toLowerCase().includes('dương') || comment.authorName?.toLowerCase().includes('duong')) {
+                  cName = s1Name;
+                  cAvatar = s1Avatar;
+                  isMe = isU1;
+                } else if (comment.authorName?.toLowerCase().includes('chúc') || comment.authorName?.toLowerCase().includes('chuc')) {
+                  cName = s2Name;
+                  cAvatar = s2Avatar;
+                  isMe = !isU1;
+                }
+
+                const isMenuOpen = activeMenuCommentId === comment.id;
+
+                return (
+                  <div
+                    key={comment.id}
+                    className="p-3.5 sm:p-4 bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-2xs space-y-2 relative"
+                  >
+                    <div className="flex items-center justify-between">
+                      {/* Avatar + Author + Badge + Timestamp */}
+                      <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
+                        <div className="w-8 h-8 rounded-full overflow-hidden bg-rose-50 border border-slate-100 shrink-0">
+                          <img
+                            src={cAvatar}
+                            alt={cName}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <span className="text-xs sm:text-sm font-bold text-slate-900">
+                          {cName}
+                        </span>
+                        {isMe && (
+                          <span className="text-[10px] px-2 py-0.5 bg-rose-50 text-rose-600 rounded-full font-bold">
+                            Bạn
+                          </span>
+                        )}
+                        <span className="text-[11px] text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full font-medium">
+                          {formatDateTimeVN(comment.createdAt)}
+                        </span>
+                      </div>
+
+                      {/* Reply & Options Icons */}
+                      <div className="flex items-center gap-1 relative">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCommentText(`@${cName}: `);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full transition cursor-pointer"
+                          title="Trả lời"
+                        >
+                          <Reply className="w-4 h-4" />
+                        </button>
+
+                        {(isMe || journal.authorUid === currentUser.uid) && (
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={() => setActiveMenuCommentId(isMenuOpen ? null : comment.id)}
+                              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-full transition cursor-pointer"
+                              title="Tùy chọn"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+
+                            {/* Dropdown menu for deleting */}
+                            {isMenuOpen && (
+                              <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-30 min-w-[120px]">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteComment(comment.id)}
+                                  className="w-full px-3 py-1.5 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-1.5 cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Xóa bình luận</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Comment Content */}
+                    <p className="text-xs sm:text-sm text-slate-700 leading-relaxed break-words whitespace-pre-line pl-1">
+                      {comment.content}
+                    </p>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Bottom Comment Input Bar */}
+          <form
+            onSubmit={handleSendComment}
+            className="sticky bottom-3 mt-4 p-2 bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-md flex items-center gap-2"
+          >
+            <input
+              type="text"
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder="Viết bình luận cho bức ảnh này..."
+              className="flex-1 px-3 py-2 bg-transparent text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none"
+            />
+
+            <div className="p-2 text-slate-400 hover:text-slate-600 transition cursor-pointer shrink-0">
+              <ImageIcon className="w-5 h-5" />
+            </div>
+
+            <button
+              type="submit"
+              disabled={!commentText.trim() || submittingComment}
+              className="w-10 h-10 rounded-2xl bg-rose-500 hover:bg-rose-600 active:scale-95 text-white flex items-center justify-center transition cursor-pointer shadow-md shadow-rose-500/25 disabled:opacity-40 disabled:pointer-events-none shrink-0"
+              title="Gửi bình luận"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </form>
         </div>
-      )}
+
+      </div>
     </div>
   );
 };
