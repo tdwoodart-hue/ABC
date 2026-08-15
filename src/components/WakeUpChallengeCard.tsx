@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { UserProfile, CoupleData, WakeUpLog } from '../types';
 import { db, doc, setDoc, addDoc, collection, updateDoc } from '../lib/firebase';
-import { Sun, Award, Clock, DollarSign, Sparkles, Coffee, AlertCircle, CheckCircle2, ChevronRight } from 'lucide-react';
-import { formatDateShortVN, formatTimeVN } from '../utils/formatDate';
+import { Sun, Award, Clock, Sparkles, Coffee, CheckCircle2, ChevronRight, Trophy } from 'lucide-react';
+import { formatDateShortVN } from '../utils/formatDate';
 
 interface WakeUpChallengeCardProps {
   userProfile: UserProfile;
@@ -97,7 +97,7 @@ export const WakeUpChallengeCard: React.FC<WakeUpChallengeCardProps> = ({
       });
 
       setShowCelebration(true);
-      setTimeout(() => setShowCelebration(false), 4000);
+      setTimeout(() => setShowCelebration(false), 3500);
     } catch (err) {
       console.error('Lỗi điểm danh dậy sớm:', err);
       alert('Không thể ghi nhận điểm danh dậy sớm. Vui lòng thử lại!');
@@ -127,32 +127,31 @@ export const WakeUpChallengeCard: React.FC<WakeUpChallengeCardProps> = ({
   const totalFines = allLogs.length * 5000;
 
   const isWinnerToday = todayLog?.winnerUid === myUid;
-  const isLoserToday = todayLog && todayLog.winnerUid !== myUid;
 
   if (compact) {
-    // Compact widget for quick home action
+    // Synchronized Clean White / Rose Widget for Home Screen
     return (
-      <div className="bg-gradient-to-br from-amber-500/10 via-rose-500/5 to-amber-500/5 rounded-3xl p-4 border border-amber-200/80 shadow-xs relative overflow-hidden">
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 hover:border-rose-300 transition-all shadow-xs relative overflow-hidden space-y-3">
         {showCelebration && (
-          <div className="absolute inset-0 bg-amber-500/90 backdrop-blur-xs flex flex-col items-center justify-center text-white z-20 animate-fadeIn p-4 text-center">
-            <Sparkles className="w-8 h-8 text-yellow-200 animate-bounce mb-1" />
+          <div className="absolute inset-0 bg-rose-500/95 backdrop-blur-xs flex flex-col items-center justify-center text-white z-20 animate-fadeIn p-4 text-center">
+            <Sparkles className="w-7 h-7 text-pink-200 animate-bounce mb-1" />
             <p className="font-bold text-sm">🎉 Bạn đã dậy sớm nhất hôm nay!</p>
-            <p className="text-xs opacity-90">{partnerName} sẽ đóng 5.000đ vào quỹ chung nhé ☕</p>
+            <p className="text-xs opacity-90">{partnerName} đã được ghi nhận đóng 5.000đ vào quỹ ☕</p>
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-2 mb-2.5">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
-              <Sun className="w-4 h-4" />
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
+              <Sun className="w-5 h-5 text-rose-500" />
             </div>
             <div>
-              <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                Ai Dậy Sớm Hơn?
-                <span className="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold">
-                  Phạt 5.000đ/ngày
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-slate-800">Ai Dậy Sớm Hơn?</span>
+                <span className="px-2 py-0.5 bg-rose-50 text-rose-600 border border-rose-200/60 rounded-full text-[10px] font-semibold">
+                  Phạt 5k/ngày
                 </span>
-              </h4>
+              </div>
               <p className="text-[11px] text-slate-500">Ai dậy trước bấm trước, người dậy sau đóng quỹ</p>
             </div>
           </div>
@@ -161,7 +160,7 @@ export const WakeUpChallengeCard: React.FC<WakeUpChallengeCardProps> = ({
             <button
               type="button"
               onClick={onNavigateToFinance}
-              className="text-xs font-semibold text-amber-700 hover:text-amber-900 flex items-center gap-0.5 cursor-pointer"
+              className="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-0.5 cursor-pointer shrink-0"
             >
               <span>Xem quỹ</span>
               <ChevronRight className="w-3.5 h-3.5" />
@@ -170,46 +169,48 @@ export const WakeUpChallengeCard: React.FC<WakeUpChallengeCardProps> = ({
         </div>
 
         {!todayLog ? (
-          <div className="bg-white/80 backdrop-blur-xs rounded-2xl p-3 border border-amber-200/60 flex items-center justify-between gap-3">
-            <div className="text-xs text-slate-600">
-              <p className="font-semibold text-slate-800">Hôm nay chưa ai điểm danh</p>
-              <p className="text-[11px] text-slate-400">Bấm ngay để giành chiến thắng hôm nay!</p>
+          <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between gap-3">
+            <div className="text-xs text-slate-600 min-w-0">
+              <p className="font-semibold text-slate-800 truncate">Hôm nay chưa ai điểm danh</p>
+              <p className="text-[11px] text-slate-400 truncate">Bấm ngay để giành chiến thắng hôm nay!</p>
             </div>
             <button
               type="button"
               onClick={handleCheckInWakeUp}
               disabled={loading}
-              className="px-4 py-2 bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 text-white font-bold text-xs rounded-xl shadow-md shadow-amber-500/20 active:scale-95 transition flex items-center gap-1.5 cursor-pointer shrink-0"
+              className="px-3.5 py-2 bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer shrink-0"
             >
-              <Sun className="w-4 h-4" />
+              <Sun className="w-3.5 h-3.5" />
               <span>☀️ Tôi Đã Dậy Rồi!</span>
             </button>
           </div>
         ) : (
-          <div className="bg-white/90 rounded-2xl p-3 border border-amber-200/60 space-y-2">
+          <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2">
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                 <span className="font-bold text-slate-800">
-                  {isWinnerToday ? '🏆 Bạn đã dậy trước lúc ' + todayLog.winnerTime : `🏆 ${todayLog.winnerName} đã dậy lúc ${todayLog.winnerTime}`}
+                  {isWinnerToday
+                    ? `🏆 Bạn đã dậy trước lúc ${todayLog.winnerTime}`
+                    : `🏆 ${todayLog.winnerName} đã dậy lúc ${todayLog.winnerTime}`}
                 </span>
               </div>
-              <span className="text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
+              <span className="text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-200/80 px-2 py-0.5 rounded-full">
                 +5.000đ vào quỹ
               </span>
             </div>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-slate-500 leading-relaxed">
               {isWinnerToday
-                ? `👉 ${partnerName} dậy muộn hơn và đã được ghi nhận đóng 5.000đ vào quỹ tài chính chung!`
-                : `👉 Bạn dậy muộn hơn nên đã đóng 5.000đ vào quỹ chung cho ngày hôm nay.`}
+                ? `👉 ${partnerName} dậy muộn hơn và đã tự động đóng 5.000đ vào quỹ chung!`
+                : `👉 Bạn dậy muộn hơn nên đã đóng 5.000đ vào quỹ chung hôm nay.`}
             </p>
             {!isWinnerToday && !todayLog.loserWokeUpAt && (
               <button
                 type="button"
                 onClick={handleSecondPersonWakeUp}
-                className="w-full mt-1 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1"
+                className="w-full mt-1 py-1.5 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-slate-700 hover:text-rose-600 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1 shadow-2xs"
               >
-                <Coffee className="w-3.5 h-3.5" />
+                <Coffee className="w-3.5 h-3.5 text-rose-500" />
                 <span>Tôi cũng vừa dậy lúc này ({currentTimeStr})</span>
               </button>
             )}
@@ -219,33 +220,33 @@ export const WakeUpChallengeCard: React.FC<WakeUpChallengeCardProps> = ({
     );
   }
 
-  // Full detailed card (for Finance tab and detailed modal)
+  // Full detailed card in Finance Tab (Clean white theme matching overall dashboard)
   return (
-    <div className="bg-gradient-to-br from-amber-50 via-white to-rose-50/40 rounded-3xl p-4 sm:p-5 border border-amber-200 shadow-sm space-y-4 relative overflow-hidden">
+    <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4 relative overflow-hidden">
       {showCelebration && (
-        <div className="absolute inset-0 bg-amber-500/90 backdrop-blur-xs flex flex-col items-center justify-center text-white z-20 animate-fadeIn p-4 text-center">
-          <Sparkles className="w-10 h-10 text-yellow-200 animate-bounce mb-2" />
-          <h3 className="font-extrabold text-lg">🎉 Bạn đã dậy sớm nhất hôm nay!</h3>
+        <div className="absolute inset-0 bg-rose-500/95 backdrop-blur-xs flex flex-col items-center justify-center text-white z-20 animate-fadeIn p-4 text-center">
+          <Sparkles className="w-8 h-8 text-pink-200 animate-bounce mb-2" />
+          <h3 className="font-bold text-base">🎉 Bạn đã dậy sớm nhất hôm nay!</h3>
           <p className="text-xs opacity-90 mt-1">
-            Đã ghi nhận chiến thắng lúc {currentTimeStr} & cộng 5.000đ phạt từ {partnerName} vào quỹ chung!
+            Đã ghi nhận lúc {currentTimeStr} & cộng 5.000đ phạt từ {partnerName} vào quỹ chung!
           </p>
         </div>
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 text-white flex items-center justify-center shadow-md shadow-amber-500/25">
-            <Sun className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
+            <Sun className="w-5 h-5 text-rose-500" />
           </div>
           <div>
-            <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-              Thử Thách Dậy Sớm
-              <span className="text-[11px] bg-amber-100 text-amber-900 border border-amber-200 px-2.5 py-0.5 rounded-full font-bold">
-                5.000đ / ngày
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs sm:text-sm font-bold text-slate-800">Thử Thách Dậy Sớm</h3>
+              <span className="px-2 py-0.5 bg-rose-50 text-rose-600 border border-rose-200/60 rounded-full text-[10px] font-semibold">
+                Phạt 5.000đ/ngày
               </span>
-            </h3>
-            <p className="text-xs text-slate-500">
+            </div>
+            <p className="text-[11px] text-slate-500">
               Ai dậy sớm bấm trước = Thắng 🏆 • Người dậy muộn = Đóng 5k vào quỹ
             </p>
           </div>
@@ -253,71 +254,71 @@ export const WakeUpChallengeCard: React.FC<WakeUpChallengeCardProps> = ({
       </div>
 
       {/* Scoreboard / Stats Bar */}
-      <div className="grid grid-cols-3 gap-2 bg-white rounded-2xl p-3 border border-slate-200/80 shadow-2xs">
+      <div className="grid grid-cols-3 gap-2 bg-slate-50 rounded-xl p-3 border border-slate-200/60">
         <div className="text-center">
-          <p className="text-[11px] text-slate-400 font-medium">🏆 {myName}</p>
-          <p className="text-base font-extrabold text-amber-600">{myWins} <span className="text-xs font-normal text-slate-500">lần</span></p>
+          <p className="text-[10px] text-slate-400 font-medium">🏆 {myName}</p>
+          <p className="text-sm sm:text-base font-bold text-slate-800">{myWins} <span className="text-[11px] font-normal text-slate-400">lần</span></p>
         </div>
-        <div className="text-center border-x border-slate-100">
-          <p className="text-[11px] text-slate-400 font-medium">🏆 {partnerName}</p>
-          <p className="text-base font-extrabold text-rose-500">{partnerWins} <span className="text-xs font-normal text-slate-500">lần</span></p>
+        <div className="text-center border-x border-slate-200/60">
+          <p className="text-[10px] text-slate-400 font-medium">🏆 {partnerName}</p>
+          <p className="text-sm sm:text-base font-bold text-slate-800">{partnerWins} <span className="text-[11px] font-normal text-slate-400">lần</span></p>
         </div>
         <div className="text-center">
-          <p className="text-[11px] text-slate-400 font-medium">💰 Quỹ thu được</p>
-          <p className="text-base font-extrabold text-emerald-600">
-            {(totalFines).toLocaleString('vi-VN')} <span className="text-[10px] font-normal text-slate-500">đ</span>
+          <p className="text-[10px] text-slate-400 font-medium">💰 Quỹ thu được</p>
+          <p className="text-sm sm:text-base font-bold text-emerald-600">
+            {totalFines.toLocaleString('vi-VN')} <span className="text-[10px] font-normal text-slate-400">đ</span>
           </p>
         </div>
       </div>
 
       {/* Today status & Action Button */}
-      <div className="p-4 bg-white/90 rounded-2xl border border-amber-200/80 space-y-3">
+      <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-xl space-y-3">
         <div className="flex items-center justify-between text-xs">
-          <span className="font-bold text-slate-700 flex items-center gap-1.5">
-            <Clock className="w-4 h-4 text-amber-500" />
+          <span className="font-semibold text-slate-700 flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-slate-400" />
             Hôm nay: {formatDateShortVN(todayStr)}
           </span>
-          <span className="text-slate-400">Giờ hiện tại: {currentTimeStr}</span>
+          <span className="text-slate-400 text-[11px]">Giờ hiện tại: {currentTimeStr}</span>
         </div>
 
         {!todayLog ? (
-          <div className="space-y-3 text-center py-2">
+          <div className="space-y-2.5 text-center py-1">
             <p className="text-xs text-slate-600 font-medium">
-              Chưa ai điểm danh hôm nay! Bấm nút bên dưới ngay khi vừa thức dậy để không bị phạt nhé:
+              Chưa ai điểm danh hôm nay! Bấm nút bên dưới ngay khi vừa thức dậy để không bị phạt:
             </p>
             <button
               type="button"
               onClick={handleCheckInWakeUp}
               disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-amber-500 via-rose-500 to-amber-500 hover:from-amber-600 hover:to-rose-600 active:scale-98 text-white font-extrabold text-sm rounded-2xl shadow-lg shadow-amber-500/25 transition cursor-pointer flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-rose-500 hover:bg-rose-600 active:scale-98 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer flex items-center justify-center gap-2"
             >
-              <Sun className="w-5 h-5 animate-pulse" />
+              <Sun className="w-4 h-4" />
               <span>☀️ TÔI ĐÃ DẬY RỒI! (ĐIỂM DANH NGAY)</span>
             </button>
           </div>
         ) : (
-          <div className="space-y-2.5">
-            <div className={`p-3 rounded-2xl border flex items-start gap-3 ${
+          <div className="space-y-2">
+            <div className={`p-3 rounded-xl border flex items-start gap-2.5 ${
               isWinnerToday 
                 ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900' 
                 : 'bg-rose-50/70 border-rose-200 text-rose-900'
             }`}>
-              <div className="text-2xl shrink-0 mt-0.5">
+              <div className="text-xl shrink-0">
                 {isWinnerToday ? '🏆' : '😴'}
               </div>
               <div className="flex-1 text-xs">
-                <p className="font-extrabold text-sm">
+                <p className="font-bold text-xs">
                   {isWinnerToday 
                     ? 'Bạn là người dậy sớm nhất hôm nay!' 
                     : `${todayLog.winnerName} đã dậy sớm trước bạn!`}
                 </p>
-                <p className="mt-0.5 opacity-90 leading-relaxed">
+                <p className="mt-0.5 opacity-90 text-[11px] leading-relaxed">
                   {isWinnerToday
-                    ? `Bạn đã bấm dậy lúc ${todayLog.winnerTime}. ${partnerName} dậy muộn hơn và được ghi nhận tự động đóng 5.000đ vào Quỹ chung.`
-                    : `${todayLog.winnerName} đã điểm danh lúc ${todayLog.winnerTime}. Bạn đã bị phạt 5.000đ vào Quỹ chung hôm nay.`}
+                    ? `Bạn đã bấm dậy lúc ${todayLog.winnerTime}. ${partnerName} dậy muộn hơn và đã tự động đóng 5.000đ vào Quỹ chung.`
+                    : `${todayLog.winnerName} đã điểm danh lúc ${todayLog.winnerTime}. Bạn đã đóng phạt 5.000đ vào Quỹ chung hôm nay.`}
                 </p>
                 {todayLog.loserWokeUpAt && (
-                  <p className="text-[11px] text-slate-500 mt-1">
+                  <p className="text-[10px] text-slate-400 mt-1">
                     (Người thứ 2 thức dậy lúc: {todayLog.loserWokeUpAt})
                   </p>
                 )}
@@ -328,10 +329,10 @@ export const WakeUpChallengeCard: React.FC<WakeUpChallengeCardProps> = ({
               <button
                 type="button"
                 onClick={handleSecondPersonWakeUp}
-                className="w-full py-2 bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-900 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5"
+                className="w-full py-2 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-slate-700 hover:text-rose-600 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
               >
-                <Coffee className="w-4 h-4" />
-                <span>Bấm xác nhận: Tôi cũng vừa dậy lúc này ({currentTimeStr})</span>
+                <Coffee className="w-3.5 h-3.5 text-rose-500" />
+                <span>Xác nhận: Tôi cũng vừa dậy lúc này ({currentTimeStr})</span>
               </button>
             )}
           </div>
@@ -342,19 +343,19 @@ export const WakeUpChallengeCard: React.FC<WakeUpChallengeCardProps> = ({
       {allLogs.length > 0 && (
         <div className="space-y-2 pt-1">
           <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-            <Award className="w-3.5 h-3.5 text-amber-500" />
+            <Award className="w-3.5 h-3.5 text-rose-500" />
             Lịch sử dậy sớm gần đây ({allLogs.length} ngày)
           </h4>
-          <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+          <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
             {allLogs.slice(0, 10).map((log) => {
               const iWon = log.winnerUid === myUid;
               return (
                 <div
                   key={log.id}
-                  className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200/80 text-xs shadow-2xs"
+                  className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200/80 text-xs"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-base">{iWon ? '🏆' : '⏰'}</span>
+                    <span className="text-sm">{iWon ? '🏆' : '⏰'}</span>
                     <div>
                       <span className="font-bold text-slate-800">
                         {iWon ? `${myName} (Bạn)` : log.winnerName} dậy sớm
@@ -365,8 +366,8 @@ export const WakeUpChallengeCard: React.FC<WakeUpChallengeCardProps> = ({
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                      +5.000đ vào quỹ
+                    <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                      +5.000đ
                     </span>
                     <p className="text-[10px] text-slate-400 mt-0.5">{formatDateShortVN(log.date)}</p>
                   </div>

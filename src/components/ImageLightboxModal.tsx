@@ -18,7 +18,8 @@ import {
   Reply,
   Image as ImageIcon,
   ChevronDown,
-  Camera
+  Camera,
+  Users
 } from 'lucide-react';
 
 interface ImageLightboxModalProps {
@@ -226,6 +227,23 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                   </>
                 )}
               </div>
+              {journal.taggedPeople && journal.taggedPeople.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1 mt-1">
+                  <span className="text-[10px] text-slate-400 font-medium flex items-center gap-0.5">
+                    <Users className="w-3 h-3 text-rose-500" />
+                    Cùng:
+                  </span>
+                  {journal.taggedPeople.map((p, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-rose-50 border border-rose-100 text-rose-700"
+                    >
+                      <span>{p.emoji || '👤'}</span>
+                      <span>{p.name}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

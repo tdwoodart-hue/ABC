@@ -114,6 +114,26 @@ export interface ImageComment {
   createdAt: string;
 }
 
+export interface Companion {
+  id: string;
+  name: string;
+  type: 'pet' | 'friend' | 'family' | 'other';
+  avatarUrl?: string;
+  emoji?: string; // e.g. '🐱', '🐶', '🐰', '🐾', '🌸'
+  relationship?: string; // e.g. 'Con mèo của chúng mình', 'Bạn thân', 'Em gái'
+  createdByUid?: string;
+  createdByName?: string;
+  createdAt: string;
+}
+
+export interface TaggedPerson {
+  id: string;
+  name: string;
+  type: 'user' | 'pet' | 'friend' | 'family' | 'other';
+  avatarUrl?: string;
+  emoji?: string;
+}
+
 export interface JournalExpense {
   id: string;
   title: string;
@@ -132,6 +152,7 @@ export interface JournalEntry {
   images?: string[]; // Tất cả ảnh đính kèm
   mainImageIndex?: number; // Vị trí ảnh chính trong mảng images
   expenses?: JournalExpense[];
+  taggedPeople?: TaggedPerson[]; // Danh sách người hoặc thú cưng (con mèo, bạn bè...) xuất hiện
   authorName: string;
   authorUid: string;
   createdAt: string;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserProfile, CoupleData, MemoryItem, JournalEntry, JournalComment, JournalExpense, ImageComment, WakeUpLog } from '../types';
+import { UserProfile, CoupleData, MemoryItem, JournalEntry, JournalComment, JournalExpense, ImageComment, WakeUpLog, Companion, TaggedPerson } from '../types';
 import { FinanceTab } from './FinanceTab';
 import { NutritionTab } from './NutritionTab';
 import { AchievementsTab } from './AchievementsTab';
@@ -10,6 +10,8 @@ import { AvatarEditorModal } from './AvatarEditorModal';
 import { VisitedPlacesTracker } from './VisitedPlacesTracker';
 import { CameraCaptureModal } from './CameraCaptureModal';
 import { WakeUpChallengeCard } from './WakeUpChallengeCard';
+import { CompanionManagerModal } from './CompanionManagerModal';
+import { TagPeopleSelector } from './TagPeopleSelector';
 import { formatDateVN, formatDateShortVN } from '../utils/formatDate';
 import { 
   db, 
@@ -73,7 +75,10 @@ import {
   UserCheck,
   Trophy,
   Award,
-  Loader2
+  Loader2,
+  PawPrint,
+  Tag,
+  Users
 } from 'lucide-react';
 
 interface LightHomeScreenProps {
@@ -183,11 +188,17 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const [journalImages, setJournalImages] = useState<string[]>([]);
   const [journalMainImageIndex, setJournalMainImageIndex] = useState(0);
   const [journalExpenses, setJournalExpenses] = useState<JournalExpense[]>([]);
+  const [journalTaggedPeople, setJournalTaggedPeople] = useState<TaggedPerson[]>([]);
   const [newExpenseTitle, setNewExpenseTitle] = useState('');
   const [newExpenseAmount, setNewExpenseAmount] = useState('');
   const [addingJournal, setAddingJournal] = useState(false);
   const [journalSearch, setJournalSearch] = useState('');
+  const [selectedCompanionFilter, setSelectedCompanionFilter] = useState<string | null>(null);
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+
+  // Companions / Special members (Pets, Friends...) State
+  const [companions, setCompanions] = useState<Companion[]>([]);
+  const [isCompanionManagerOpen, setIsCompanionManagerOpen] = useState(false);
 
   // Lightbox & Image Comment Modal State
   const [lightboxJournal, setLightboxJournal] = useState<JournalEntry | null>(null);
@@ -215,6 +226,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const [editImages, setEditImages] = useState<string[]>([]);
   const [editMainImageIndex, setEditMainImageIndex] = useState(0);
   const [editExpenses, setEditExpenses] = useState<JournalExpense[]>([]);
+  const [editTaggedPeople, setEditTaggedPeople] = useState<TaggedPerson[]>([]);
   const [editNewExpenseTitle, setEditNewExpenseTitle] = useState('');
   const [editNewExpenseAmount, setEditNewExpenseAmount] = useState('');
   const [editImageLoading, setEditImageLoading] = useState(false);
@@ -647,11 +659,25 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       console.warn('Error listening to wake up logs:', err);
     });
 
+    // Subscribe to companions / pets collection
+    const compRef = collection(db, 'couples', userProfile.coupleId, 'companions');
+    const qComp = query(compRef, orderBy('createdAt', 'desc'));
+    const unsubscribeComp = onSnapshot(qComp, (snapshot) => {
+      const items: Companion[] = [];
+      snapshot.forEach((d) => {
+        items.push({ id: d.id, ...d.data() } as Companion);
+      });
+      setCompanions(items);
+    }, (err) => {
+      console.warn('Error listening to companions:', err);
+    });
+
     return () => {
       unsubscribeCouple();
       unsubscribeJournals();
       unsubscribeMemories();
       unsubscribeWakeUp();
+      unsubscribeComp();
     };
   }, [userProfile.coupleId]);
 
@@ -810,6 +836,9 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       if (journalExpenses.length > 0) {
         docData.expenses = journalExpenses;
       }
+      if (journalTaggedPeople.length > 0) {
+        docData.taggedPeople = journalTaggedPeople;
+      }
 
       await addDoc(journalsRef, docData);
       setJournalTitle('');
@@ -819,6 +848,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       setJournalImages([]);
       setJournalMainImageIndex(0);
       setJournalExpenses([]);
+      setJournalTaggedPeople([]);
       setNewExpenseTitle('');
       setNewExpenseAmount('');
       setShowAddJournal(false);
@@ -925,6 +955,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     setEditImages(imgs);
     setEditMainImageIndex(item.mainImageIndex || 0);
     setEditExpenses(item.expenses ? [...item.expenses] : []);
+    setEditTaggedPeople(item.taggedPeople ? [...item.taggedPeople] : []);
     setEditNewExpenseTitle('');
     setEditNewExpenseAmount('');
   };
@@ -939,6 +970,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     setEditImages([]);
     setEditMainImageIndex(0);
     setEditExpenses([]);
+    setEditTaggedPeople([]);
     setEditNewExpenseTitle('');
     setEditNewExpenseAmount('');
   };
@@ -1005,6 +1037,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         mainImageIndex: editImages.length > 0 ? selectedMainIdx : deleteField(),
         imageUrl: editImages.length > 0 ? editImages[selectedMainIdx] : deleteField(),
         expenses: editExpenses.length > 0 ? editExpenses : deleteField(),
+        taggedPeople: editTaggedPeople.length > 0 ? editTaggedPeople : deleteField(),
         updatedAt: new Date().toISOString()
       };
       await updateDoc(journalRef, updates);
@@ -1057,13 +1090,25 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     signOut(auth);
   };
 
-  const filteredJournals = journals.filter(j => 
-    j.title.toLowerCase().includes(journalSearch.toLowerCase()) ||
-    (j.content && j.content.toLowerCase().includes(journalSearch.toLowerCase())) ||
-    (j.mood && j.mood.toLowerCase().includes(journalSearch.toLowerCase())) ||
-    (j.location && j.location.toLowerCase().includes(journalSearch.toLowerCase())) ||
-    (j.locationAddress && j.locationAddress.toLowerCase().includes(journalSearch.toLowerCase()))
-  );
+  const filteredJournals = journals.filter(j => {
+    // 1. Companion filter
+    if (selectedCompanionFilter) {
+      const hasTagged = j.taggedPeople?.some(p => p.id === selectedCompanionFilter || p.name.toLowerCase() === selectedCompanionFilter.toLowerCase());
+      if (!hasTagged) return false;
+    }
+
+    // 2. Search text filter
+    if (!journalSearch.trim()) return true;
+    const term = journalSearch.toLowerCase();
+    return (
+      j.title.toLowerCase().includes(term) ||
+      (j.content && j.content.toLowerCase().includes(term)) ||
+      (j.mood && j.mood.toLowerCase().includes(term)) ||
+      (j.location && j.location.toLowerCase().includes(term)) ||
+      (j.locationAddress && j.locationAddress.toLowerCase().includes(term)) ||
+      (j.taggedPeople && j.taggedPeople.some(p => p.name.toLowerCase().includes(term)))
+    );
+  });
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans pb-24">
@@ -1202,13 +1247,30 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
               <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                 Nhật Ký Tình Yêu
               </h2>
-              <button
-                onClick={() => setShowAddJournal(!showAddJournal)}
-                className="flex items-center justify-center gap-1.5 py-2 px-3.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer shrink-0"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Viết nhật ký</span>
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsCompanionManagerOpen(true)}
+                  className="flex items-center justify-center gap-1.5 py-2 px-3 bg-white hover:bg-rose-50 border border-slate-200/80 text-slate-700 hover:text-rose-600 rounded-xl text-xs font-semibold transition cursor-pointer shadow-2xs"
+                  title="Quản lý thú cưng & bạn bè xuất hiện trong kỷ niệm"
+                >
+                  <PawPrint className="w-4 h-4 text-rose-500" />
+                  <span className="hidden sm:inline">Thú cưng & Bạn bè</span>
+                  <span className="sm:hidden">Thú cưng</span>
+                  {companions.length > 0 && (
+                    <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-600 text-[10px] flex items-center justify-center font-bold">
+                      {companions.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowAddJournal(!showAddJournal)}
+                  className="flex items-center justify-center gap-1.5 py-2 px-3.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Viết nhật ký</span>
+                </button>
+              </div>
             </div>
 
             {/* Subtab Toggle: Feed vs Places Visited */}
@@ -1244,12 +1306,52 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
                 type="text"
-                placeholder="Tìm kiếm theo tiêu đề, nội dung, địa điểm đã đi..."
+                placeholder="Tìm kiếm theo tiêu đề, nội dung, địa điểm, tên bạn bè / thú cưng..."
                 value={journalSearch}
                 onChange={(e) => setJournalSearch(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-400 shadow-xs"
               />
             </div>
+
+            {/* Quick Filter Strip for Companions & People */}
+            {companions.length > 0 && (
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                <span className="text-[11px] text-slate-400 font-semibold shrink-0">Lọc theo:</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCompanionFilter(null)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 transition cursor-pointer ${
+                    selectedCompanionFilter === null
+                      ? 'bg-slate-800 text-white'
+                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  Tất cả ({journals.length})
+                </button>
+                {companions.map((comp) => {
+                  const isSelected = selectedCompanionFilter === comp.id;
+                  const count = journals.filter(j => j.taggedPeople?.some(p => p.id === comp.id)).length;
+                  return (
+                    <button
+                      key={comp.id}
+                      type="button"
+                      onClick={() => setSelectedCompanionFilter(isSelected ? null : comp.id)}
+                      className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 transition cursor-pointer flex items-center gap-1 ${
+                        isSelected
+                          ? 'bg-amber-500 text-white shadow-xs'
+                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span>{comp.emoji || '🐾'}</span>
+                      <span>{comp.name}</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-white/30 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Add Journal Form */}
             {showAddJournal && (
@@ -1434,6 +1536,16 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                     className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white"
                   />
                 </div>
+
+                {/* Tag People / Companions in Create */}
+                <TagPeopleSelector
+                  userProfile={userProfile}
+                  coupleData={coupleData}
+                  companions={companions}
+                  selectedTags={journalTaggedPeople}
+                  onChange={setJournalTaggedPeople}
+                  onOpenCompanionManager={() => setIsCompanionManagerOpen(true)}
+                />
 
                 {/* Expenses Section in Create */}
                 <div className="p-3.5 bg-amber-50/60 border border-amber-200/80 rounded-2xl space-y-3">
@@ -1726,6 +1838,16 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                         />
                       </div>
 
+                      {/* Tag People / Companions in Edit Mode */}
+                      <TagPeopleSelector
+                        userProfile={userProfile}
+                        coupleData={coupleData}
+                        companions={companions}
+                        selectedTags={editTaggedPeople}
+                        onChange={setEditTaggedPeople}
+                        onOpenCompanionManager={() => setIsCompanionManagerOpen(true)}
+                      />
+
                       {/* Expense Detail Section inside Edit Form */}
                       <div className="p-4 bg-amber-50/80 border border-amber-200 rounded-2xl space-y-3">
                         <div className="flex items-center justify-between">
@@ -1890,6 +2012,38 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                       <h3 className="text-base font-bold text-slate-900 pt-1">
                         {item.title}
                       </h3>
+
+                      {/* Tagged People / Companions */}
+                      {item.taggedPeople && item.taggedPeople.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                          <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+                            <Users className="w-3.5 h-3.5 text-rose-500" />
+                            Cùng với:
+                          </span>
+                          {item.taggedPeople.map((p, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                if (selectedCompanionFilter === p.id) {
+                                  setSelectedCompanionFilter(null);
+                                } else {
+                                  setSelectedCompanionFilter(p.id);
+                                }
+                              }}
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold transition cursor-pointer ${
+                                selectedCompanionFilter === p.id
+                                  ? 'bg-rose-500 text-white shadow-xs'
+                                  : 'bg-rose-50 border border-rose-100 text-rose-700 hover:bg-rose-100'
+                              }`}
+                              title={`Lọc bài viết có ${p.name}`}
+                            >
+                              <span>{p.emoji || '👤'}</span>
+                              <span>{p.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Location Badge on feed card */}
                       {item.location && (
@@ -2430,6 +2584,60 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                 </div>
               </div>
 
+              {/* Pets & Companions Section */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <PawPrint className="w-4 h-4 text-rose-500" />
+                    <h3 className="text-sm font-bold text-slate-800">Thú Cưng & Bạn Bè Đôi Mình</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCompanionManagerOpen(true)}
+                    className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>+ Quản lý / Thêm</span>
+                  </button>
+                </div>
+
+                {companions.length === 0 ? (
+                  <div className="py-4 text-center text-xs text-slate-400">
+                    <p>Chưa có thú cưng hay bạn bè nào được thêm.</p>
+                    <button
+                      type="button"
+                      onClick={() => setIsCompanionManagerOpen(true)}
+                      className="mt-1.5 text-xs text-rose-500 font-semibold hover:underline"
+                    >
+                      + Thêm mèo cưng / cún cưng ngay
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {companions.map((comp) => (
+                      <div
+                        key={comp.id}
+                        onClick={() => setIsCompanionManagerOpen(true)}
+                        className="flex items-center gap-2.5 p-2.5 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-200/60 cursor-pointer transition"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-lg overflow-hidden shrink-0">
+                          {comp.avatarUrl ? (
+                            <img src={comp.avatarUrl} alt={comp.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span>{comp.emoji || '🐾'}</span>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-xs text-slate-800 truncate">{comp.name}</p>
+                          <p className="text-[10px] text-slate-400 truncate">
+                            {comp.relationship || (comp.type === 'pet' ? 'Thú cưng' : 'Bạn bè')}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Logout Button */}
               <div className="pt-2">
                 <button
@@ -2873,6 +3081,14 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         isOpen={isCameraModalOpen}
         onClose={() => setIsCameraModalOpen(false)}
         onCapture={handleCameraCaptured}
+      />
+
+      {/* Companion & Pet Manager Modal */}
+      <CompanionManagerModal
+        isOpen={isCompanionManagerOpen}
+        onClose={() => setIsCompanionManagerOpen(false)}
+        userProfile={userProfile}
+        companions={companions}
       />
 
       {/* Floating GPS and Photo Notification Toast */}
