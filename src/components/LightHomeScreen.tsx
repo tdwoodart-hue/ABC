@@ -8,6 +8,7 @@ import { MapLocationPickerModal } from './MapLocationPickerModal';
 import { ImageLightboxModal } from './ImageLightboxModal';
 import { AvatarEditorModal } from './AvatarEditorModal';
 import { VisitedPlacesTracker } from './VisitedPlacesTracker';
+import { CameraCaptureModal } from './CameraCaptureModal';
 import { formatDateVN, formatDateShortVN } from '../utils/formatDate';
 import { 
   db, 
@@ -70,7 +71,8 @@ import {
   ArrowLeftRight,
   UserCheck,
   Trophy,
-  Award
+  Award,
+  Loader2
 } from 'lucide-react';
 
 interface LightHomeScreenProps {
@@ -195,6 +197,12 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const [journalViewTab, setJournalViewTab] = useState<'feed' | 'places'>('feed');
   const [isJournalMapPickerOpen, setIsJournalMapPickerOpen] = useState(false);
   const [journalMapTarget, setJournalMapTarget] = useState<'create' | 'edit'>('create');
+
+  // Camera & Live Geolocation Auto-Tagging
+  const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
+  const [cameraModalTarget, setCameraModalTarget] = useState<'journal_create' | 'journal_edit' | 'memory'>('journal_create');
+  const [autoLocatingGPS, setAutoLocatingGPS] = useState(false);
+  const [gpsToast, setGpsToast] = useState<string | null>(null);
 
   // Edit Journal State
   const [editingJournalId, setEditingJournalId] = useState<string | null>(null);
@@ -473,6 +481,79 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
 
   const handleRemoveJournalImage = (index: number) => {
     setJournalImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Camera Live Capture & Automatic GPS Location Tagging
+  const handleCameraCaptured = (dataUrl: string, autoLocation?: string) => {
+    if (cameraModalTarget === 'journal_create') {
+      setJournalImages(prev => [...prev, dataUrl]);
+      if (autoLocation && !journalLocation) {
+        setJournalLocation(autoLocation);
+        setJournalLocationAddress(autoLocation);
+      }
+      setGpsToast(autoLocation ? `Đã chụp ảnh & tự động lưu vị trí: ${autoLocation}` : 'Đã chụp ảnh kỷ niệm thành công!');
+      setTimeout(() => setGpsToast(null), 4000);
+    } else if (cameraModalTarget === 'journal_edit') {
+      setEditImages(prev => [...prev, dataUrl]);
+      if (autoLocation && !editLocation) {
+        setEditLocation(autoLocation);
+        setEditLocationAddress(autoLocation);
+      }
+      setGpsToast(autoLocation ? `Đã chụp ảnh & tự động lưu vị trí: ${autoLocation}` : 'Đã chụp ảnh kỷ niệm thành công!');
+      setTimeout(() => setGpsToast(null), 4000);
+    } else if (cameraModalTarget === 'memory') {
+      setMemoryImageUrl(dataUrl);
+      setGpsToast('Đã chụp ảnh kỷ niệm thành công!');
+      setTimeout(() => setGpsToast(null), 4000);
+    }
+  };
+
+  // One-click GPS auto-detection
+  const handleAutoDetectGPS = (target: 'create' | 'edit') => {
+    if (!navigator.geolocation) {
+      alert('Trình duyệt của bạn không hỗ trợ định vị GPS.');
+      return;
+    }
+    setAutoLocatingGPS(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        try {
+          // Attempt reverse geocoding
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1&accept-language=vi`
+          );
+          if (res.ok) {
+            const data = await res.json();
+            const display = data.display_name || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+            if (target === 'create') {
+              setJournalLocation(display);
+              setJournalLocationAddress(display);
+            } else {
+              setEditLocation(display);
+              setEditLocationAddress(display);
+            }
+            setGpsToast(`Đã tự động định vị vị trí của bạn: ${display}`);
+            setTimeout(() => setGpsToast(null), 4000);
+          } else {
+            const coords = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+            if (target === 'create') setJournalLocation(coords);
+            else setEditLocation(coords);
+          }
+        } catch {
+          const coords = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+          if (target === 'create') setJournalLocation(coords);
+          else setEditLocation(coords);
+        } finally {
+          setAutoLocatingGPS(false);
+        }
+      },
+      (err) => {
+        setAutoLocatingGPS(false);
+        alert('Không thể lấy vị trí GPS: ' + err.message);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   const handleAddExpenseToCreate = () => {
@@ -1166,27 +1247,42 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
 
                 {/* Location Input Field */}
                 <div>
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
                     <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
                       <MapPin className="w-3.5 h-3.5 text-rose-500" />
                       Địa điểm / Nơi hai đứa đã ghé thăm
                       <span className="text-slate-400 font-normal">(Không bắt buộc)</span>
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setJournalMapTarget('create');
-                        setIsJournalMapPickerOpen(true);
-                      }}
-                      className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold underline flex items-center gap-1 cursor-pointer"
-                    >
-                      <Map className="w-3 h-3" />
-                      Chọn trên Google Maps
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleAutoDetectGPS('create')}
+                        disabled={autoLocatingGPS}
+                        className="text-[11px] text-sky-600 hover:text-sky-800 font-semibold flex items-center gap-1 cursor-pointer bg-sky-50 hover:bg-sky-100 px-2 py-0.5 rounded-lg border border-sky-200 transition"
+                      >
+                        {autoLocatingGPS ? (
+                          <Loader2 className="w-3 h-3 animate-spin text-sky-600" />
+                        ) : (
+                          <Navigation className="w-3 h-3 text-sky-600" />
+                        )}
+                        <span>{autoLocatingGPS ? 'Đang lấy vị trí...' : 'Vị trí của tôi'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setJournalMapTarget('create');
+                          setIsJournalMapPickerOpen(true);
+                        }}
+                        className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 cursor-pointer bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-lg border border-rose-200 transition"
+                      >
+                        <MapPin className="w-3 h-3" />
+                        <span>Google Maps</span>
+                      </button>
+                    </div>
                   </div>
                   <input
                     type="text"
-                    placeholder="VD: Đà Lạt - Thung lũng Tình Yêu, Hồ Tây, Phố cổ Hội An..."
+                    placeholder="VD: Yên Tử, Đà Lạt, Hồ Tây, Phố cổ Hội An, Landmark 81..."
                     value={journalLocation}
                     onChange={(e) => setJournalLocation(e.target.value)}
                     className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white"
@@ -1209,20 +1305,34 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1">
-                      Ảnh đính kèm (Có thể chọn nhiều ảnh)
+                      Thêm ảnh kỷ niệm (Chụp trực tiếp hoặc Tải lên)
                     </label>
-                    <label className="flex items-center justify-center gap-2 px-3 py-2 bg-slate-50 hover:bg-rose-50 border border-dashed border-slate-300 hover:border-rose-300 rounded-xl text-xs text-slate-600 font-medium cursor-pointer transition">
-                      <Upload className="w-4 h-4 text-rose-500" />
-                      <span>{journalImageLoading ? 'Đang xử lý ảnh...' : 'Tải lên ảnh (1 hoặc nhiều)'}</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleJournalFileChange}
-                        className="hidden"
-                        disabled={journalImageLoading}
-                      />
-                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCameraModalTarget('journal_create');
+                          setIsCameraModalOpen(true);
+                        }}
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl text-xs text-rose-700 font-bold cursor-pointer transition shadow-2xs"
+                      >
+                        <Camera className="w-4 h-4 text-rose-600" />
+                        <span>Chụp ảnh ngay</span>
+                      </button>
+
+                      <label className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-dashed border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-700 font-semibold cursor-pointer transition">
+                        <Upload className="w-4 h-4 text-slate-500" />
+                        <span>{journalImageLoading ? 'Đang đọc...' : 'Tải từ máy'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handleJournalFileChange}
+                          className="hidden"
+                          disabled={journalImageLoading}
+                        />
+                      </label>
+                    </div>
                   </div>
                 </div>
 
@@ -1422,23 +1532,38 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
 
                       {/* Location input field in Edit Form */}
                       <div>
-                        <div className="flex items-center justify-between mb-1">
+                        <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
                           <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
                             <MapPin className="w-3.5 h-3.5 text-rose-500" />
                             Địa điểm / Nơi hai đứa đã ghé thăm
                           </label>
                           {item.authorUid === userProfile.uid && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setJournalMapTarget('edit');
-                                setIsJournalMapPickerOpen(true);
-                              }}
-                              className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold underline flex items-center gap-1 cursor-pointer"
-                            >
-                              <Map className="w-3 h-3" />
-                              Chọn trên Google Maps
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleAutoDetectGPS('edit')}
+                                disabled={autoLocatingGPS}
+                                className="text-[11px] text-sky-600 hover:text-sky-800 font-semibold flex items-center gap-1 cursor-pointer bg-sky-50 hover:bg-sky-100 px-2 py-0.5 rounded-lg border border-sky-200 transition"
+                              >
+                                {autoLocatingGPS ? (
+                                  <Loader2 className="w-3 h-3 animate-spin text-sky-600" />
+                                ) : (
+                                  <Navigation className="w-3 h-3 text-sky-600" />
+                                )}
+                                <span>{autoLocatingGPS ? 'Đang lấy vị trí...' : 'Vị trí của tôi'}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setJournalMapTarget('edit');
+                                  setIsJournalMapPickerOpen(true);
+                                }}
+                                className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 cursor-pointer bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-lg border border-rose-200 transition"
+                              >
+                                <MapPin className="w-3 h-3" />
+                                <span>Google Maps</span>
+                              </button>
+                            </div>
                           )}
                         </div>
                         <input
@@ -1469,20 +1594,34 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                         {item.authorUid === userProfile.uid && (
                           <div>
                             <label className="block text-xs font-semibold text-slate-600 mb-1">
-                              Thêm ảnh
+                              Thêm ảnh kỷ niệm
                             </label>
-                            <label className="flex items-center justify-center gap-2 px-3 py-2 bg-slate-50 hover:bg-rose-50 border border-dashed border-slate-300 hover:border-rose-300 rounded-xl text-xs text-slate-600 font-medium cursor-pointer transition">
-                              <Upload className="w-4 h-4 text-rose-500" />
-                              <span>{editImageLoading ? 'Đang xử lý ảnh...' : 'Tải thêm ảnh'}</span>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                multiple
-                                onChange={handleEditJournalFileChange}
-                                className="hidden"
-                                disabled={editImageLoading}
-                              />
-                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCameraModalTarget('journal_edit');
+                                  setIsCameraModalOpen(true);
+                                }}
+                                className="flex items-center justify-center gap-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl text-xs text-rose-700 font-bold cursor-pointer transition shadow-2xs"
+                              >
+                                <Camera className="w-4 h-4 text-rose-600" />
+                                <span>Chụp ảnh</span>
+                              </button>
+
+                              <label className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-dashed border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-700 font-semibold cursor-pointer transition">
+                                <Upload className="w-4 h-4 text-slate-500" />
+                                <span>{editImageLoading ? 'Đang đọc...' : 'Tải từ máy'}</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  multiple
+                                  onChange={handleEditJournalFileChange}
+                                  className="hidden"
+                                  disabled={editImageLoading}
+                                />
+                              </label>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -2699,6 +2838,21 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             if (onRefreshProfile) onRefreshProfile();
           }}
         />
+      )}
+
+      {/* Live Camera Snapshot & Auto GPS Location Tagging Modal */}
+      <CameraCaptureModal
+        isOpen={isCameraModalOpen}
+        onClose={() => setIsCameraModalOpen(false)}
+        onCapture={handleCameraCaptured}
+      />
+
+      {/* Floating GPS and Photo Notification Toast */}
+      {gpsToast && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white px-4 py-2.5 rounded-2xl shadow-xl border border-rose-500/40 text-xs font-semibold flex items-center gap-2 animate-bounce max-w-[90vw]">
+          <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+          <span className="truncate">{gpsToast}</span>
+        </div>
       )}
     </div>
   );
