@@ -44,15 +44,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
-        <div className="w-16 h-16 rounded-3xl bg-rose-50 text-rose-500 border border-rose-100 flex items-center justify-center shadow-lg shadow-rose-100 mb-4 animate-bounce">
-          <Heart className="w-8 h-8 fill-rose-500 stroke-rose-500" />
-        </div>
-        <div className="flex items-center gap-2 text-slate-600 text-sm font-semibold">
-          <div className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
-          <span>Đang tải...</span>
-        </div>
-      </div>
+      <div className="min-h-screen bg-slate-50" />
     );
   }
 

@@ -1089,18 +1089,16 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         {/* TAB 2: JOURNAL (NHẬT KÝ) */}
         {activeTab === 'journal' && (
           <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  Nhật Ký Tình Yêu
-                </h2>
-              </div>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                Nhật Ký Tình Yêu
+              </h2>
               <button
                 onClick={() => setShowAddJournal(!showAddJournal)}
-                className="flex items-center justify-center gap-1.5 py-2.5 px-4 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl text-xs font-semibold shadow-sm transition cursor-pointer shrink-0"
+                className="flex items-center justify-center gap-1.5 py-2 px-3.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer shrink-0"
               >
                 <Plus className="w-4 h-4" />
-                Viết nhật ký
+                <span>Viết nhật ký</span>
               </button>
             </div>
 
@@ -1647,11 +1645,11 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                     </form>
                   ) : (
                     <div key={item.id} className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-3 relative group">
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center justify-between gap-2">
                         {(() => {
                           const author = getAuthorInfo(item.authorUid, item.authorName, item.authorAvatar);
                           return (
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
                               <div className="w-10 h-10 rounded-full bg-rose-100 border border-white shadow-xs overflow-hidden shrink-0">
                                 <img
                                   src={author.avatar}
@@ -1659,27 +1657,27 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                                   className="w-full h-full object-cover"
                                 />
                               </div>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-bold text-slate-800 text-sm">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 flex-nowrap">
+                                  <span className="font-bold text-slate-800 text-sm whitespace-nowrap">
                                     {author.name}
                                   </span>
                                   {author.isMe ? (
-                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 font-semibold border border-rose-100">
-                                      Bài của bạn
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 font-semibold border border-rose-100 whitespace-nowrap shrink-0">
+                                      Bạn
                                     </span>
                                   ) : (
-                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium border border-slate-200">
-                                      Bài đối phương
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-semibold border border-slate-200 whitespace-nowrap shrink-0">
+                                      Đối phương
                                     </span>
                                   )}
                                 </div>
-                                <span className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-                                  <Calendar className="w-3 h-3 text-rose-400" />
-                                  {formatDateVN(item.date)}
+                                <span className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5 whitespace-nowrap">
+                                  <Calendar className="w-3 h-3 text-rose-400 shrink-0" />
+                                  <span>{formatDateShortVN(item.date)}</span>
                                   {item.updatedAt && (
-                                    <span className="text-rose-500 font-medium italic text-[10px]">
-                                      (Đã chỉnh sửa)
+                                    <span className="text-rose-500 font-medium italic text-[10px] shrink-0">
+                                      (đã sửa)
                                     </span>
                                   )}
                                 </span>
@@ -1692,18 +1690,20 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                           {/* View detail button for both or Edit for author */}
                           <button
                             onClick={() => handleStartEditJournal(item)}
-                            className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer border border-rose-100"
+                            className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer border border-rose-100 whitespace-nowrap"
                             title="Xem chi tiết hoặc chỉnh sửa"
                           >
                             {item.authorUid === userProfile.uid ? (
                               <>
                                 <Edit3 className="w-3.5 h-3.5" />
-                                <span>Sửa chi tiết</span>
+                                <span className="hidden sm:inline">Sửa chi tiết</span>
+                                <span className="sm:hidden">Sửa</span>
                               </>
                             ) : (
                               <>
                                 <Eye className="w-3.5 h-3.5" />
-                                <span>Xem chi tiết</span>
+                                <span className="hidden sm:inline">Xem chi tiết</span>
+                                <span className="sm:hidden">Xem</span>
                               </>
                             )}
                           </button>
@@ -1711,7 +1711,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                           {!item.deleteRequest && (
                             <button
                               onClick={() => handleRequestDeleteJournal(item)}
-                              className="p-1.5 text-slate-300 hover:text-rose-500 rounded-lg hover:bg-rose-50 transition cursor-pointer"
+                              className="p-1.5 text-slate-300 hover:text-rose-500 rounded-lg hover:bg-rose-50 transition cursor-pointer shrink-0"
                               title="Yêu cầu xóa nhật ký"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -2416,7 +2416,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                   <div className="mt-2 rounded-xl border border-sky-200/80 overflow-hidden bg-slate-50 shadow-2xs space-y-0">
                     <div className="p-2 bg-sky-50/80 border-b border-sky-100 flex items-center justify-between text-[11px] font-semibold text-sky-800">
                       <span className="flex items-center gap-1.5">
-                        <Navigation className="w-3.5 h-3.5 text-sky-500 animate-pulse" />
+                        <Navigation className="w-3.5 h-3.5 text-sky-500" />
                         Bản đồ vị trí Google Maps tương ứng:
                       </span>
                       <a
@@ -2588,7 +2588,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
           >
             <Trophy className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
             <span className="text-[9px] sm:text-[11px]">Thành tích</span>
-            <span className="absolute top-0.5 right-1 w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
+            <span className="absolute top-0.5 right-1 w-1.5 h-1.5 bg-amber-400 rounded-full" />
           </button>
 
           {/* Tab 4: Nutrition (/nutrition) */}

@@ -484,19 +484,6 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
     }
   };
 
-  // Perform background auto-sync once if journals are found and not yet in visitedProvinces
-  useEffect(() => {
-    if (!coupleId || journalPlaces.length === 0) return;
-    const hasUnsynced = journalPlaces.some(jp => {
-      const p = VIETNAM_PROVINCES.find(prov => prov.name === jp.province);
-      return p && !visitedProvinces[p.name];
-    });
-
-    if (hasUnsynced && !isAutoSyncing) {
-      handleSyncMemoriesToProvinces();
-    }
-  }, [coupleId, journalPlaces.length, visitedProvinces]);
-
   // Combined visited status: Province is visited if marked in Firestore OR present in journal/custom places
   const isProvinceVisited = (provName: string): boolean => {
     return !!visitedProvinces[provName] || !!provinceDetailsMap[provName];
@@ -723,7 +710,7 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-rose-500 to-pink-500 text-white flex items-center justify-center shrink-0 shadow-xs">
-            <Compass className="w-5 h-5 animate-pulse" />
+            <Compass className="w-5 h-5" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
@@ -947,16 +934,16 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
             )}
           </div>
 
-          {/* VIEW 1: COMPACT 63 PROVINCES SCROLLABLE LIST */}
+          {/* VIEW 1: COMPACT 63 PROVINCES SCROLLABLE LIST (2x4) */}
           {activeSubView === 'provinces' && (
             <div className="space-y-2">
-              <div className="max-h-[380px] overflow-y-auto pr-1 space-y-1.5 rounded-2xl border border-slate-100 p-1.5 bg-slate-50/50">
+              <div className="max-h-[268px] overflow-y-auto pr-1 space-y-1.5 rounded-2xl border border-slate-100 p-1.5 bg-slate-50/50">
                 {filteredProvinces.length === 0 ? (
                   <div className="py-8 text-center text-xs text-slate-400">
                     Không tìm thấy tỉnh thành nào phù hợp với bộ lọc.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
+                  <div className="grid grid-cols-2 gap-1.5">
                     {filteredProvinces.map((prov) => {
                       const visited = isProvinceVisited(prov.name);
                       const details = provinceDetailsMap[prov.name];

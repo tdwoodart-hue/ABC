@@ -10,7 +10,7 @@ export const formatDateVN = (dateStr?: string | null): string => {
     const year = parts[0];
     const month = parts[1];
     const day = parts[2];
-    return `Ngày ${day} tháng ${month} năm ${year}`;
+    return `${day}/${month}/${year}`;
   }
 
   const d = new Date(raw);
@@ -18,7 +18,7 @@ export const formatDateVN = (dateStr?: string | null): string => {
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const year = d.getFullYear();
-    return `Ngày ${day} tháng ${month} năm ${year}`;
+    return `${day}/${month}/${year}`;
   }
 
   return dateStr;

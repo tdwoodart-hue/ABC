@@ -706,7 +706,7 @@ export const AchievementsTab: React.FC<AchievementsTabProps> = ({
   };
 
   return (
-    <div className="space-y-4 pb-12 animate-fadeIn max-w-4xl mx-auto">
+    <div className="space-y-4 pb-12 max-w-4xl mx-auto">
       {/* Top Header Bar */}
       <div className="flex items-center justify-between gap-3 border-b border-rose-100/80 pb-3">
         <h1 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
