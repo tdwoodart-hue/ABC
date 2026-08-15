@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { JournalEntry, UserProfile, ImageComment, CoupleData } from '../types';
 import { formatDateTimeVN, formatDateVN } from '../utils/formatDate';
 import {
+  ArrowLeft,
   X,
   ChevronLeft,
   ChevronRight,
@@ -15,7 +16,8 @@ import {
   Calendar,
   MapPin,
   Sparkles,
-  Heart
+  Heart,
+  Share2
 } from 'lucide-react';
 
 interface ImageLightboxModalProps {
@@ -219,35 +221,43 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
 
   return (
     <div 
-      id="image-lightbox-modal"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md animate-fadeIn select-none"
+      id="image-fullscreen-page"
+      className="fixed inset-0 z-50 flex flex-col w-screen h-screen bg-slate-950 text-white select-none overflow-hidden"
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-60 px-4 py-2 bg-rose-500 text-white text-xs font-bold rounded-2xl shadow-xl animate-bounce flex items-center gap-2">
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-60 px-4 py-2 bg-rose-500 text-white text-xs font-bold rounded-2xl shadow-xl flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-yellow-200" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Top Header Bar - Synchronized Light Theme */}
-      <div className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between p-3 sm:p-4 bg-white/95 backdrop-blur-md border-b border-rose-100 shadow-sm text-slate-800">
-        {/* Left: Memory Title & Date */}
-        <div className="flex items-center gap-3 min-w-0 pr-2">
+      {/* Top Header Bar - Full Width Dedicated App Bar */}
+      <header className="w-full shrink-0 z-40 flex items-center justify-between px-3 sm:px-5 py-2.5 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 text-white shadow-md">
+        {/* Left: Back Arrow + Title */}
+        <div className="flex items-center gap-2.5 min-w-0 pr-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 -ml-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition cursor-pointer shrink-0"
+            title="Quay lại (Esc)"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
           <div className="min-w-0">
-            <h3 className="text-sm sm:text-base font-extrabold text-slate-900 truncate">
+            <h3 className="text-sm sm:text-base font-bold text-white truncate max-w-[180px] sm:max-w-md">
               {journal.title}
             </h3>
-            <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium">
+            <div className="flex items-center gap-2 text-[11px] text-slate-400 font-medium">
               <span className="flex items-center gap-1">
-                <Calendar className="w-3.5 h-3.5 text-rose-500" />
+                <Calendar className="w-3 h-3 text-rose-400" />
                 {formatDateVN(journal.date)}
               </span>
               {journal.location && (
-                <span className="hidden sm:flex items-center gap-1 text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-100 truncate max-w-xs font-semibold">
-                  <MapPin className="w-3 h-3 text-rose-500 shrink-0" />
+                <span className="hidden sm:flex items-center gap-1 text-rose-300 bg-rose-950/60 px-2 py-0.5 rounded-md border border-rose-800/60 truncate max-w-xs font-medium">
+                  <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
                   {journal.location}
                 </span>
               )}
@@ -256,21 +266,21 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
         </div>
 
         {/* Right: Actions Bar */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Main Photo Action Button */}
           <button
             id="set-main-image-btn"
             type="button"
             onClick={handleSetMain}
             disabled={settingMainImage}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shadow-xs ${
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer shadow-xs ${
               isCurrentMain
-                ? 'bg-amber-400 text-slate-950 border border-amber-500/40 shadow-sm'
-                : 'bg-white hover:bg-amber-50 text-slate-700 border border-slate-200 hover:border-amber-300'
+                ? 'bg-amber-400 text-slate-950 font-bold border border-amber-300'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
             }`}
             title={isCurrentMain ? 'Đây là ảnh chính của kỷ niệm' : 'Bấm để đặt làm ảnh chính'}
           >
-            <Star className={`w-3.5 h-3.5 ${isCurrentMain ? 'fill-slate-950 text-slate-950' : 'text-amber-500'}`} />
+            <Star className={`w-3.5 h-3.5 ${isCurrentMain ? 'fill-slate-950 text-slate-950' : 'text-amber-400'}`} />
             <span className="hidden sm:inline">
               {isCurrentMain ? 'Ảnh chính ⭐' : 'Đặt làm ảnh chính'}
             </span>
@@ -281,17 +291,17 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
             id="toggle-comments-btn"
             type="button"
             onClick={() => setShowComments(!showComments)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shadow-xs ${
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer shadow-xs ${
               showComments
-                ? 'bg-rose-500 text-white shadow-sm shadow-rose-200 border border-rose-600'
-                : 'bg-white hover:bg-rose-50 text-slate-700 border border-slate-200 hover:border-rose-200'
+                ? 'bg-rose-500 text-white font-bold border border-rose-400 shadow-sm shadow-rose-500/30'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
             }`}
             title="Bình luận riêng cho ảnh"
           >
             <MessageSquare className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Bình luận</span>
             {currentImageComments.length > 0 && (
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
                 showComments ? 'bg-white text-rose-600' : 'bg-rose-500 text-white'
               }`}>
                 {currentImageComments.length}
@@ -304,26 +314,26 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
             id="close-lightbox-btn"
             type="button"
             onClick={onClose}
-            className="p-2 bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-600 rounded-full transition cursor-pointer border border-slate-200"
-            title="Đóng xem ảnh (Esc)"
+            className="p-2 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white rounded-full transition cursor-pointer border border-slate-700"
+            title="Đóng (Esc)"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Main Content Area: Image Viewer & Side Comment Drawer */}
-      <div className="w-full h-full flex flex-col md:flex-row items-stretch justify-between pt-16 pb-16 md:pb-6 px-2 sm:px-6 relative overflow-hidden">
+      {/* Main Dedicated Stage: Full Viewport Image Area + Side Comments Panel */}
+      <div className="flex-1 flex flex-col md:flex-row relative overflow-hidden w-full h-full">
         
-        {/* Central / Left Image Stage */}
+        {/* Central / Full-Screen Image Viewport */}
         <div 
-          className="flex-1 relative flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing"
+          className="flex-1 relative flex items-center justify-center overflow-hidden bg-slate-950 w-full h-full cursor-grab active:cursor-grabbing"
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
         >
-          {/* Main Displayed Image */}
+          {/* Main Displayed Image (Natural Size & Aspect Ratio) */}
           <div 
-            className="relative transition-transform duration-75 flex items-center justify-center max-w-full max-h-full"
+            className="relative transition-transform duration-75 flex items-center justify-center max-w-full max-h-full p-2 sm:p-4"
             style={{
               transform: `scale(${zoomScale}) translate(${panPosition.x / zoomScale}px, ${panPosition.y / zoomScale}px)`,
               cursor: zoomScale > 1 ? 'grab' : 'zoom-in'
@@ -335,13 +345,13 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
             <img
               src={currentImageUrl}
               alt={`Photo ${currentIndex + 1}`}
-              className="max-h-[75vh] md:max-h-[82vh] max-w-[95vw] md:max-w-[65vw] object-contain rounded-2xl shadow-2xl transition-all duration-200 bg-white/20"
+              className="max-h-[calc(100vh-140px)] max-w-full object-contain rounded-xl shadow-2xl transition-all duration-150"
               draggable={false}
             />
 
             {/* Main Badge Overlay */}
             {isCurrentMain && (
-              <div className="absolute top-3 left-3 bg-amber-400 text-slate-950 font-black text-xs px-3 py-1 rounded-full shadow-lg flex items-center gap-1.5 pointer-events-none border border-amber-300">
+              <div className="absolute top-5 left-5 bg-amber-400 text-slate-950 font-black text-xs px-3 py-1 rounded-full shadow-lg flex items-center gap-1.5 pointer-events-none border border-amber-300">
                 <Star className="w-3.5 h-3.5 fill-slate-950" />
                 <span>ẢNH CHÍNH</span>
               </div>
@@ -358,7 +368,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                   e.stopPropagation();
                   handlePrev();
                 }}
-                className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 p-2.5 sm:p-3.5 rounded-full bg-white/90 hover:bg-rose-500 text-slate-700 hover:text-white backdrop-blur-md border border-slate-200 transition cursor-pointer shadow-lg z-30"
+                className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 p-2.5 sm:p-3 rounded-full bg-slate-900/80 hover:bg-rose-500 text-white backdrop-blur-md border border-slate-700/80 transition cursor-pointer shadow-xl z-30"
                 title="Ảnh trước (Mũi tên trái)"
               >
                 <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -371,7 +381,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                   e.stopPropagation();
                   handleNext();
                 }}
-                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-2.5 sm:p-3.5 rounded-full bg-white/90 hover:bg-rose-500 text-slate-700 hover:text-white backdrop-blur-md border border-slate-200 transition cursor-pointer shadow-lg z-30"
+                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-2.5 sm:p-3 rounded-full bg-slate-900/80 hover:bg-rose-500 text-white backdrop-blur-md border border-slate-700/80 transition cursor-pointer shadow-xl z-30"
                 title="Ảnh tiếp theo (Mũi tên phải)"
               >
                 <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -379,8 +389,8 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
             </>
           )}
 
-          {/* Floating Zoom Control Bar - Light Style */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 sm:gap-2 px-3 py-1.5 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 text-slate-700 text-xs shadow-lg">
+          {/* Floating Zoom & Page Counter Control Bar */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 sm:gap-2 px-3 py-1.5 bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-700 text-white text-xs shadow-xl">
             <button
               type="button"
               onClick={(e) => {
@@ -388,13 +398,13 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                 handleZoomOut();
               }}
               disabled={zoomScale <= 1}
-              className="p-1.5 hover:bg-rose-50 hover:text-rose-600 rounded-xl transition cursor-pointer disabled:opacity-30"
+              className="p-1.5 hover:bg-slate-800 hover:text-rose-400 rounded-xl transition cursor-pointer disabled:opacity-30"
               title="Thu nhỏ"
             >
               <ZoomOut className="w-4 h-4" />
             </button>
 
-            <span className="font-mono font-bold text-[11px] px-1 text-slate-800">
+            <span className="font-mono font-bold text-[11px] px-1 text-slate-200">
               {Math.round(zoomScale * 100)}%
             </span>
 
@@ -405,7 +415,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                 handleZoomIn();
               }}
               disabled={zoomScale >= 3.5}
-              className="p-1.5 hover:bg-rose-50 hover:text-rose-600 rounded-xl transition cursor-pointer disabled:opacity-30"
+              className="p-1.5 hover:bg-slate-800 hover:text-rose-400 rounded-xl transition cursor-pointer disabled:opacity-30"
               title="Phóng to"
             >
               <ZoomIn className="w-4 h-4" />
@@ -418,26 +428,26 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                   e.stopPropagation();
                   handleResetZoom();
                 }}
-                className="p-1.5 hover:bg-rose-50 text-rose-500 rounded-xl transition cursor-pointer"
+                className="p-1.5 hover:bg-slate-800 text-rose-400 rounded-xl transition cursor-pointer"
                 title="Về kích thước chuẩn"
               >
                 <RotateCcw className="w-4 h-4" />
               </button>
             )}
 
-            <div className="h-3 w-px bg-slate-200 mx-1" />
+            <div className="h-3 w-px bg-slate-700 mx-1" />
 
-            <span className="font-bold text-slate-600 text-[11px]">
+            <span className="font-bold text-slate-300 text-[11px]">
               {currentIndex + 1} / {imageList.length}
             </span>
           </div>
         </div>
 
-        {/* Right / Bottom Comments Drawer - Bright Clean UI */}
+        {/* Dedicated Comments Panel: Side on Desktop, Bottom Sheet on Mobile */}
         {showComments && (
-          <div className="w-full md:w-80 lg:w-96 bg-white/95 backdrop-blur-lg md:rounded-3xl border border-rose-100 flex flex-col shadow-2xl h-80 md:h-[calc(100vh-6rem)] shrink-0 z-40 animate-slideInRight overflow-hidden mt-2 md:mt-0">
+          <div className="w-full md:w-80 lg:w-96 bg-white text-slate-900 flex flex-col border-t md:border-t-0 md:border-l border-slate-200 h-[45vh] md:h-full shrink-0 z-40 shadow-2xl overflow-hidden">
             {/* Drawer Header */}
-            <div className="p-4 border-b border-rose-100 flex items-center justify-between bg-rose-50/60">
+            <div className="p-3.5 border-b border-rose-100 flex items-center justify-between bg-rose-50/70 shrink-0">
               <div className="flex items-center gap-2 text-slate-800">
                 <div className="w-7 h-7 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-500">
                   <MessageSquare className="w-4 h-4" />
@@ -447,14 +457,15 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowComments(false)}
-                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg transition md:hidden cursor-pointer"
+                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg transition cursor-pointer"
+                title="Ẩn bình luận"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Comments List */}
-            <div className="flex-1 p-3.5 space-y-3 overflow-y-auto bg-slate-50/40">
+            <div className="flex-1 p-3.5 space-y-2.5 overflow-y-auto bg-slate-50/60">
               {currentImageComments.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-2 text-slate-400">
                   <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shadow-2xs">
@@ -502,57 +513,57 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                   }
 
                   return (
-                  <div 
-                    key={comment.id} 
-                    className="p-3 bg-white hover:bg-rose-50/30 rounded-2xl border border-slate-200/80 shadow-2xs space-y-1.5 group transition"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-rose-100 border border-rose-200 overflow-hidden shrink-0">
-                          <img
-                            src={cAvatar}
-                            alt={cName}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <span className="text-xs font-bold text-slate-800">
-                          {cName}
-                        </span>
-                        {isMe && (
-                          <span className="text-[9px] px-1.5 py-0.2 bg-rose-100 text-rose-700 rounded-md font-bold">
-                            Bạn
+                    <div 
+                      key={comment.id} 
+                      className="p-3 bg-white hover:bg-rose-50/30 rounded-2xl border border-slate-200/80 shadow-2xs space-y-1.5 group transition"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-rose-100 border border-rose-200 overflow-hidden shrink-0">
+                            <img
+                              src={cAvatar}
+                              alt={cName}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <span className="text-xs font-bold text-slate-800">
+                            {cName}
                           </span>
-                        )}
+                          {isMe && (
+                            <span className="text-[9px] px-1.5 py-0.2 bg-rose-100 text-rose-700 rounded-md font-bold">
+                              Bạn
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            {formatDateTimeVN(comment.createdAt)}
+                          </span>
+                          {(isMe || journal.authorUid === currentUser.uid) && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteComment(comment.id)}
+                              className="p-1 text-slate-400 hover:text-rose-600 transition opacity-80 group-hover:opacity-100 cursor-pointer"
+                              title="Xóa bình luận"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] text-slate-400 font-medium">
-                          {formatDateTimeVN(comment.createdAt)}
-                        </span>
-                        {(isMe || journal.authorUid === currentUser.uid) && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteComment(comment.id)}
-                            className="p-1 text-slate-400 hover:text-rose-600 transition opacity-80 group-hover:opacity-100 cursor-pointer"
-                            title="Xóa bình luận"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
+                      <p className="text-xs text-slate-700 pl-8 leading-relaxed break-words whitespace-pre-line font-normal">
+                        {comment.content}
+                      </p>
                     </div>
-
-                    <p className="text-xs text-slate-700 pl-8 leading-relaxed break-words whitespace-pre-line font-normal">
-                      {comment.content}
-                    </p>
-                  </div>
                   );
                 })
               )}
             </div>
 
             {/* Comment Input Form */}
-            <form onSubmit={handleSendComment} className="p-3 bg-white border-t border-rose-100 flex items-center gap-2 shadow-xs">
+            <form onSubmit={handleSendComment} className="p-3 bg-white border-t border-rose-100 flex items-center gap-2 shadow-xs shrink-0">
               <input
                 type="text"
                 value={commentText}
@@ -573,10 +584,10 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
         )}
       </div>
 
-      {/* Bottom Thumbnail Strip - Light Theme */}
-      {imageList.length > 1 && (
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-30 max-w-xl w-full px-4">
-          <div className="flex items-center justify-center gap-2 overflow-x-auto p-1.5 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-lg">
+      {/* Bottom Thumbnail Strip for Multi-image memories */}
+      {imageList.length > 1 && !showComments && (
+        <div className="w-full shrink-0 z-30 p-2 bg-slate-900/80 backdrop-blur-md border-t border-slate-800 flex items-center justify-center">
+          <div className="flex items-center gap-2 overflow-x-auto max-w-full px-2 py-1">
             {imageList.map((img, idx) => {
               const isMain = idx === currentMainIndex;
               const isSelected = idx === currentIndex;
@@ -591,8 +602,8 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                   }}
                   className={`relative w-12 h-12 rounded-xl overflow-hidden shrink-0 border-2 transition cursor-pointer ${
                     isSelected
-                      ? 'border-rose-500 scale-105 shadow-md shadow-rose-200 ring-2 ring-rose-200'
-                      : 'border-slate-200 opacity-70 hover:opacity-100 hover:border-slate-300'
+                      ? 'border-rose-500 scale-105 shadow-md shadow-rose-500/30 ring-2 ring-rose-400'
+                      : 'border-slate-700 opacity-60 hover:opacity-100 hover:border-slate-500'
                   }`}
                 >
                   <img src={img} alt={`Thumb ${idx}`} className="w-full h-full object-cover" />

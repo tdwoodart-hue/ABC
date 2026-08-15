@@ -1750,13 +1750,14 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
 
                       {/* Photos grid display on feed (Multi-image or single image) */}
                       {item.images && item.images.length > 0 ? (
-                        <div className={`grid gap-2 mt-2 ${
-                          item.images.length === 1 ? 'grid-cols-1' :
-                          item.images.length === 2 ? 'grid-cols-2' :
-                          'grid-cols-2 sm:grid-cols-3'
+                        <div className={`mt-2 ${
+                          item.images.length === 1 ? 'w-full' :
+                          item.images.length === 2 ? 'grid grid-cols-2 gap-2' :
+                          'grid grid-cols-2 sm:grid-cols-3 gap-2'
                         }`}>
                           {item.images.map((img, idx) => {
                             const isMain = idx === (item.mainImageIndex ?? 0);
+                            const isSingle = item.images && item.images.length === 1;
                             const imgCommentsCount = (item.imageComments || []).filter(
                               c => c.imageIndex === idx || (c.imageUrl && c.imageUrl === img)
                             ).length;
@@ -1765,12 +1766,18 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                               <div 
                                 key={idx} 
                                 onClick={() => handleOpenLightbox(item, idx)}
-                                className="relative h-44 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100 cursor-pointer group shadow-2xs hover:shadow-md transition"
+                                className={`relative rounded-2xl overflow-hidden bg-slate-50 border border-slate-200/80 cursor-pointer group shadow-2xs hover:shadow-md transition ${
+                                  isSingle ? 'w-full flex items-center justify-center' : 'h-48'
+                                }`}
                               >
                                 <img
                                   src={img}
                                   alt={`${item.title} ${idx + 1}`}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                  className={`${
+                                    isSingle 
+                                      ? 'w-full h-auto max-h-[600px] object-contain rounded-2xl' 
+                                      : 'w-full h-full object-cover group-hover:scale-105'
+                                  } transition-transform duration-300`}
                                   onError={(e) => {
                                     (e.target as HTMLElement).style.display = 'none';
                                   }}
@@ -1805,12 +1812,12 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                       ) : item.imageUrl ? (
                         <div 
                           onClick={() => handleOpenLightbox(item, 0)}
-                          className="w-full max-h-72 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100 mt-2 cursor-pointer group relative shadow-2xs hover:shadow-md transition"
+                          className="w-full rounded-2xl overflow-hidden bg-slate-50 border border-slate-200/80 mt-2 cursor-pointer group relative shadow-2xs hover:shadow-md transition flex items-center justify-center"
                         >
                           <img
                             src={item.imageUrl}
                             alt={item.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            className="w-full h-auto max-h-[600px] object-contain rounded-2xl transition-transform duration-300"
                             onError={(e) => {
                               (e.target as HTMLElement).style.display = 'none';
                             }}
