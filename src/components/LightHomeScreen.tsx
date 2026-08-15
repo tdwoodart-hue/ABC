@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { UserProfile, CoupleData, MemoryItem, JournalEntry, JournalComment, JournalExpense, ImageComment } from '../types';
 import { FinanceTab } from './FinanceTab';
 import { NutritionTab } from './NutritionTab';
+import { AchievementsTab } from './AchievementsTab';
 import { AdminTab } from './AdminTab';
 import { MapLocationPickerModal } from './MapLocationPickerModal';
 import { ImageLightboxModal } from './ImageLightboxModal';
@@ -67,7 +68,9 @@ import {
   ShieldCheck,
   Shield,
   ArrowLeftRight,
-  UserCheck
+  UserCheck,
+  Trophy,
+  Award
 } from 'lucide-react';
 
 interface LightHomeScreenProps {
@@ -75,12 +78,13 @@ interface LightHomeScreenProps {
   onRefreshProfile?: () => void;
 }
 
-export type TabType = 'home' | 'journal' | 'nutrition' | 'finance' | 'profile' | 'admin';
+export type TabType = 'home' | 'journal' | 'achievements' | 'nutrition' | 'finance' | 'profile' | 'admin';
 
 const getTabFromUrl = (): TabType => {
   if (typeof window === 'undefined') return 'home';
   const cleanPath = window.location.pathname.toLowerCase().replace(/^\/+/, '').split('/')[0];
   if (cleanPath === 'journal') return 'journal';
+  if (cleanPath === 'achievements') return 'achievements';
   if (cleanPath === 'nutrition') return 'nutrition';
   if (cleanPath === 'finance') return 'finance';
   if (cleanPath === 'profile') return 'profile';
@@ -1056,6 +1060,26 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                       <span className="font-bold text-slate-700">{formatDateVN(coupleData?.anniversaryDate)}</span>
                     </div>
                   </div>
+
+                  {/* Achievements Quick Teaser */}
+                  <div 
+                    onClick={() => handleNavigateTab('achievements')}
+                    className="bg-white rounded-2xl p-4 border border-slate-200/80 hover:border-rose-300 transition-all shadow-xs hover:shadow-md cursor-pointer flex items-center justify-between gap-3 group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100 group-hover:scale-105 transition-transform">
+                        <Trophy className="w-5 h-5 text-rose-500" />
+                      </div>
+                      <div className="text-left">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-slate-800">Thành Tích & Cột Mốc Đôi</span>
+                          <span className="px-2 py-0.5 bg-rose-50 text-rose-600 border border-rose-200/60 rounded-full text-[10px] font-semibold">Mới</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500">Mở khóa huy hiệu, cấp độ tình yêu & lưu giữ kỷ niệm</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-rose-500 group-hover:translate-x-0.5 transition shrink-0" />
+                  </div>
                 </div>
               );
             })()}
@@ -1951,17 +1975,22 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
           </div>
         )}
 
-        {/* TAB 3: NUTRITION */}
+        {/* TAB 3: ACHIEVEMENTS (THÀNH TÍCH & CỘT MỐC) */}
+        {activeTab === 'achievements' && (
+          <AchievementsTab userProfile={userProfile} coupleData={coupleData} journals={journals} />
+        )}
+
+        {/* TAB 4: NUTRITION */}
         {activeTab === 'nutrition' && (
           <NutritionTab userProfile={userProfile} coupleData={coupleData} />
         )}
 
-        {/* TAB 4: FINANCE */}
+        {/* TAB 5: FINANCE */}
         {activeTab === 'finance' && (
           <FinanceTab userProfile={userProfile} coupleData={coupleData} journals={journals} />
         )}
 
-        {/* TAB 5: PROFILE */}
+        {/* TAB 6: PROFILE */}
         {activeTab === 'profile' && (() => {
           const isU1 = (coupleData?.user1Id === userProfile.uid) || (coupleData?.user1Uid === userProfile.uid) || (userProfile.email?.toLowerCase().includes('duong'));
           const isU2 = (coupleData?.user2Id === userProfile.uid) || (coupleData?.user2Uid === userProfile.uid) || (userProfile.email?.toLowerCase().includes('chucga'));
@@ -2520,71 +2549,85 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       </main>
 
       {/* Fixed Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-rose-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-2 sm:px-3 py-2">
-        <div className="max-w-md mx-auto flex items-center justify-around">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-rose-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-1 sm:px-3 py-1.5 sm:py-2">
+        <div className="max-w-xl mx-auto flex items-center justify-around">
           {/* Tab 1: Home (/home or /) */}
           <button
             onClick={() => handleNavigateTab('home')}
-            className={`flex flex-col items-center gap-1 py-1.5 px-3 sm:px-4 rounded-2xl transition cursor-pointer ${
+            className={`flex flex-col items-center gap-0.5 sm:gap-1 py-1 px-2 sm:px-3 rounded-2xl transition cursor-pointer ${
               activeTab === 'home'
                 ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
                 : 'text-slate-400 hover:text-slate-600'
             }`}
           >
-            <Home className="w-5 h-5" />
-            <span className="text-[10px] sm:text-[11px]">Trang chủ</span>
+            <Home className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
+            <span className="text-[9px] sm:text-[11px]">Trang chủ</span>
           </button>
 
           {/* Tab 2: Journal (/journal) */}
           <button
             onClick={() => handleNavigateTab('journal')}
-            className={`flex flex-col items-center gap-1 py-1.5 px-3 sm:px-4 rounded-2xl transition cursor-pointer ${
+            className={`flex flex-col items-center gap-0.5 sm:gap-1 py-1 px-2 sm:px-3 rounded-2xl transition cursor-pointer ${
               activeTab === 'journal'
                 ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
                 : 'text-slate-400 hover:text-slate-600'
             }`}
           >
-            <BookOpen className="w-5 h-5" />
-            <span className="text-[10px] sm:text-[11px]">Nhật ký</span>
+            <BookOpen className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
+            <span className="text-[9px] sm:text-[11px]">Nhật ký</span>
           </button>
 
-          {/* Tab 3: Nutrition (/nutrition) */}
+          {/* Tab 3: Achievements (/achievements) */}
+          <button
+            onClick={() => handleNavigateTab('achievements')}
+            className={`flex flex-col items-center gap-0.5 sm:gap-1 py-1 px-2 sm:px-3 rounded-2xl transition cursor-pointer relative ${
+              activeTab === 'achievements'
+                ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
+                : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <Trophy className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
+            <span className="text-[9px] sm:text-[11px]">Thành tích</span>
+            <span className="absolute top-0.5 right-1 w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
+          </button>
+
+          {/* Tab 4: Nutrition (/nutrition) */}
           <button
             onClick={() => handleNavigateTab('nutrition')}
-            className={`flex flex-col items-center gap-1 py-1.5 px-3 sm:px-4 rounded-2xl transition cursor-pointer ${
+            className={`flex flex-col items-center gap-0.5 sm:gap-1 py-1 px-2 sm:px-3 rounded-2xl transition cursor-pointer ${
               activeTab === 'nutrition'
                 ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
                 : 'text-slate-400 hover:text-slate-600'
             }`}
           >
-            <Apple className="w-5 h-5" />
-            <span className="text-[10px] sm:text-[11px]">Dinh dưỡng</span>
+            <Apple className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
+            <span className="text-[9px] sm:text-[11px]">Dinh dưỡng</span>
           </button>
 
-          {/* Tab 4: Finance (/finance) */}
+          {/* Tab 5: Finance (/finance) */}
           <button
             onClick={() => handleNavigateTab('finance')}
-            className={`flex flex-col items-center gap-1 py-1.5 px-3 sm:px-4 rounded-2xl transition cursor-pointer ${
+            className={`flex flex-col items-center gap-0.5 sm:gap-1 py-1 px-2 sm:px-3 rounded-2xl transition cursor-pointer ${
               activeTab === 'finance'
                 ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
                 : 'text-slate-400 hover:text-slate-600'
             }`}
           >
-            <Wallet className="w-5 h-5" />
-            <span className="text-[10px] sm:text-[11px]">Tài chính</span>
+            <Wallet className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
+            <span className="text-[9px] sm:text-[11px]">Tài chính</span>
           </button>
 
-          {/* Tab 5: Profile (/profile) */}
+          {/* Tab 6: Profile (/profile) */}
           <button
             onClick={() => handleNavigateTab('profile')}
-            className={`flex flex-col items-center gap-1 py-1.5 px-3 sm:px-4 rounded-2xl transition cursor-pointer ${
+            className={`flex flex-col items-center gap-0.5 sm:gap-1 py-1 px-2 sm:px-3 rounded-2xl transition cursor-pointer ${
               activeTab === 'profile'
                 ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
                 : 'text-slate-400 hover:text-slate-600'
             }`}
           >
-            <UserIcon className="w-5 h-5" />
-            <span className="text-[10px] sm:text-[11px]">Tài khoản</span>
+            <UserIcon className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
+            <span className="text-[9px] sm:text-[11px]">Tài khoản</span>
           </button>
         </div>
       </nav>

@@ -185,3 +185,50 @@ export interface VisitedProvinceRecord {
   createdAt: string;
 }
 
+export interface TierMilestone {
+  level: number;
+  target: number;
+  title: string;
+  points: number;
+  rewardText?: string;
+  unlockedAt?: string;
+}
+
+export interface CoupleAchievement {
+  id: string;
+  key?: string;
+  title: string;
+  description: string;
+  category: 'love' | 'journal' | 'travel' | 'health' | 'finance' | 'custom' | 'action';
+  icon: string;
+  currentLevel?: number;
+  maxLevel?: number;
+  points?: number; // points earned or for this achievement
+  tiers?: TierMilestone[];
+  targetValue?: number;
+  currentValue?: number;
+  unit?: string;
+  isUnlocked: boolean;
+  unlockedAt?: string;
+  customImage?: string;
+  note?: string;
+  rewardText?: string;
+  addedByUid?: string;
+  addedByName?: string;
+  createdAt?: string;
+}
+
+export interface LoveActionRecord {
+  id: string;
+  title: string;
+  points: number;
+  category: 'care' | 'food' | 'date' | 'gift' | 'help' | 'sweet' | 'custom';
+  icon: string;
+  performedByUid: string;
+  performedByName: string;
+  note?: string;
+  date: string;
+  createdAt: string;
+}
+
+
