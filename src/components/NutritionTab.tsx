@@ -297,47 +297,41 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-r from-rose-100/80 via-pink-50 to-rose-50 p-6 rounded-3xl border border-rose-100 shadow-xs relative overflow-hidden">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <span className="text-xs font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1.5">
-              <Apple className="w-4 h-4 text-rose-500" />
-              Góc Dinh Dưỡng & Sức Khỏe Đôi
-            </span>
-            <h2 className="text-xl sm:text-2xl font-extrabold text-slate-800">
-              Nhật Ký Dinh Dưỡng AI Smart
-            </h2>
-          </div>
-          <div className="w-14 h-14 rounded-2xl bg-rose-500/10 text-rose-600 flex items-center justify-center shrink-0 shadow-inner">
-            <Utensils className="w-7 h-7" />
-          </div>
+    <div className="space-y-4 pb-12 max-w-4xl mx-auto">
+      {/* Top Header & Subtabs */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2">
+        <div>
+          <h1 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2 whitespace-nowrap">
+            <Utensils className="w-5 h-5 text-rose-500 shrink-0" />
+            <span>Nhật Ký Dinh Dưỡng</span>
+          </h1>
         </div>
 
         {/* Subtab Toggle */}
-        <div className="mt-4 pt-3 border-t border-rose-200/60 flex gap-2">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
           <button
+            type="button"
             onClick={() => setActiveSubTab('log')}
-            className={`px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
               activeSubTab === 'log'
                 ? 'bg-rose-500 text-white shadow-xs'
-                : 'bg-white/80 hover:bg-white text-slate-600'
+                : 'bg-white hover:bg-rose-50 text-slate-600 border border-slate-200/80'
             }`}
           >
             <Brain className="w-3.5 h-3.5" />
-            <span>AI Ghi Nhận Món Ăn</span>
+            <span>AI Ghi Nhận Món</span>
           </button>
           <button
+            type="button"
             onClick={() => setActiveSubTab('recipes')}
-            className={`px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
               activeSubTab === 'recipes'
                 ? 'bg-rose-500 text-white shadow-xs'
-                : 'bg-white/80 hover:bg-white text-slate-600'
+                : 'bg-white hover:bg-rose-50 text-slate-600 border border-slate-200/80'
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>Thực đơn yêu thích ({recipes.length})</span>
+            <span>Thực đơn ({recipes.length})</span>
           </button>
         </div>
       </div>
@@ -345,17 +339,16 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
       {activeSubTab === 'log' && (
         <>
           {/* AI Smart Input Card */}
-          <div className="bg-white rounded-3xl p-5 border border-rose-200/80 shadow-xs space-y-4 relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 animate-pulse" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-800">
-                    Ghi Nhận Món Ăn Nhanh Bằng AI
-                  </h3>
-                </div>
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-3 relative overflow-hidden">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-100 text-rose-500 flex items-center justify-center shrink-0">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">
+                  Ghi Nhận Món Ăn Bằng AI
+                </h3>
+                <p className="text-[11px] text-slate-400">Nhập văn bản hoặc tải ảnh món ăn để AI tự tính calo</p>
               </div>
             </div>
 
@@ -365,14 +358,14 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
                   rows={2}
                   value={aiPrompt}
                   onChange={(e) => setAiPrompt(e.target.value)}
-                  placeholder="Nhập những gì hai đứa vừa ăn (VD: Trưa nay ăn cơm tấm sườn nướng trứng ốp la, 1 cốc trà đá)..."
-                  className="w-full pl-3.5 pr-24 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white transition resize-none"
+                  placeholder="Nhập những gì hai bạn vừa ăn (VD: Trưa ăn 1 đĩa cơm sườn trứng ốp la, 1 cốc trà đá)..."
+                  className="w-full pl-3.5 pr-28 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white transition resize-none"
                 />
 
-                <div className="absolute right-2 bottom-2.5 flex items-center gap-1.5">
+                <div className="absolute right-2 bottom-2 flex items-center gap-1">
                   <label
                     title="Tải ảnh món ăn"
-                    className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer"
+                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
                   >
                     <Camera className="w-4 h-4" />
                     <input
@@ -389,17 +382,17 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
                   <button
                     type="submit"
                     disabled={isAiAnalyzing || (!aiPrompt.trim() && !aiImage)}
-                    className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 disabled:bg-slate-200 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                    className="px-2.5 py-1.5 bg-rose-500 hover:bg-rose-600 disabled:bg-slate-200 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1 cursor-pointer whitespace-nowrap"
                   >
                     {isAiAnalyzing ? (
                       <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Đang tính...</span>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                        <span>Tính...</span>
                       </>
                     ) : (
                       <>
-                        <Send className="w-3.5 h-3.5" />
-                        <span>Phân Tích</span>
+                        <Send className="w-3.5 h-3.5 shrink-0" />
+                        <span>Phân tích</span>
                       </>
                     )}
                   </button>
@@ -408,7 +401,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
 
               {/* Image Preview if uploaded */}
               {aiImage && (
-                <div className="relative inline-block w-20 h-20 rounded-2xl overflow-hidden border border-rose-200 shadow-2xs">
+                <div className="relative inline-block w-16 h-16 rounded-xl overflow-hidden border border-rose-200 shadow-2xs">
                   <img src={aiImage} alt="Món ăn" className="w-full h-full object-cover" />
                   <button
                     type="button"
@@ -423,12 +416,12 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
 
             {/* AI Success Banner */}
             {aiResultSuccess && (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between text-xs text-emerald-800 animate-fadeIn">
-                <div className="flex items-center gap-2">
+              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-800">
+                <div className="flex items-center gap-2 min-w-0">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>{aiResultSuccess}</span>
+                  <span className="truncate">{aiResultSuccess}</span>
                 </div>
-                <button onClick={() => setAiResultSuccess(null)} className="p-1 text-emerald-500 hover:text-emerald-700">
+                <button onClick={() => setAiResultSuccess(null)} className="p-1 text-emerald-500 hover:text-emerald-700 shrink-0">
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -436,12 +429,12 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
 
             {/* AI Error Alert */}
             {aiError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl flex items-center justify-between text-xs text-rose-800">
-                <div className="flex items-center gap-2">
+              <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between text-xs text-rose-800">
+                <div className="flex items-center gap-2 min-w-0">
                   <Info className="w-4 h-4 text-rose-600 shrink-0" />
-                  <span>{aiError}</span>
+                  <span className="truncate">{aiError}</span>
                 </div>
-                <button onClick={() => setAiError(null)} className="p-1 text-rose-500 hover:text-rose-700">
+                <button onClick={() => setAiError(null)} className="p-1 text-rose-500 hover:text-rose-700 shrink-0">
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -669,12 +662,8 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
                             )}
                             <div className="flex items-center gap-1">
                               <span>Ghi bởi:</span>
-                              <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
-                                meal.loggedByUid === userProfile.uid
-                                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                                  : 'bg-slate-100 text-slate-700 border border-slate-200'
-                              }`}>
-                                {meal.loggedByUid === userProfile.uid ? 'Bạn' : (meal.loggedByName || 'Nửa kia')}
+                              <span className="font-semibold text-slate-700">
+                                {meal.loggedByUid === userProfile.uid ? userProfile.displayName : (meal.loggedByName || 'Nửa kia')}
                               </span>
                             </div>
                             <span>• {formatDateShortVN(meal.date)}</span>

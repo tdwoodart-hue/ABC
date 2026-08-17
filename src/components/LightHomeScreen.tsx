@@ -1951,11 +1951,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                                   <span className="font-bold text-slate-800 text-sm whitespace-nowrap">
                                     {author.name}
                                   </span>
-                                  {author.isMe && (
-                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 font-semibold border border-rose-100 whitespace-nowrap shrink-0">
-                                      Bạn
-                                    </span>
-                                  )}
                                 </div>
                                 <span className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5 whitespace-nowrap">
                                   <Calendar className="w-3 h-3 text-rose-400 shrink-0" />
@@ -2331,47 +2326,49 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             : (coupleData?.user1Avatar || 'https://api.dicebear.com/7.x/micah/svg?seed=duong_male&hair=fonze&eyes=eyes&mouth=smile');
 
           return (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
+            <div className="space-y-4 pb-12 max-w-4xl mx-auto">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-800">Tài Khoản & Hồ Sơ Đôi</h2>
-                  <p className="text-xs text-slate-500">Thông tin cá nhân, nửa kia và địa chỉ chung</p>
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <UserIcon className="w-5 h-5 text-rose-500 shrink-0" />
+                    <span>Tài Khoản & Hồ Sơ Đôi</span>
+                  </h2>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleStartEditProfile}
-                    className="px-3.5 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer flex items-center gap-1.5"
+                    className="px-3.5 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
                   >
                     <Edit3 className="w-3.5 h-3.5" />
-                    Chỉnh sửa thông tin
+                    <span>Chỉnh sửa thông tin</span>
                   </button>
                 </div>
               </div>
 
               {/* 2-Column User & Partner Identification Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* 1. MY PROFILE CARD */}
-                <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3 relative overflow-hidden group">
+                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-3 relative overflow-hidden group">
                   <div className="flex items-center justify-between">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500 text-white shadow-xs">
-                      BẠN
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200">
+                      {userProfile.displayName || 'Tài khoản của bạn'}
                     </span>
                     <button
                       type="button"
                       onClick={() => handleOpenAvatarModal(userProfile.uid, userProfile.displayName, myAvatar, isU1 ? 'user1' : 'user2')}
-                      className="text-[11px] text-rose-500 hover:text-rose-700 font-bold flex items-center gap-1 cursor-pointer"
+                      className="text-[11px] text-slate-500 hover:text-rose-600 font-semibold flex items-center gap-1 cursor-pointer transition"
                     >
                       <Camera className="w-3.5 h-3.5" />
-                      <span>Đổi ảnh đại diện</span>
+                      <span>Đổi ảnh</span>
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-3.5 pt-1">
+                  <div className="flex items-center gap-3 pt-0.5">
                     <div className="relative shrink-0">
                       <button
                         type="button"
                         onClick={() => handleOpenAvatarModal(userProfile.uid, userProfile.displayName, myAvatar, isU1 ? 'user1' : 'user2')}
-                        className="w-14 h-14 rounded-full border-2 border-rose-300 p-0.5 overflow-hidden block bg-white shadow-xs cursor-pointer hover:opacity-90 transition"
+                        className="w-12 h-12 rounded-full border border-rose-200 p-0.5 overflow-hidden block bg-white shadow-2xs cursor-pointer hover:opacity-90 transition"
                         title="Bấm để đổi avatar"
                       >
                         <img src={myAvatar} alt={userProfile.displayName} className="w-full h-full object-cover rounded-full" />
@@ -2379,14 +2376,14 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                       <button
                         type="button"
                         onClick={() => handleOpenAvatarModal(userProfile.uid, userProfile.displayName, myAvatar, isU1 ? 'user1' : 'user2')}
-                        className="absolute -bottom-1 -right-1 w-5 h-5 bg-rose-500 hover:bg-rose-600 text-white rounded-full flex items-center justify-center shadow-xs cursor-pointer transition"
+                        className="absolute -bottom-0.5 -right-0.5 w-4.5 h-4.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full flex items-center justify-center shadow-xs cursor-pointer transition"
                       >
                         <Camera className="w-2.5 h-2.5" />
                       </button>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-base font-bold text-slate-800 truncate">{userProfile.displayName}</h3>
-                      <p className="text-[11px] text-slate-500 truncate">{userProfile.email}</p>
+                      <h3 className="text-sm sm:text-base font-bold text-slate-800 truncate">{userProfile.displayName}</h3>
+                      <p className="text-[11px] text-slate-400 truncate">{userProfile.email}</p>
                     </div>
                   </div>
 
@@ -2407,27 +2404,27 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                 </div>
 
                 {/* 2. PARTNER PROFILE CARD */}
-                <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3 relative overflow-hidden group">
+                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-3 relative overflow-hidden group">
                   <div className="flex items-center justify-between">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-700 text-white shadow-xs">
-                      NỬA KIA
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                      {partnerName || 'Nửa kia'}
                     </span>
                     <button
                       type="button"
                       onClick={() => handleOpenAvatarModal(isU1 ? (coupleData?.user2Id || coupleData?.user2Uid || '') : (coupleData?.user1Id || coupleData?.user1Uid || ''), partnerName, partnerAvatar, isU1 ? 'user2' : 'user1')}
-                      className="text-[11px] text-slate-500 hover:text-slate-700 font-bold flex items-center gap-1 cursor-pointer"
+                      className="text-[11px] text-slate-500 hover:text-slate-700 font-semibold flex items-center gap-1 cursor-pointer transition"
                     >
                       <Camera className="w-3.5 h-3.5" />
-                      <span>Đổi ảnh nửa kia</span>
+                      <span>Đổi ảnh</span>
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-3.5 pt-1">
+                  <div className="flex items-center gap-3 pt-0.5">
                     <div className="relative shrink-0">
                       <button
                         type="button"
                         onClick={() => handleOpenAvatarModal(isU1 ? (coupleData?.user2Id || coupleData?.user2Uid || '') : (coupleData?.user1Id || coupleData?.user1Uid || ''), partnerName, partnerAvatar, isU1 ? 'user2' : 'user1')}
-                        className="w-14 h-14 rounded-full border-2 border-slate-300 p-0.5 overflow-hidden block bg-white shadow-xs cursor-pointer hover:opacity-90 transition"
+                        className="w-12 h-12 rounded-full border border-slate-200 p-0.5 overflow-hidden block bg-white shadow-2xs cursor-pointer hover:opacity-90 transition"
                         title="Bấm để đổi avatar"
                       >
                         <img src={partnerAvatar} alt={partnerName} className="w-full h-full object-cover rounded-full" />
@@ -2435,13 +2432,13 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                       <button
                         type="button"
                         onClick={() => handleOpenAvatarModal(isU1 ? (coupleData?.user2Id || coupleData?.user2Uid || '') : (coupleData?.user1Id || coupleData?.user1Uid || ''), partnerName, partnerAvatar, isU1 ? 'user2' : 'user1')}
-                        className="absolute -bottom-1 -right-1 w-5 h-5 bg-slate-700 hover:bg-slate-800 text-white rounded-full flex items-center justify-center shadow-xs cursor-pointer transition"
+                        className="absolute -bottom-0.5 -right-0.5 w-4.5 h-4.5 bg-slate-700 hover:bg-slate-800 text-white rounded-full flex items-center justify-center shadow-xs cursor-pointer transition"
                       >
                         <Camera className="w-2.5 h-2.5" />
                       </button>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-base font-bold text-slate-800 truncate">{partnerName}</h3>
+                      <h3 className="text-sm sm:text-base font-bold text-slate-800 truncate">{partnerName}</h3>
                       <p className="text-[11px] text-slate-400">Đồng hành trong tình yêu</p>
                     </div>
                   </div>

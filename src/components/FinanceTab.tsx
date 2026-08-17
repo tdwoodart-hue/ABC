@@ -385,29 +385,32 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
   const todayWakeUpLog = wakeUpLogs.find(l => l.date === todayStr) || null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 pb-12 max-w-4xl mx-auto">
       {/* Clean Header matching other tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800">Tài Chính & Quỹ Chung</h2>
-        </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2">
+        <h1 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2 whitespace-nowrap">
+          <Wallet className="w-5 h-5 text-rose-500 shrink-0" />
+          <span>Tài Chính & Quỹ Chung</span>
+        </h1>
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={() => setShowAddGoal(!showAddGoal)}
-            className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer flex items-center gap-1.5"
+            className="flex-1 sm:flex-none px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/80 rounded-xl text-xs font-semibold shadow-2xs transition flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
-            <PiggyBank className="w-4 h-4" />
-            + Hũ Tiết Kiệm
+            <PiggyBank className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            <span>Hũ tiết kiệm</span>
           </button>
           <button
+            type="button"
             onClick={() => {
               setTxPayerUid(myUid);
               setShowAddTransaction(!showAddTransaction);
             }}
-            className="px-3.5 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer flex items-center gap-1.5"
+            className="flex-1 sm:flex-none px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
-            <Plus className="w-4 h-4" />
-            + Ghi Thu / Chi
+            <Plus className="w-3.5 h-3.5 shrink-0" />
+            <span>Ghi thu / chi</span>
           </button>
         </div>
       </div>
@@ -428,25 +431,25 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
         onOpenAddIncome={handleQuickAddFundContribution}
       />
 
-      {/* Clean Overview Card: Bạn vs Người ấy */}
-      <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+      {/* Clean Overview Card: Hai Người */}
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-3">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
           <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
             <Users className="w-4 h-4 text-rose-500" />
-            Đối Soát Tài Chính Hai Người
+            Đối Soát Thu Chi Đôi Mình
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {/* Bạn */}
-          <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {/* User 1 */}
+          <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-1.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <img src={myAvatar} alt="" className="w-7 h-7 rounded-full border border-slate-200 bg-white" />
-                <span className="font-bold text-xs text-slate-800">{myName} <span className="text-slate-400 font-normal">(Bạn)</span></span>
+                <img src={myAvatar} alt="" className="w-6 h-6 rounded-full border border-slate-200 bg-white object-cover" />
+                <span className="font-bold text-xs text-slate-800">{myName}</span>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+            <div className="grid grid-cols-2 gap-2 text-xs pt-0.5">
               <div>
                 <span className="text-[10px] text-slate-400 block">Đã nạp quỹ</span>
                 <span className="font-bold text-emerald-600">+{myIncome.toLocaleString('vi-VN')} đ</span>
@@ -458,15 +461,15 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
             </div>
           </div>
 
-          {/* Người ấy */}
-          <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2">
+          {/* User 2 */}
+          <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-1.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <img src={partnerAvatar} alt="" className="w-7 h-7 rounded-full border border-slate-200 bg-white" />
+                <img src={partnerAvatar} alt="" className="w-6 h-6 rounded-full border border-slate-200 bg-white object-cover" />
                 <span className="font-bold text-xs text-slate-800">{partnerName}</span>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+            <div className="grid grid-cols-2 gap-2 text-xs pt-0.5">
               <div>
                 <span className="text-[10px] text-slate-400 block">Đã nạp quỹ</span>
                 <span className="font-bold text-emerald-600">+{partnerIncome.toLocaleString('vi-VN')} đ</span>
@@ -480,16 +483,16 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
         </div>
 
         {/* Balance Status */}
-        <div className="p-3 bg-slate-50 border border-slate-200/60 rounded-xl flex items-center justify-between text-xs text-slate-600">
+        <div className="p-2.5 bg-slate-50 border border-slate-200/60 rounded-xl flex items-center justify-between text-xs text-slate-600">
           <div className="flex items-center gap-2">
             <Scale className="w-4 h-4 text-slate-500 shrink-0" />
             <span>
               {expenseDiff === 0 ? (
                 'Hai bạn đang chi trả chi tiêu cân bằng'
               ) : expenseDiff > 0 ? (
-                `Bạn đã chi trả nhiều hơn ${partnerName}: ${Math.abs(expenseDiff).toLocaleString('vi-VN')} đ`
+                `${myName} đã chi trả nhiều hơn ${partnerName}: ${Math.abs(expenseDiff).toLocaleString('vi-VN')} đ`
               ) : (
-                `${partnerName} đã chi trả nhiều hơn bạn: ${Math.abs(expenseDiff).toLocaleString('vi-VN')} đ`
+                `${partnerName} đã chi trả nhiều hơn ${myName}: ${Math.abs(expenseDiff).toLocaleString('vi-VN')} đ`
               )}
             </span>
           </div>
