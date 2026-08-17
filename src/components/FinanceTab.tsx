@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserProfile, CoupleData, JournalEntry, FinanceTransaction, SavingsGoal, WakeUpLog } from '../types';
+import { UserProfile, CoupleData, JournalEntry, FinanceTransaction, SavingsGoal, WakeUpLog, FundConfig } from '../types';
 import { formatDateVN, formatDateShortVN } from '../utils/formatDate';
 import { 
   db, 
@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { EditTransactionModal } from './EditTransactionModal';
 import { WakeUpChallengeCard } from './WakeUpChallengeCard';
+import { FundQRCodeCard } from './FundQRCodeCard';
 
 interface FinanceTabProps {
   userProfile: UserProfile;
@@ -51,6 +52,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
   const [transactions, setTransactions] = useState<FinanceTransaction[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [wakeUpLogs, setWakeUpLogs] = useState<WakeUpLog[]>([]);
+  const [fundConfig, setFundConfig] = useState<FundConfig | null>(null);
 
   // Form states - Add Transaction
   const [showAddTransaction, setShowAddTransaction] = useState(false);
@@ -155,12 +157,37 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
       console.error('Lỗi tải nhật ký dậy sớm:', err);
     });
 
+    // Fund Config listener (QR Code, Bank, Purpose)
+    const fundConfigRef = doc(db, 'couples', userProfile.coupleId, 'settings', 'fundConfig');
+    const unsubscribeFundConfig = onSnapshot(fundConfigRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setFundConfig(docSnap.data() as FundConfig);
+      } else {
+        setFundConfig({
+          fundPurpose: 'Tiền quỹ được sử dụng cho mục đích chung của hai đứa: Mua áo đôi, hẹn hò cuối tuần, du lịch, quà kỷ niệm, đồ đôi & sinh hoạt chung...',
+          bankName: coupleData?.bankName || '',
+          bankAccountNo: coupleData?.bankAccountNo || '',
+          accountHolderName: coupleData?.accountHolderName || ''
+        });
+      }
+    }, (err) => {
+      console.error('Lỗi tải cấu hình quỹ:', err);
+    });
+
     return () => {
       unsubscribeTx();
       unsubscribeGoals();
       unsubscribeWakeUp();
+      unsubscribeFundConfig();
     };
-  }, [userProfile.coupleId]);
+  }, [userProfile.coupleId, coupleData]);
+
+  const handleQuickAddFundContribution = () => {
+    setTxType('income');
+    setTxCategory('Đóng quỹ chung');
+    setTxTitle('Đóng quỹ tình yêu');
+    setShowAddTransaction(true);
+  };
 
   // Handle Add Transaction
   const handleAddTransaction = async (e: React.FormEvent) => {
@@ -391,6 +418,14 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
         coupleData={coupleData}
         todayLog={todayWakeUpLog}
         allLogs={wakeUpLogs}
+      />
+
+      {/* Quỹ Chung & Mã QR Chuyển Khoản (Đóng quỹ mua áo đôi, hẹn hò, đi chơi...) */}
+      <FundQRCodeCard
+        userProfile={userProfile}
+        coupleData={coupleData}
+        fundConfig={fundConfig}
+        onOpenAddIncome={handleQuickAddFundContribution}
       />
 
       {/* Clean Overview Card: Bạn vs Người ấy */}

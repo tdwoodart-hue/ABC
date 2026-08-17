@@ -267,4 +267,15 @@ export interface LoveActionRecord {
   createdAt: string;
 }
 
+export interface FundConfig {
+  qrImageUrl?: string;
+  bankName?: string;
+  bankAccountNo?: string;
+  accountHolderName?: string;
+  fundPurpose?: string;
+  customNote?: string;
+  updatedAt?: string;
+  updatedByUid?: string;
+}
+
 

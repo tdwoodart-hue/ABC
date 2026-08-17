@@ -2931,85 +2931,85 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       </main>
 
       {/* Fixed Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-rose-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-1 sm:px-3 py-1.5 sm:py-2">
-        <div className="max-w-xl mx-auto flex items-center justify-around">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-rose-100 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] px-1 sm:px-4 py-2 sm:py-2.5">
+        <div className="max-w-2xl mx-auto flex items-center justify-around gap-1">
           {/* Tab 1: Home (/home or /) */}
           <button
             onClick={() => handleNavigateTab('home')}
-            className={`flex flex-col items-center gap-0.5 sm:gap-1 py-1 px-2 sm:px-3 rounded-2xl transition cursor-pointer ${
+            className={`flex-1 flex flex-col items-center justify-center gap-1 py-1.5 sm:py-2 px-1 sm:px-2.5 rounded-2xl transition cursor-pointer min-h-[52px] ${
               activeTab === 'home'
-                ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
-                : 'text-slate-400 hover:text-slate-600'
+                ? 'text-rose-600 font-bold bg-rose-50 border border-rose-200/80 shadow-2xs'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50/80'
             }`}
           >
-            <Home className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
-            <span className="text-[9px] sm:text-[11px]">Trang chủ</span>
+            <Home className="w-5 h-5 sm:w-5 sm:h-5 shrink-0" />
+            <span className="text-[11px] sm:text-xs font-semibold whitespace-nowrap">Trang chủ</span>
           </button>
 
           {/* Tab 2: Journal (/journal) */}
           <button
             onClick={() => handleNavigateTab('journal')}
-            className={`flex flex-col items-center gap-0.5 sm:gap-1 py-1 px-2 sm:px-3 rounded-2xl transition cursor-pointer ${
+            className={`flex-1 flex flex-col items-center justify-center gap-1 py-1.5 sm:py-2 px-1 sm:px-2.5 rounded-2xl transition cursor-pointer min-h-[52px] ${
               activeTab === 'journal'
-                ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
-                : 'text-slate-400 hover:text-slate-600'
+                ? 'text-rose-600 font-bold bg-rose-50 border border-rose-200/80 shadow-2xs'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50/80'
             }`}
           >
-            <BookOpen className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
-            <span className="text-[9px] sm:text-[11px]">Nhật ký</span>
+            <BookOpen className="w-5 h-5 sm:w-5 sm:h-5 shrink-0" />
+            <span className="text-[11px] sm:text-xs font-semibold whitespace-nowrap">Nhật ký</span>
           </button>
 
           {/* Tab 3: Achievements (/achievements) */}
           <button
             onClick={() => handleNavigateTab('achievements')}
-            className={`flex flex-col items-center gap-0.5 sm:gap-1 py-1 px-2 sm:px-3 rounded-2xl transition cursor-pointer relative ${
+            className={`flex-1 flex flex-col items-center justify-center gap-1 py-1.5 sm:py-2 px-1 sm:px-2.5 rounded-2xl transition cursor-pointer min-h-[52px] relative ${
               activeTab === 'achievements'
-                ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
-                : 'text-slate-400 hover:text-slate-600'
+                ? 'text-rose-600 font-bold bg-rose-50 border border-rose-200/80 shadow-2xs'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50/80'
             }`}
           >
-            <Trophy className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
-            <span className="text-[9px] sm:text-[11px]">Thành tích</span>
-            <span className="absolute top-0.5 right-1 w-1.5 h-1.5 bg-amber-400 rounded-full" />
+            <Trophy className="w-5 h-5 sm:w-5 sm:h-5 shrink-0" />
+            <span className="text-[11px] sm:text-xs font-semibold whitespace-nowrap">Thành tích</span>
+            <span className="absolute top-1 right-2 sm:right-3 w-2 h-2 bg-amber-400 rounded-full ring-2 ring-white" />
           </button>
 
           {/* Tab 4: Nutrition (/nutrition) */}
           <button
             onClick={() => handleNavigateTab('nutrition')}
-            className={`flex flex-col items-center gap-0.5 sm:gap-1 py-1 px-2 sm:px-3 rounded-2xl transition cursor-pointer ${
+            className={`flex-1 flex flex-col items-center justify-center gap-1 py-1.5 sm:py-2 px-1 sm:px-2.5 rounded-2xl transition cursor-pointer min-h-[52px] ${
               activeTab === 'nutrition'
-                ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
-                : 'text-slate-400 hover:text-slate-600'
+                ? 'text-rose-600 font-bold bg-rose-50 border border-rose-200/80 shadow-2xs'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50/80'
             }`}
           >
-            <Apple className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
-            <span className="text-[9px] sm:text-[11px]">Dinh dưỡng</span>
+            <Apple className="w-5 h-5 sm:w-5 sm:h-5 shrink-0" />
+            <span className="text-[11px] sm:text-xs font-semibold whitespace-nowrap">Dinh dưỡng</span>
           </button>
 
           {/* Tab 5: Finance (/finance) */}
           <button
             onClick={() => handleNavigateTab('finance')}
-            className={`flex flex-col items-center gap-0.5 sm:gap-1 py-1 px-2 sm:px-3 rounded-2xl transition cursor-pointer ${
+            className={`flex-1 flex flex-col items-center justify-center gap-1 py-1.5 sm:py-2 px-1 sm:px-2.5 rounded-2xl transition cursor-pointer min-h-[52px] ${
               activeTab === 'finance'
-                ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
-                : 'text-slate-400 hover:text-slate-600'
+                ? 'text-rose-600 font-bold bg-rose-50 border border-rose-200/80 shadow-2xs'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50/80'
             }`}
           >
-            <Wallet className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
-            <span className="text-[9px] sm:text-[11px]">Tài chính</span>
+            <Wallet className="w-5 h-5 sm:w-5 sm:h-5 shrink-0" />
+            <span className="text-[11px] sm:text-xs font-semibold whitespace-nowrap">Tài chính</span>
           </button>
 
           {/* Tab 6: Profile (/profile) */}
           <button
             onClick={() => handleNavigateTab('profile')}
-            className={`flex flex-col items-center gap-0.5 sm:gap-1 py-1 px-2 sm:px-3 rounded-2xl transition cursor-pointer ${
+            className={`flex-1 flex flex-col items-center justify-center gap-1 py-1.5 sm:py-2 px-1 sm:px-2.5 rounded-2xl transition cursor-pointer min-h-[52px] ${
               activeTab === 'profile'
-                ? 'text-rose-600 font-bold bg-rose-100/70 shadow-xs'
-                : 'text-slate-400 hover:text-slate-600'
+                ? 'text-rose-600 font-bold bg-rose-50 border border-rose-200/80 shadow-2xs'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50/80'
             }`}
           >
-            <UserIcon className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
-            <span className="text-[9px] sm:text-[11px]">Tài khoản</span>
+            <UserIcon className="w-5 h-5 sm:w-5 sm:h-5 shrink-0" />
+            <span className="text-[11px] sm:text-xs font-semibold whitespace-nowrap">Tài khoản</span>
           </button>
         </div>
       </nav>

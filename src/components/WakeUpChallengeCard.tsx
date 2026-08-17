@@ -129,14 +129,14 @@ export const WakeUpChallengeCard: React.FC<WakeUpChallengeCardProps> = ({
   const isWinnerToday = todayLog?.winnerUid === myUid;
 
   if (compact) {
-    // Synchronized Clean White / Rose Widget for Home Screen
+    // Clean White / Rose Widget for Home Screen without clutter notes
     return (
       <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 hover:border-rose-300 transition-all shadow-xs relative overflow-hidden space-y-3">
         {showCelebration && (
           <div className="absolute inset-0 bg-rose-500/95 backdrop-blur-xs flex flex-col items-center justify-center text-white z-20 animate-fadeIn p-4 text-center">
             <Sparkles className="w-7 h-7 text-pink-200 animate-bounce mb-1" />
             <p className="font-bold text-sm">🎉 Bạn đã dậy sớm nhất hôm nay!</p>
-            <p className="text-xs opacity-90">{partnerName} đã được ghi nhận đóng 5.000đ vào quỹ ☕</p>
+            <p className="text-xs opacity-90">{partnerName} đóng 5.000đ vào quỹ chung ☕</p>
           </div>
         )}
 
@@ -145,14 +145,11 @@ export const WakeUpChallengeCard: React.FC<WakeUpChallengeCardProps> = ({
             <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
               <Sun className="w-5 h-5 text-rose-500" />
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-slate-800">Ai Dậy Sớm Hơn?</span>
-                <span className="px-2 py-0.5 bg-rose-50 text-rose-600 border border-rose-200/60 rounded-full text-[10px] font-semibold">
-                  Phạt 5k/ngày
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500">Ai dậy trước bấm trước, người dậy sau đóng quỹ</p>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-slate-800">Ai Dậy Sớm Hơn?</span>
+              <span className="px-2.5 py-0.5 bg-rose-50 text-rose-600 border border-rose-200/60 rounded-full text-xs font-semibold">
+                Phạt 5k
+              </span>
             </div>
           </div>
 
@@ -160,7 +157,7 @@ export const WakeUpChallengeCard: React.FC<WakeUpChallengeCardProps> = ({
             <button
               type="button"
               onClick={onNavigateToFinance}
-              className="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-0.5 cursor-pointer shrink-0"
+              className="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-0.5 cursor-pointer shrink-0 py-1 px-2 hover:bg-rose-50 rounded-lg transition"
             >
               <span>Xem quỹ</span>
               <ChevronRight className="w-3.5 h-3.5" />
@@ -169,48 +166,37 @@ export const WakeUpChallengeCard: React.FC<WakeUpChallengeCardProps> = ({
         </div>
 
         {!todayLog ? (
-          <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between gap-3">
-            <div className="text-xs text-slate-600 min-w-0">
-              <p className="font-semibold text-slate-800 truncate">Hôm nay chưa ai điểm danh</p>
-              <p className="text-[11px] text-slate-400 truncate">Bấm ngay để giành chiến thắng hôm nay!</p>
-            </div>
-            <button
-              type="button"
-              onClick={handleCheckInWakeUp}
-              disabled={loading}
-              className="px-3.5 py-2 bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer shrink-0"
-            >
-              <Sun className="w-3.5 h-3.5" />
-              <span>☀️ Tôi Đã Dậy Rồi!</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleCheckInWakeUp}
+            disabled={loading}
+            className="w-full py-3.5 px-4 bg-rose-500 hover:bg-rose-600 active:scale-[0.99] text-white font-bold text-sm rounded-xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <Sun className="w-4 h-4 text-amber-200" />
+            <span>☀️ Tôi Đã Dậy Rồi! (5.000đ)</span>
+          </button>
         ) : (
           <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1.5">
+            <div className="flex items-center justify-between text-xs sm:text-sm">
+              <div className="flex items-center gap-2 min-w-0">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span className="font-bold text-slate-800">
+                <span className="font-bold text-slate-800 truncate">
                   {isWinnerToday
-                    ? `🏆 Bạn đã dậy trước lúc ${todayLog.winnerTime}`
-                    : `🏆 ${todayLog.winnerName} đã dậy lúc ${todayLog.winnerTime}`}
+                    ? `🏆 Bạn đã dậy trước (${todayLog.winnerTime})`
+                    : `🏆 ${todayLog.winnerName} đã dậy trước (${todayLog.winnerTime})`}
                 </span>
               </div>
-              <span className="text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-200/80 px-2 py-0.5 rounded-full">
-                +5.000đ vào quỹ
+              <span className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200/80 px-2.5 py-1 rounded-full shrink-0">
+                +5.000đ quỹ
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              {isWinnerToday
-                ? `👉 ${partnerName} dậy muộn hơn và đã tự động đóng 5.000đ vào quỹ chung!`
-                : `👉 Bạn dậy muộn hơn nên đã đóng 5.000đ vào quỹ chung hôm nay.`}
-            </p>
             {!isWinnerToday && !todayLog.loserWokeUpAt && (
               <button
                 type="button"
                 onClick={handleSecondPersonWakeUp}
-                className="w-full mt-1 py-1.5 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-slate-700 hover:text-rose-600 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1 shadow-2xs"
+                className="w-full mt-1.5 py-2.5 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-slate-700 hover:text-rose-600 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
               >
-                <Coffee className="w-3.5 h-3.5 text-rose-500" />
+                <Coffee className="w-4 h-4 text-rose-500" />
                 <span>Tôi cũng vừa dậy lúc này ({currentTimeStr})</span>
               </button>
             )}
