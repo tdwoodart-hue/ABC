@@ -150,14 +150,34 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
     setFacingMode(nextMode);
   };
 
-  // Take Snapshot
+  // Take Snapshot with automatic lightweight compression for Firestore
   const handleTakeSnapshot = () => {
     if (!videoRef.current) return;
 
     const video = videoRef.current;
     const canvas = canvasRef.current || document.createElement('canvas');
-    canvas.width = video.videoWidth || 1280;
-    canvas.height = video.videoHeight || 720;
+    
+    // Calculate optimal dimensions (max 960px to guarantee < 150KB size while maintaining sharp clarity)
+    const MAX_DIMENSION = 960;
+    let rawWidth = video.videoWidth || 1280;
+    let rawHeight = video.videoHeight || 720;
+    let targetWidth = rawWidth;
+    let targetHeight = rawHeight;
+
+    if (rawWidth > rawHeight) {
+      if (rawWidth > MAX_DIMENSION) {
+        targetHeight = Math.round((rawHeight * MAX_DIMENSION) / rawWidth);
+        targetWidth = MAX_DIMENSION;
+      }
+    } else {
+      if (rawHeight > MAX_DIMENSION) {
+        targetWidth = Math.round((rawWidth * MAX_DIMENSION) / rawHeight);
+        targetHeight = MAX_DIMENSION;
+      }
+    }
+
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -170,8 +190,8 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // High quality JPEG
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    // Optimized JPEG (0.78 gives crisp photo with small payload)
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.78);
     setCapturedImage(dataUrl);
     stopCamera();
   };

@@ -852,8 +852,11 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       setNewExpenseTitle('');
       setNewExpenseAmount('');
       setShowAddJournal(false);
-    } catch (err) {
+      setGpsToast('Đã lưu bài viết nhật ký thành công! ✨');
+      setTimeout(() => setGpsToast(null), 3000);
+    } catch (err: any) {
       console.error('Lỗi thêm nhật ký:', err);
+      alert('Không thể lưu nhật ký: ' + (err?.message || 'Vui lòng kiểm tra lại ảnh hoặc kết nối mạng.'));
     } finally {
       setAddingJournal(false);
     }
@@ -1270,12 +1273,12 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
               </div>
             </div>
 
-            {/* Subtab Toggle: Feed vs Places Visited */}
-            <div className="flex items-center gap-2 border-b border-slate-200/80 pb-3">
+            {/* Subtab Toggle & Filters on the same row */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
               <button
                 type="button"
                 onClick={() => setJournalViewTab('feed')}
-                className={`px-4 py-2 rounded-2xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                   journalViewTab === 'feed'
                     ? 'bg-rose-500 text-white shadow-xs'
                     : 'bg-white hover:bg-rose-50 text-slate-600 border border-slate-200/80'
@@ -1287,7 +1290,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
               <button
                 type="button"
                 onClick={() => setJournalViewTab('places')}
-                className={`px-4 py-2 rounded-2xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                   journalViewTab === 'places'
                     ? 'bg-rose-500 text-white shadow-xs'
                     : 'bg-white hover:bg-rose-50 text-slate-600 border border-slate-200/80'
@@ -1296,6 +1299,46 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                 <MapPin className="w-3.5 h-3.5" />
                 <span>Nơi đã đi ({journals.filter(j => j.location).length})</span>
               </button>
+
+              {/* Quick Filter for Companions & People on the same line */}
+              {journalViewTab === 'feed' && companions.length > 0 && (
+                <>
+                  <div className="h-4 w-[1px] bg-slate-200 shrink-0 mx-0.5" />
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCompanionFilter(null)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition cursor-pointer whitespace-nowrap ${
+                      selectedCompanionFilter === null
+                        ? 'bg-slate-800 text-white'
+                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    Tất cả
+                  </button>
+                  {companions.map((comp) => {
+                    const isSelected = selectedCompanionFilter === comp.id;
+                    const count = journals.filter(j => j.taggedPeople?.some(p => p.id === comp.id)).length;
+                    return (
+                      <button
+                        key={comp.id}
+                        type="button"
+                        onClick={() => setSelectedCompanionFilter(isSelected ? null : comp.id)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${
+                          isSelected
+                            ? 'bg-amber-500 text-white shadow-xs'
+                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        <span>{comp.emoji || '🐾'}</span>
+                        <span>{comp.name}</span>
+                        <span className={`text-[10px] px-1 py-0.2 rounded-md ${isSelected ? 'bg-white/30 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </>
+              )}
             </div>
 
             {/* Search Journal */}
@@ -1309,46 +1352,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                 className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-400 shadow-xs"
               />
             </div>
-
-            {/* Quick Filter Strip for Companions & People */}
-            {companions.length > 0 && (
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-                <span className="text-[11px] text-slate-400 font-semibold shrink-0">Lọc theo:</span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedCompanionFilter(null)}
-                  className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 transition cursor-pointer ${
-                    selectedCompanionFilter === null
-                      ? 'bg-slate-800 text-white'
-                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  Tất cả ({journals.length})
-                </button>
-                {companions.map((comp) => {
-                  const isSelected = selectedCompanionFilter === comp.id;
-                  const count = journals.filter(j => j.taggedPeople?.some(p => p.id === comp.id)).length;
-                  return (
-                    <button
-                      key={comp.id}
-                      type="button"
-                      onClick={() => setSelectedCompanionFilter(isSelected ? null : comp.id)}
-                      className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 transition cursor-pointer flex items-center gap-1 ${
-                        isSelected
-                          ? 'bg-amber-500 text-white shadow-xs'
-                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                      }`}
-                    >
-                      <span>{comp.emoji || '🐾'}</span>
-                      <span>{comp.name}</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-white/30 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
 
             {/* Add Journal Form */}
             {showAddJournal && (
