@@ -115,27 +115,21 @@ export const FundQRCodeCard: React.FC<FundQRCodeCardProps> = ({
   return (
     <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/80 shadow-xs space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-        <div className="flex items-center gap-2.5">
+      <div className="flex items-center justify-between border-b border-slate-100 pb-3 gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-9 h-9 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shrink-0">
             <QrCode className="w-5 h-5" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm sm:text-base font-bold text-slate-800">Quỹ Chung & Mã QR Đóng Quỹ</h3>
-              <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200/80 rounded-full text-[10px] font-bold flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-amber-500" />
-                Mục đích chung
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-400">Đồng bộ tự động cho cả 2 bạn</p>
+          <div className="min-w-0">
+            <h3 className="text-sm sm:text-base font-bold text-slate-800 truncate">Quỹ Chung & Mã QR Chuyển Khoản</h3>
+            <p className="text-[11px] text-slate-400 truncate">Đồng bộ tự động cho cả 2 bạn</p>
           </div>
         </div>
 
         <button
           type="button"
           onClick={handleOpenEdit}
-          className="text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-xl border border-rose-200/60 transition cursor-pointer flex items-center gap-1 shrink-0"
+          className="text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-xl border border-rose-200/60 transition cursor-pointer flex items-center gap-1 shrink-0 whitespace-nowrap"
           title="Chỉnh sửa mã QR và thông tin tài khoản quỹ"
         >
           <Edit3 className="w-3.5 h-3.5" />

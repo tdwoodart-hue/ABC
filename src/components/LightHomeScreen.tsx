@@ -1210,16 +1210,13 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                     onClick={() => handleNavigateTab('achievements')}
                     className="bg-white rounded-2xl p-4 border border-slate-200/80 hover:border-rose-300 transition-all shadow-xs hover:shadow-md cursor-pointer flex items-center justify-between gap-3 group"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100 group-hover:scale-105 transition-transform">
                         <Trophy className="w-5 h-5 text-rose-500" />
                       </div>
-                      <div className="text-left">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-bold text-slate-800">Thành Tích & Cột Mốc Đôi</span>
-                          <span className="px-2 py-0.5 bg-rose-50 text-rose-600 border border-rose-200/60 rounded-full text-[10px] font-semibold">Mới</span>
-                        </div>
-                        <p className="text-[11px] text-slate-500">Mở khóa huy hiệu, cấp độ tình yêu & lưu giữ kỷ niệm</p>
+                      <div className="text-left min-w-0">
+                        <span className="text-sm font-bold text-slate-800 block truncate">Thành Tích & Điểm Thưởng</span>
+                        <p className="text-xs text-slate-500 truncate">Huy hiệu, cấp độ tình yêu & kỷ niệm</p>
                       </div>
                     </div>
                     <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-rose-500 group-hover:translate-x-0.5 transition shrink-0" />
