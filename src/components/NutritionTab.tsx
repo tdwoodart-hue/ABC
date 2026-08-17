@@ -348,7 +348,6 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
                 <h3 className="text-sm font-bold text-slate-800">
                   Ghi Nhận Món Ăn Bằng AI
                 </h3>
-                <p className="text-[11px] text-slate-400">Nhập văn bản hoặc tải ảnh món ăn để AI tự tính calo</p>
               </div>
             </div>
 

@@ -113,6 +113,25 @@
         "createdAt": { "type": "string" }
       },
       "required": ["title", "content", "date"]
+    },
+    "devices": {
+      "title": "Device",
+      "description": "Registered devices for Duong and Chuc",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "deviceName": { "type": "string" },
+        "deviceType": { "type": "string" },
+        "os": { "type": "string" },
+        "browser": { "type": "string" },
+        "ownerKey": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "ownerUid": { "type": "string" },
+        "lastActive": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "isTrusted": { "type": "boolean" }
+      },
+      "required": ["id", "deviceName", "ownerKey"]
     }
   },
   "firestore": {
@@ -131,6 +150,10 @@
     "/couples/{coupleId}/journals/{journalId}": {
       "schema": { "$ref": "#/entities/journals" },
       "description": "Journals subcollection"
+    },
+    "/couples/{coupleId}/devices/{deviceId}": {
+      "schema": { "$ref": "#/entities/devices" },
+      "description": "Devices subcollection"
     }
   }
 }

@@ -122,7 +122,6 @@ export const FundQRCodeCard: React.FC<FundQRCodeCardProps> = ({
           </div>
           <div className="min-w-0">
             <h3 className="text-sm sm:text-base font-bold text-slate-800 truncate">Quỹ Chung & Mã QR Chuyển Khoản</h3>
-            <p className="text-[11px] text-slate-400 truncate">Đồng bộ tự động cho cả 2 bạn</p>
           </div>
         </div>
 
@@ -180,7 +179,6 @@ export const FundQRCodeCard: React.FC<FundQRCodeCardProps> = ({
               <span className="text-[10px] text-slate-400 mt-0.5">Tải ảnh hoặc nhập STK</span>
             </div>
           )}
-          <span className="text-[11px] text-slate-400 mt-2 font-medium">Quét mã QR để chuyển quỹ</span>
         </div>
 
         {/* Bank & Transfer details */}

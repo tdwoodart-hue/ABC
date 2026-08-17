@@ -278,4 +278,20 @@ export interface FundConfig {
   updatedByUid?: string;
 }
 
+export interface DeviceRecord {
+  id: string;
+  deviceName: string;
+  deviceType: 'mobile' | 'tablet' | 'desktop' | 'other';
+  os: string;
+  browser: string;
+  ownerKey: 'duong' | 'chuc';
+  ownerName: string;
+  ownerUid?: string;
+  lastActive: string;
+  ipAddress?: string;
+  isCurrentDevice?: boolean;
+  createdAt: string;
+  isTrusted: boolean;
+}
+
 

@@ -561,7 +561,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
                 }`}
               >
                 <img src={myAvatar} alt="" className="w-5 h-5 rounded-full object-cover border border-white" />
-                <span className="truncate">{myName} (Bạn)</span>
+                <span className="truncate">{myName}</span>
               </button>
 
               <button
@@ -574,7 +574,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
                 }`}
               >
                 <img src={partnerAvatar} alt="" className="w-5 h-5 rounded-full object-cover border border-white" />
-                <span className="truncate">{partnerName} (Nửa kia)</span>
+                <span className="truncate">{partnerName}</span>
               </button>
             </div>
           </div>
@@ -770,7 +770,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
                   }`}
                 >
                   <img src={myAvatar} alt="" className="w-4 h-4 rounded-full object-cover" />
-                  <span className="truncate">{myName} (Bạn)</span>
+                  <span className="truncate">{myName}</span>
                 </button>
                 <button
                   type="button"
@@ -782,7 +782,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
                   }`}
                 >
                   <img src={partnerAvatar} alt="" className="w-4 h-4 rounded-full object-cover" />
-                  <span className="truncate">{partnerName} (Nửa kia)</span>
+                  <span className="truncate">{partnerName}</span>
                 </button>
               </div>
 
@@ -944,7 +944,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ userProfile, coupleData,
           <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
             {filteredTransactions.map((tx) => {
               const isPayerMe = tx.paidByUid === myUid;
-              const payerDisplayName = isPayerMe ? 'Bạn' : tx.paidByName || partnerName;
+              const payerDisplayName = isPayerMe ? myName : (tx.paidByName || partnerName);
 
               return (
                 <div key={tx.id} className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100 transition">

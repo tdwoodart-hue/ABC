@@ -12,6 +12,14 @@ import { CameraCaptureModal } from './CameraCaptureModal';
 import { WakeUpChallengeCard } from './WakeUpChallengeCard';
 import { CompanionManagerModal } from './CompanionManagerModal';
 import { TagPeopleSelector } from './TagPeopleSelector';
+import { DeviceManagerModal } from './DeviceManagerModal';
+import { 
+  getStoredDeviceOwner, 
+  getStoredDeviceName, 
+  getOrCreateDeviceId, 
+  detectDeviceDetails,
+  syncDeviceToFirestore 
+} from '../utils/deviceHelper';
 import { formatDateVN, formatDateShortVN } from '../utils/formatDate';
 import { 
   db, 
@@ -199,6 +207,27 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   // Companions / Special members (Pets, Friends...) State
   const [companions, setCompanions] = useState<Companion[]>([]);
   const [isCompanionManagerOpen, setIsCompanionManagerOpen] = useState(false);
+
+  // Device Manager & Device Identification State
+  const [isDeviceManagerOpen, setIsDeviceManagerOpen] = useState(false);
+  const [deviceOwner, setDeviceOwner] = useState<'duong' | 'chuc'>(() => {
+    const saved = getStoredDeviceOwner();
+    if (saved) return saved;
+    const isD = userProfile.email?.toLowerCase().includes('duong');
+    return isD ? 'duong' : 'chuc';
+  });
+  const [activeDeviceName, setActiveDeviceName] = useState<string>(() => {
+    const saved = getStoredDeviceName();
+    if (saved) return saved;
+    const details = detectDeviceDetails();
+    const isD = userProfile.email?.toLowerCase().includes('duong');
+    return isD ? `Thiết bị của Dương (${details.os})` : `Thiết bị của Chúc (${details.os})`;
+  });
+
+  useEffect(() => {
+    // Sync current active device on mount
+    syncDeviceToFirestore(deviceOwner, activeDeviceName, userProfile.uid);
+  }, [deviceOwner, activeDeviceName, userProfile.uid]);
 
   // Lightbox & Image Comment Modal State
   const [lightboxJournal, setLightboxJournal] = useState<JournalEntry | null>(null);
@@ -2439,7 +2468,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-sm sm:text-base font-bold text-slate-800 truncate">{partnerName}</h3>
-                      <p className="text-[11px] text-slate-400">Đồng hành trong tình yêu</p>
                     </div>
                   </div>
 
@@ -2464,7 +2492,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
               <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
                 <h3 className="text-sm font-bold text-slate-800 pb-2 border-b border-slate-100 flex items-center justify-between">
                   <span>Thông Tin Chung & Hẹn Hò</span>
-                  <span className="text-[11px] font-normal text-slate-400">Đồng bộ hai người</span>
                 </h3>
 
                 <div className="space-y-3 text-xs">
@@ -2625,6 +2652,44 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* Device Management & Security Section */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <h3 className="text-sm font-bold text-slate-800">Quản Lý Thiết Bị & Bảo Mật</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsDeviceManagerOpen(true)}
+                    className="text-xs text-indigo-600 hover:text-indigo-700 font-semibold flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Chi tiết / Đổi máy ⚙️</span>
+                  </button>
+                </div>
+
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                      <p className="text-xs font-bold text-slate-800 truncate">
+                        {activeDeviceName}
+                      </p>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Đang định danh: <span className="font-semibold text-slate-700">{deviceOwner === 'duong' ? 'Dương (Tao)' : 'Chúc (Chúc Gà)'}</span>
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsDeviceManagerOpen(true)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium cursor-pointer shrink-0"
+                  >
+                    Quản lý
+                  </button>
+                </div>
               </div>
 
               {/* Logout Button */}
@@ -3078,6 +3143,17 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         onClose={() => setIsCompanionManagerOpen(false)}
         userProfile={userProfile}
         companions={companions}
+      />
+
+      {/* Device Manager & Identification Modal */}
+      <DeviceManagerModal
+        isOpen={isDeviceManagerOpen}
+        onClose={() => setIsDeviceManagerOpen(false)}
+        currentUser={userProfile}
+        onDeviceChange={(newOwner, newName) => {
+          setDeviceOwner(newOwner);
+          setActiveDeviceName(newName);
+        }}
       />
 
       {/* Floating GPS and Photo Notification Toast */}

@@ -222,7 +222,6 @@ export const WakeUpChallengeCard: React.FC<WakeUpChallengeCardProps> = ({
           </div>
           <div>
             <h3 className="text-sm sm:text-base font-bold text-slate-800">Thử Thách Dậy Sớm</h3>
-            <p className="text-xs text-slate-400">Ghi nhận người thức dậy sớm mỗi ngày</p>
           </div>
         </div>
       </div>
@@ -246,7 +245,7 @@ export const WakeUpChallengeCard: React.FC<WakeUpChallengeCardProps> = ({
       </div>
 
       {/* Today status & Action Button */}
-      <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-xl space-y-3">
+      <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2.5">
         <div className="flex items-center justify-between text-xs">
           <span className="font-semibold text-slate-700 flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-slate-400" />
@@ -256,18 +255,15 @@ export const WakeUpChallengeCard: React.FC<WakeUpChallengeCardProps> = ({
         </div>
 
         {!todayLog ? (
-          <div className="space-y-2.5 text-center py-1">
-            <p className="text-xs text-slate-600 font-medium">
-              Chưa ai điểm danh hôm nay! Bấm nút bên dưới ngay khi vừa thức dậy để không bị phạt:
-            </p>
+          <div className="pt-0.5">
             <button
               type="button"
               onClick={handleCheckInWakeUp}
               disabled={loading}
               className="w-full py-2.5 bg-rose-500 hover:bg-rose-600 active:scale-98 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer flex items-center justify-center gap-2"
             >
-              <Sun className="w-4 h-4" />
-              <span>☀️ TÔI ĐÃ DẬY RỒI! (ĐIỂM DANH NGAY)</span>
+              <Sun className="w-4 h-4 text-amber-200" />
+              <span>☀️ Tôi đã dậy rồi!</span>
             </button>
           </div>
         ) : (
@@ -278,22 +274,17 @@ export const WakeUpChallengeCard: React.FC<WakeUpChallengeCardProps> = ({
                 : 'bg-rose-50/70 border-rose-200 text-rose-900'
             }`}>
               <div className="text-xl shrink-0">
-                {isWinnerToday ? '🏆' : '😴'}
+                {isWinnerToday ? '🏆' : '⏰'}
               </div>
               <div className="flex-1 text-xs">
                 <p className="font-bold text-xs">
                   {isWinnerToday 
-                    ? 'Bạn là người dậy sớm nhất hôm nay!' 
-                    : `${todayLog.winnerName} đã dậy sớm trước bạn!`}
-                </p>
-                <p className="mt-0.5 opacity-90 text-[11px] leading-relaxed">
-                  {isWinnerToday
-                    ? `Bạn đã bấm dậy lúc ${todayLog.winnerTime}. ${partnerName} dậy muộn hơn và đã tự động đóng 5.000đ vào Quỹ chung.`
-                    : `${todayLog.winnerName} đã điểm danh lúc ${todayLog.winnerTime}. Bạn đã đóng phạt 5.000đ vào Quỹ chung hôm nay.`}
+                    ? `Bạn đã dậy trước (${todayLog.winnerTime})` 
+                    : `${todayLog.winnerName} đã dậy trước (${todayLog.winnerTime})`}
                 </p>
                 {todayLog.loserWokeUpAt && (
                   <p className="text-[10px] text-slate-400 mt-1">
-                    (Người thứ 2 thức dậy lúc: {todayLog.loserWokeUpAt})
+                    (Dậy lúc: {todayLog.loserWokeUpAt})
                   </p>
                 )}
               </div>
@@ -306,7 +297,7 @@ export const WakeUpChallengeCard: React.FC<WakeUpChallengeCardProps> = ({
                 className="w-full py-2 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-slate-700 hover:text-rose-600 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
               >
                 <Coffee className="w-3.5 h-3.5 text-rose-500" />
-                <span>Xác nhận: Tôi cũng vừa dậy lúc này ({currentTimeStr})</span>
+                <span>Tôi cũng vừa dậy ({currentTimeStr})</span>
               </button>
             )}
           </div>
@@ -332,7 +323,7 @@ export const WakeUpChallengeCard: React.FC<WakeUpChallengeCardProps> = ({
                     <span className="text-sm">{iWon ? '🏆' : '⏰'}</span>
                     <div>
                       <span className="font-bold text-slate-800">
-                        {iWon ? `${myName} (Bạn)` : log.winnerName} dậy sớm
+                        {iWon ? myName : log.winnerName}
                       </span>
                       <span className="text-slate-400 text-[11px] ml-1.5">
                         lúc {log.winnerTime}
