@@ -130,7 +130,7 @@ export const AuthCard: React.FC<AuthCardProps> = ({ onSuccess }) => {
             <input
               type="email"
               required
-              placeholder="duong@gmail.com hoặc chuc@gmail.com"
+              placeholder="name@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full pl-11 pr-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white text-sm transition"
