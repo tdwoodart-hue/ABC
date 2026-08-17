@@ -708,61 +708,63 @@ export const AchievementsTab: React.FC<AchievementsTabProps> = ({
   return (
     <div className="space-y-4 pb-12 max-w-4xl mx-auto">
       {/* Top Header Bar */}
-      <div className="flex items-center justify-between gap-3 border-b border-rose-100/80 pb-3">
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-rose-500" />
-          Thành Tích & Điểm Yêu Thương
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2">
+        <h1 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2 whitespace-nowrap">
+          <Trophy className="w-5 h-5 text-rose-500 shrink-0" />
+          <span>Thành Tích & Điểm Thưởng</span>
         </h1>
 
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={() => setShowCertificateModal(true)}
-            className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+            className="flex-1 sm:flex-none px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/80 rounded-xl text-xs font-semibold shadow-2xs transition flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
-            <Award className="w-3.5 h-3.5 text-rose-500" />
-            <span>Chứng Nhận</span>
+            <Award className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+            <span>Chứng nhận</span>
           </button>
           
           <button
+            type="button"
             onClick={() => setShowAddActionModal(true)}
-            className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+            className="flex-1 sm:flex-none px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>+ Ghi Điểm</span>
+            <Plus className="w-3.5 h-3.5 shrink-0" />
+            <span>Ghi điểm</span>
           </button>
         </div>
       </div>
 
       {/* Main Scorecard & Couple Level Bar */}
-      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-3.5">
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-3">
         {/* Level Header */}
-        <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+          <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center text-xl shrink-0">
               {coupleLevel.badge}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200/60">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200/60 whitespace-nowrap">
                   Cấp {coupleLevel.level}
                 </span>
-                <h2 className="text-sm sm:text-base font-bold text-slate-800">{coupleLevel.title}</h2>
+                <h2 className="text-sm sm:text-base font-bold text-slate-800 truncate">{coupleLevel.title}</h2>
               </div>
             </div>
           </div>
 
-          <div className="text-right">
-            <div className="text-lg sm:text-2xl font-black text-rose-600 flex items-center justify-end gap-1">
+          <div className="text-right shrink-0">
+            <div className="text-base sm:text-xl font-black text-rose-600 flex items-center justify-end gap-1 whitespace-nowrap">
               <span>{totalLovePoints.toLocaleString()}</span>
-              <span className="text-xs font-bold text-slate-400">PTS</span>
+              <span className="text-[11px] font-bold text-slate-400">PTS</span>
             </div>
           </div>
         </div>
 
         {/* Level Progress Bar */}
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <div className="flex justify-between text-xs font-medium text-slate-500">
-            <span>Tiến độ cấp độ: {levelProgress}%</span>
+            <span>Tiến độ: {levelProgress}%</span>
             <span>{totalLovePoints.toLocaleString()} / {coupleLevel.next.toLocaleString()} PTS</span>
           </div>
           <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
@@ -773,42 +775,43 @@ export const AchievementsTab: React.FC<AchievementsTabProps> = ({
           </div>
         </div>
 
-        {/* Breakdown Contributions (Dương vs Chúc Gà) */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-xs">
-          <div className="p-2.5 bg-slate-50 border border-slate-200/70 rounded-xl flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Trophy className="w-3.5 h-3.5 text-slate-500" />
-              <span className="text-slate-600 font-medium">Thành tích cột mốc</span>
+        {/* Breakdown Contributions (Horizontal Compact Pills) */}
+        <div className="grid grid-cols-3 gap-1.5 pt-1 text-xs">
+          <div className="p-2 bg-slate-50 border border-slate-200/70 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-0.5 text-center sm:text-left">
+            <div className="flex items-center justify-center sm:justify-start gap-1 min-w-0 text-slate-500 text-[11px]">
+              <Trophy className="w-3 h-3 shrink-0" />
+              <span className="truncate">Cột mốc</span>
             </div>
-            <span className="font-bold text-slate-800">+{pointsFromTiers.toLocaleString()}</span>
+            <span className="font-bold text-slate-800 text-xs">+{pointsFromTiers.toLocaleString()}</span>
           </div>
 
-          <div className="p-2.5 bg-slate-50 border border-slate-200/70 rounded-xl flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <img src={myAvatar} alt="" className="w-4 h-4 rounded-full border" />
-              <span className="text-slate-600 font-medium">{myName}</span>
+          <div className="p-2 bg-slate-50 border border-slate-200/70 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-0.5 text-center sm:text-left">
+            <div className="flex items-center justify-center sm:justify-start gap-1 min-w-0 text-slate-500 text-[11px]">
+              <img src={myAvatar} alt="" className="w-3.5 h-3.5 rounded-full border shrink-0" />
+              <span className="truncate">{myName}</span>
             </div>
-            <span className="font-bold text-rose-600">+{myActionPoints.toLocaleString()}</span>
+            <span className="font-bold text-rose-600 text-xs">+{myActionPoints.toLocaleString()}</span>
           </div>
 
-          <div className="p-2.5 bg-slate-50 border border-slate-200/70 rounded-xl flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <img src={partnerAvatar} alt="" className="w-4 h-4 rounded-full border" />
-              <span className="text-slate-600 font-medium">{partnerName}</span>
+          <div className="p-2 bg-slate-50 border border-slate-200/70 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-0.5 text-center sm:text-left">
+            <div className="flex items-center justify-center sm:justify-start gap-1 min-w-0 text-slate-500 text-[11px]">
+              <img src={partnerAvatar} alt="" className="w-3.5 h-3.5 rounded-full border shrink-0" />
+              <span className="truncate">{partnerName}</span>
             </div>
-            <span className="font-bold text-rose-600">+{partnerActionPoints.toLocaleString()}</span>
+            <span className="font-bold text-rose-600 text-xs">+{partnerActionPoints.toLocaleString()}</span>
           </div>
         </div>
       </div>
 
       {/* Sub Tabs Navigation */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto no-scrollbar">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
         <button
+          type="button"
           onClick={() => setSubTab('tiers')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 whitespace-nowrap ${
             subTab === 'tiers'
               ? 'bg-rose-500 text-white shadow-xs'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              : 'bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50'
           }`}
         >
           <Trophy className="w-3.5 h-3.5" />
@@ -816,23 +819,25 @@ export const AchievementsTab: React.FC<AchievementsTabProps> = ({
         </button>
 
         <button
+          type="button"
           onClick={() => setSubTab('actions')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 whitespace-nowrap ${
             subTab === 'actions'
               ? 'bg-rose-500 text-white shadow-xs'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              : 'bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50'
           }`}
         >
           <Sparkles className="w-3.5 h-3.5" />
-          <span>Hành Động Yêu Thương ({loveActions.length})</span>
+          <span>Hành Động Yêu ({loveActions.length})</span>
         </button>
 
         <button
+          type="button"
           onClick={() => setSubTab('custom')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 whitespace-nowrap ${
             subTab === 'custom'
               ? 'bg-rose-500 text-white shadow-xs'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              : 'bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50'
           }`}
         >
           <Star className="w-3.5 h-3.5" />
