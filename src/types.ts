@@ -153,6 +153,8 @@ export interface JournalEntry {
   mainImageIndex?: number; // Vị trí ảnh chính trong mảng images
   expenses?: JournalExpense[];
   taggedPeople?: TaggedPerson[]; // Danh sách người hoặc thú cưng (con mèo, bạn bè...) xuất hiện
+  musicUrl?: string; // Link bài hát gắn kèm (YouTube, Spotify, Soundcloud, Zing, MP3...)
+  musicTitle?: string; // Tên bài hát hiển thị
   authorName: string;
   authorUid: string;
   createdAt: string;

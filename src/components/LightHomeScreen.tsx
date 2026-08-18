@@ -13,6 +13,7 @@ import { WakeUpChallengeCard } from './WakeUpChallengeCard';
 import { CompanionManagerModal } from './CompanionManagerModal';
 import { TagPeopleSelector } from './TagPeopleSelector';
 import { DeviceManagerModal } from './DeviceManagerModal';
+import { JournalMusicPlayer } from './JournalMusicPlayer';
 import { 
   getStoredDeviceOwner, 
   getStoredDeviceName, 
@@ -94,7 +95,8 @@ import {
   RotateCcw,
   History,
   Archive,
-  ArrowDownUp
+  ArrowDownUp,
+  Music
 } from 'lucide-react';
 
 interface LightHomeScreenProps {
@@ -205,6 +207,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const [journalMainImageIndex, setJournalMainImageIndex] = useState(0);
   const [journalExpenses, setJournalExpenses] = useState<JournalExpense[]>([]);
   const [journalTaggedPeople, setJournalTaggedPeople] = useState<TaggedPerson[]>([]);
+  const [journalMusicUrl, setJournalMusicUrl] = useState('');
+  const [journalMusicTitle, setJournalMusicTitle] = useState('');
   const [newExpenseTitle, setNewExpenseTitle] = useState('');
   const [newExpenseAmount, setNewExpenseAmount] = useState('');
   const [addingJournal, setAddingJournal] = useState(false);
@@ -286,6 +290,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const [editMainImageIndex, setEditMainImageIndex] = useState(0);
   const [editExpenses, setEditExpenses] = useState<JournalExpense[]>([]);
   const [editTaggedPeople, setEditTaggedPeople] = useState<TaggedPerson[]>([]);
+  const [editMusicUrl, setEditMusicUrl] = useState('');
+  const [editMusicTitle, setEditMusicTitle] = useState('');
   const [editNewExpenseTitle, setEditNewExpenseTitle] = useState('');
   const [editNewExpenseAmount, setEditNewExpenseAmount] = useState('');
   const [editImageLoading, setEditImageLoading] = useState(false);
@@ -939,6 +945,12 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       if (journalTaggedPeople.length > 0) {
         docData.taggedPeople = journalTaggedPeople;
       }
+      if (journalMusicUrl.trim()) {
+        docData.musicUrl = journalMusicUrl.trim();
+      }
+      if (journalMusicTitle.trim()) {
+        docData.musicTitle = journalMusicTitle.trim();
+      }
 
       await addDoc(journalsRef, docData);
       setJournalTitle('');
@@ -949,6 +961,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       setJournalMainImageIndex(0);
       setJournalExpenses([]);
       setJournalTaggedPeople([]);
+      setJournalMusicUrl('');
+      setJournalMusicTitle('');
       setNewExpenseTitle('');
       setNewExpenseAmount('');
       setShowAddJournal(false);
@@ -1151,6 +1165,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     setEditMainImageIndex(item.mainImageIndex || 0);
     setEditExpenses(item.expenses ? [...item.expenses] : []);
     setEditTaggedPeople(item.taggedPeople ? [...item.taggedPeople] : []);
+    setEditMusicUrl(item.musicUrl || '');
+    setEditMusicTitle(item.musicTitle || '');
     setEditNewExpenseTitle('');
     setEditNewExpenseAmount('');
   };
@@ -1166,6 +1182,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     setEditMainImageIndex(0);
     setEditExpenses([]);
     setEditTaggedPeople([]);
+    setEditMusicUrl('');
+    setEditMusicTitle('');
     setEditNewExpenseTitle('');
     setEditNewExpenseAmount('');
   };
@@ -1233,6 +1251,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         imageUrl: editImages.length > 0 ? editImages[selectedMainIdx] : deleteField(),
         expenses: editExpenses.length > 0 ? editExpenses : deleteField(),
         taggedPeople: editTaggedPeople.length > 0 ? editTaggedPeople : deleteField(),
+        musicUrl: editMusicUrl.trim() ? editMusicUrl.trim() : deleteField(),
+        musicTitle: editMusicTitle.trim() ? editMusicTitle.trim() : deleteField(),
         updatedAt: new Date().toISOString()
       };
       await updateDoc(journalRef, updates);
@@ -2020,6 +2040,50 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                   onOpenCompanionManager={() => setIsCompanionManagerOpen(true)}
                 />
 
+                {/* Music Attachment Section in Create */}
+                <div className="p-3.5 bg-rose-50/40 border border-rose-200/60 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <Music className="w-3.5 h-3.5 text-rose-500" />
+                      <span>Gắn link bài hát kỷ niệm</span>
+                      <span className="text-slate-400 font-normal text-[11px]">(Tùy chọn)</span>
+                    </label>
+                    {journalMusicUrl && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setJournalMusicUrl('');
+                          setJournalMusicTitle('');
+                        }}
+                        className="text-[11px] text-rose-500 hover:text-rose-700 font-medium cursor-pointer"
+                      >
+                        Xóa nhạc
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input
+                      type="url"
+                      placeholder="Dán link bài hát (YouTube, Spotify, Zing, link .mp3...)"
+                      value={journalMusicUrl}
+                      onChange={(e) => setJournalMusicUrl(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1.5 focus:ring-rose-400 placeholder:text-slate-400"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Tên bài hát (VD: Cơn Mưa Tình Yêu...)"
+                      value={journalMusicTitle}
+                      onChange={(e) => setJournalMusicTitle(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1.5 focus:ring-rose-400 placeholder:text-slate-400"
+                    />
+                  </div>
+                  {journalMusicUrl.trim() && (
+                    <div className="pt-1">
+                      <JournalMusicPlayer musicUrl={journalMusicUrl.trim()} musicTitle={journalMusicTitle.trim()} />
+                    </div>
+                  )}
+                </div>
+
                 {/* Expenses Section in Create */}
                 <div className="p-3.5 bg-amber-50/60 border border-amber-200/80 rounded-2xl space-y-3">
                   <div className="flex items-center justify-between">
@@ -2350,6 +2414,52 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                         onOpenCompanionManager={() => setIsCompanionManagerOpen(true)}
                       />
 
+                      {/* Music Attachment Section in Edit Mode */}
+                      <div className="p-3.5 bg-rose-50/40 border border-rose-200/60 rounded-2xl space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                            <Music className="w-3.5 h-3.5 text-rose-500" />
+                            <span>Gắn link bài hát kỷ niệm</span>
+                            <span className="text-slate-400 font-normal text-[11px]">(Tùy chọn)</span>
+                          </label>
+                          {editMusicUrl && item.authorUid === userProfile.uid && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditMusicUrl('');
+                                setEditMusicTitle('');
+                              }}
+                              className="text-[11px] text-rose-500 hover:text-rose-700 font-medium cursor-pointer"
+                            >
+                              Xóa nhạc
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <input
+                            type="url"
+                            disabled={item.authorUid !== userProfile.uid}
+                            placeholder="Dán link bài hát (YouTube, Spotify, Zing, link .mp3...)"
+                            value={editMusicUrl}
+                            onChange={(e) => setEditMusicUrl(e.target.value)}
+                            className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1.5 focus:ring-rose-400 placeholder:text-slate-400 disabled:bg-slate-100"
+                          />
+                          <input
+                            type="text"
+                            disabled={item.authorUid !== userProfile.uid}
+                            placeholder="Tên bài hát (VD: Cơn Mưa Tình Yêu...)"
+                            value={editMusicTitle}
+                            onChange={(e) => setEditMusicTitle(e.target.value)}
+                            className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1.5 focus:ring-rose-400 placeholder:text-slate-400 disabled:bg-slate-100"
+                          />
+                        </div>
+                        {editMusicUrl.trim() && (
+                          <div className="pt-1">
+                            <JournalMusicPlayer musicUrl={editMusicUrl.trim()} musicTitle={editMusicTitle.trim()} />
+                          </div>
+                        )}
+                      </div>
+
                       {/* Expense Detail Section inside Edit Form */}
                       <div className="p-4 bg-amber-50/80 border border-amber-200 rounded-2xl space-y-3">
                         <div className="flex items-center justify-between">
@@ -2562,6 +2672,14 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                         <p className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line bg-slate-50/70 p-4 rounded-2xl border border-slate-100">
                           {item.content}
                         </p>
+                      )}
+
+                      {/* Music Player in feed card */}
+                      {item.musicUrl && (
+                        <JournalMusicPlayer
+                          musicUrl={item.musicUrl}
+                          musicTitle={item.musicTitle}
+                        />
                       )}
 
                       {/* Photos grid display on feed (Multi-image or single image) */}
