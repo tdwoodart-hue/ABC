@@ -1,13 +1,56 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { MapPin, Search, Navigation, Check, X, Loader2, ExternalLink, Layers, Sparkles } from 'lucide-react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { 
+  MapPin, 
+  Search, 
+  Navigation, 
+  Check, 
+  X, 
+  Loader2, 
+  Layers, 
+  Sparkles, 
+  Crosshair, 
+  AlertCircle,
+  Clock,
+  Compass,
+  CheckCircle2,
+  Info,
+  Copy,
+  ClipboardPaste,
+  ArrowRight,
+  ArrowLeft,
+  Share2,
+  ExternalLink
+} from 'lucide-react';
 import L from 'leaflet';
+import { 
+  getDeviceHighAccuracyGPS, 
+  reverseGeocodeGPS, 
+  formatCoordinates, 
+  parseGpsInput,
+  GPSCoordinateData 
+} from '../utils/geolocation';
+import { FAMOUS_DATE_SPOTS } from '../utils/vietnamCoordinates';
+
+export interface SelectedLocationResult {
+  lat: number;
+  lng: number;
+  accuracy?: number;
+  locationTimestamp?: string;
+  placeId?: string;
+  locationName: string;
+  address: string;
+  city?: string;
+}
 
 interface MapLocationPickerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectLocation: (data: { address: string; city: string; fullPlaceName?: string }) => void;
+  onSelectLocation: (data: SelectedLocationResult) => void;
+  initialCoords?: { lat?: number; lng?: number; accuracy?: number; locationTimestamp?: string; placeId?: string };
+  initialLocationName?: string;
   initialAddress?: string;
   title?: string;
+  subtitle?: string;
 }
 
 interface PlaceSuggestion {
@@ -16,144 +59,284 @@ interface PlaceSuggestion {
   lat: number;
   lng: number;
   city?: string;
+  placeId?: string;
 }
-
-// Popular Vietnamese landmarks & provinces for instant search recommendation
-const POPULAR_VN_LANDMARKS: PlaceSuggestion[] = [
-  { title: 'Khu di tích danh thắng Yên Tử', subtitle: 'Thành phố Uông Bí, Quảng Ninh', lat: 21.1578, lng: 106.7196, city: 'Quảng Ninh' },
-  { title: 'Hồ Hoàn Kiếm (Hồ Gươm)', subtitle: 'Quận Hoàn Kiếm, Hà Nội', lat: 21.0285, lng: 105.8542, city: 'Hà Nội' },
-  { title: 'Hồ Tây', subtitle: 'Quận Tây Hồ, Hà Nội', lat: 21.0583, lng: 105.8236, city: 'Hà Nội' },
-  { title: 'Chợ Bến Thành', subtitle: 'Quận 1, TP. Hồ Chí Minh', lat: 10.7726, lng: 106.6980, city: 'Hồ Chí Minh' },
-  { title: 'Tòa nhà Landmark 81', subtitle: 'Quận Bình Thạnh, TP. Hồ Chí Minh', lat: 10.7951, lng: 106.7219, city: 'Hồ Chí Minh' },
-  { title: 'Phố cổ Hội An', subtitle: 'Thành phố Hội An, Quảng Nam', lat: 15.8801, lng: 108.3380, city: 'Quảng Nam' },
-  { title: 'Đỉnh Fansipan (Nóc nhà Đông Dương)', subtitle: 'Sa Pa, Lào Cai', lat: 22.3033, lng: 103.7753, city: 'Lào Cai' },
-  { title: 'Vịnh Hạ Long', subtitle: 'Thành phố Hạ Long, Quảng Ninh', lat: 20.9101, lng: 107.1839, city: 'Quảng Ninh' },
-  { title: 'Quần thể danh thắng Tràng An', subtitle: 'Hoa Lư, Ninh Bình', lat: 20.2506, lng: 105.9144, city: 'Ninh Bình' },
-  { title: 'Thung Lũng Tình Yêu', subtitle: 'Thành phố Đà Lạt, Lâm Đồng', lat: 11.9796, lng: 108.4507, city: 'Lâm Đồng' },
-  { title: 'Hồ Xuân Hương', subtitle: 'Thành phố Đà Lạt, Lâm Đồng', lat: 11.9404, lng: 108.4452, city: 'Lâm Đồng' },
-  { title: 'Bà Nà Hills (Cầu Vàng)', subtitle: 'Hòa Vang, Đà Nẵng', lat: 15.9989, lng: 107.9961, city: 'Đà Nẵng' },
-  { title: 'Bãi biển Mỹ Khê', subtitle: 'Quận Sơn Trà, Đà Nẵng', lat: 16.0601, lng: 108.2468, city: 'Đà Nẵng' },
-  { title: 'Đại Nội Huế (Cố Đô Huế)', subtitle: 'Thành phố Huế, Thừa Thiên Huế', lat: 16.4699, lng: 107.5796, city: 'Thừa Thiên Huế' },
-  { title: 'Chùa Hương (Hương Sơn)', subtitle: 'Huyện Mỹ Đức, Hà Nội', lat: 20.6186, lng: 105.8078, city: 'Hà Nội' },
-  { title: 'Vườn quốc gia Ba Vì', subtitle: 'Ba Vì, Hà Nội', lat: 21.0827, lng: 105.3619, city: 'Hà Nội' },
-  { title: 'Khu du lịch Tam Đảo', subtitle: 'Tam Đảo, Vĩnh Phúc', lat: 21.4589, lng: 105.6469, city: 'Vĩnh Phúc' },
-  { title: 'Bán đảo Sơn Trà', subtitle: 'Sơn Trà, Đà Nẵng', lat: 16.1189, lng: 108.2736, city: 'Đà Nẵng' },
-  { title: 'Đảo Ngọc Phú Quốc', subtitle: 'Thành phố Phú Quốc, Kiên Giang', lat: 10.2899, lng: 103.9840, city: 'Kiên Giang' },
-  { title: 'Đồi cát bay Mũi Né', subtitle: 'Phan Thiết, Bình Thuận', lat: 10.9422, lng: 108.2872, city: 'Bình Thuận' }
-];
 
 export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
   isOpen,
   onClose,
   onSelectLocation,
+  initialCoords,
+  initialLocationName = '',
   initialAddress = '',
-  title = 'Chọn địa điểm kỷ niệm'
+  title = 'Ghim Vị Trí & Tọa Độ GPS',
+  subtitle = 'Tọa độ GPS thiết bị là nguồn dữ liệu chuẩn xác duy nhất.'
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markerInstanceRef = useRef<L.Marker | null>(null);
+  const accuracyCircleRef = useRef<L.Circle | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
 
-  const [loading, setLoading] = useState(true);
-  const [selectedAddress, setSelectedAddress] = useState('');
-  const [selectedCity, setSelectedCity] = useState('');
-  const [currentCoords, setCurrentCoords] = useState<{ lat: number; lng: number }>({ lat: 21.0285, lng: 105.8542 });
+  // High-accuracy GPS state
+  const [currentLat, setCurrentLat] = useState<number>(() => initialCoords?.lat ?? 21.028514);
+  const [currentLng, setCurrentLng] = useState<number>(() => initialCoords?.lng ?? 105.854212);
+  const [currentAccuracy, setCurrentAccuracy] = useState<number | undefined>(initialCoords?.accuracy);
+  const [currentTimestamp, setCurrentTimestamp] = useState<string>(
+    initialCoords?.locationTimestamp || new Date().toISOString()
+  );
+  const [currentPlaceId, setCurrentPlaceId] = useState<string | undefined>(initialCoords?.placeId);
+
+  // Manual inputs for raw Lat / Lng strings
+  const [rawLatInput, setRawLatInput] = useState<string>(() => (initialCoords?.lat ?? 21.028514).toString());
+  const [rawLngInput, setRawLngInput] = useState<string>(() => (initialCoords?.lng ?? 105.854212).toString());
+
+  // Quick Google Maps / GPS coordinates paste bar input
+  const [pastedInput, setPastedInput] = useState<string>('');
+
+  // Address and place name derived strictly from reverse geocoding or user selection
+  const [locationName, setLocationName] = useState<string>(initialLocationName || '');
+  const [formattedAddress, setFormattedAddress] = useState<string>(initialAddress || '');
+  const [selectedCity, setSelectedCity] = useState<string>('');
+
+  const [loadingMap, setLoadingMap] = useState(true);
+  const [isLocatingGPS, setIsLocatingGPS] = useState(false);
+  const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<PlaceSuggestion[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [isLocatingUser, setIsLocatingUser] = useState(false);
   const [mapType, setMapType] = useState<'streets' | 'satellite'>('streets');
+  const [statusFeedback, setStatusFeedback] = useState<string | null>(null);
+  const [copiedCoords, setCopiedCoords] = useState(false);
 
-  // Custom heart pin icon
-  const createCustomIcon = () => {
+  // Keep manual raw inputs synced when coords change via map/GPS
+  const syncCoordInputs = (lat: number, lng: number) => {
+    setRawLatInput(lat.toFixed(6));
+    setRawLngInput(lng.toFixed(6));
+  };
+
+  // Custom heart pin marker
+  const createPinIcon = () => {
     return L.divIcon({
       className: 'custom-map-pin',
       html: `
-        <div style="position: relative; width: 38px; height: 46px; display: flex; align-items: center; justify-content: center;">
+        <div style="position: relative; width: 44px; height: 52px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 6px 14px rgba(225, 29, 72, 0.45)); cursor: grab;">
           <div style="
-            width: 36px;
-            height: 36px;
+            width: 40px;
+            height: 40px;
             background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
             border-radius: 50% 50% 50% 0;
             transform: rotate(-45deg);
-            box-shadow: 0 4px 14px rgba(225, 29, 72, 0.45), 0 2px 4px rgba(0,0,0,0.15);
             display: flex;
             align-items: center;
             justify-content: center;
-            border: 2.5px solid white;
+            border: 2.5px solid #ffffff;
           ">
-            <svg style="transform: rotate(45deg); width: 18px; height: 18px; fill: white; color: white;" viewBox="0 0 24 24">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+            <svg style="transform: rotate(45deg); width: 22px; height: 22px; fill: white; color: white;" viewBox="0 0 24 24">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
             </svg>
           </div>
           <div style="
             position: absolute;
-            bottom: 0px;
+            bottom: 2px;
             left: 50%;
             transform: translateX(-50%);
-            width: 8px;
-            height: 3px;
-            background: rgba(0,0,0,0.25);
+            width: 12px;
+            height: 5px;
+            background: rgba(0,0,0,0.35);
             border-radius: 50%;
-            filter: blur(1px);
+            filter: blur(1.5px);
           "></div>
         </div>
       `,
-      iconSize: [38, 46],
-      iconAnchor: [19, 46],
-      popupAnchor: [0, -42]
+      iconSize: [44, 52],
+      iconAnchor: [22, 50],
+      popupAnchor: [0, -46]
     });
   };
 
-  // Reverse Geocoding with OpenStreetMap Nominatim
-  const reverseGeocode = async (lat: number, lng: number) => {
-    setCurrentCoords({ lat, lng });
+  // Perform reverse geocoding on current coords (strictly converts lat/lng to readable address)
+  const performReverseGeocode = useCallback(async (lat: number, lng: number, overrideName?: string) => {
+    setIsReverseGeocoding(true);
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&accept-language=vi`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        const display = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-        setSelectedAddress(display);
-        setSearchQuery(display);
-
-        const addr = data.address || {};
-        const city = addr.city || addr.town || addr.state || addr.province || '';
-        setSelectedCity(city);
-      } else {
-        const coords = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-        setSelectedAddress(coords);
-        setSearchQuery(coords);
+      const geo = await reverseGeocodeGPS(lat, lng);
+      if (!overrideName) {
+        setLocationName(geo.placeName);
       }
-    } catch {
-      const coords = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-      setSelectedAddress(coords);
-      setSearchQuery(coords);
+      setFormattedAddress(geo.formattedAddress);
+      if (geo.city) setSelectedCity(geo.city);
+      if (geo.placeId && !currentPlaceId) {
+        setCurrentPlaceId(geo.placeId);
+      }
+    } catch (err) {
+      console.warn('Reverse geocoding error:', err);
+    } finally {
+      setIsReverseGeocoding(false);
+    }
+  }, [currentPlaceId]);
+
+  // Update marker & optional accuracy circle position on map
+  const updateMapPosition = (lat: number, lng: number, accuracy?: number, shouldCenter: boolean = false) => {
+    setCurrentLat(lat);
+    setCurrentLng(lng);
+    syncCoordInputs(lat, lng);
+    if (accuracy !== undefined) {
+      setCurrentAccuracy(accuracy);
+    }
+
+    if (mapInstanceRef.current && markerInstanceRef.current) {
+      markerInstanceRef.current.setLatLng([lat, lng]);
+
+      if (accuracy && accuracy > 0) {
+        if (accuracyCircleRef.current) {
+          accuracyCircleRef.current.setLatLng([lat, lng]);
+          accuracyCircleRef.current.setRadius(accuracy);
+        } else {
+          accuracyCircleRef.current = L.circle([lat, lng], {
+            radius: accuracy,
+            color: '#f43f5e',
+            fillColor: '#f43f5e',
+            fillOpacity: 0.12,
+            weight: 1.5,
+            dashArray: '4, 6'
+          }).addTo(mapInstanceRef.current);
+        }
+      } else if (accuracyCircleRef.current) {
+        accuracyCircleRef.current.remove();
+        accuracyCircleRef.current = null;
+      }
+
+      if (shouldCenter) {
+        mapInstanceRef.current.flyTo([lat, lng], 16, { duration: 0.8 });
+      }
     }
   };
 
-  // Perform Search
-  const performSearch = (query: string) => {
+  // 1. Device High-Accuracy GPS Trigger (enableHighAccuracy: true, maximumAge: 0)
+  const handleCaptureDeviceGPS = async () => {
+    setIsLocatingGPS(true);
+    setStatusFeedback('Đang kết nối chip GPS vệ tinh...');
+    try {
+      const gps: GPSCoordinateData = await getDeviceHighAccuracyGPS();
+      const nowIso = new Date().toISOString();
+      setCurrentLat(gps.latitude);
+      setCurrentLng(gps.longitude);
+      syncCoordInputs(gps.latitude, gps.longitude);
+      setCurrentAccuracy(gps.accuracy);
+      setCurrentTimestamp(gps.timestamp || nowIso);
+      setCurrentPlaceId(undefined);
+
+      updateMapPosition(gps.latitude, gps.longitude, gps.accuracy, true);
+      setStatusFeedback(`Đã lấy GPS thiết bị (Sai số: ±${gps.accuracy}m)`);
+      setTimeout(() => setStatusFeedback(null), 4000);
+
+      // Convert exact coordinates to human-readable address
+      await performReverseGeocode(gps.latitude, gps.longitude);
+    } catch (err: any) {
+      alert(err?.message || 'Không thể định vị GPS độ chính xác cao từ thiết bị.');
+      setStatusFeedback(null);
+    } finally {
+      setIsLocatingGPS(false);
+    }
+  };
+
+  // 2. Direct GPS / Google Maps Paste Handler
+  const handleApplyPastedGps = (textToParse?: string) => {
+    const raw = textToParse || pastedInput;
+    if (!raw.trim()) return;
+
+    const parsed = parseGpsInput(raw);
+    if (parsed) {
+      const { lat, lng } = parsed;
+      setCurrentLat(lat);
+      setCurrentLng(lng);
+      syncCoordInputs(lat, lng);
+      setCurrentAccuracy(undefined);
+      setCurrentTimestamp(new Date().toISOString());
+      setCurrentPlaceId(undefined);
+
+      updateMapPosition(lat, lng, undefined, true);
+      setStatusFeedback(`Đã nhận diện tọa độ Google Maps: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+      setTimeout(() => setStatusFeedback(null), 4000);
+
+      performReverseGeocode(lat, lng);
+      setPastedInput('');
+    } else {
+      alert('Không nhận diện được tọa độ từ nội dung đã nhập.\n\nĐịnh dạng hỗ trợ:\n- 21.028511, 105.854444\n- Dán link Google Maps (VD: https://maps.app.goo.gl/...)\n- Tọa độ độ-phút-giây (DMS)');
+    }
+  };
+
+  // 3. Manual Numeric Input Apply
+  const handleManualCoordSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const lat = parseFloat(rawLatInput.trim());
+    const lng = parseFloat(rawLngInput.trim());
+
+    if (isNaN(lat) || lat < -90 || lat > 90) {
+      alert('Vĩ độ (Latitude) không hợp lệ (phải từ -90 đến 90).');
+      return;
+    }
+    if (isNaN(lng) || lng < -180 || lng > 180) {
+      alert('Kinh độ (Longitude) không hợp lệ (phải từ -180 đến 180).');
+      return;
+    }
+
+    setCurrentLat(lat);
+    setCurrentLng(lng);
+    setCurrentAccuracy(undefined);
+    setCurrentTimestamp(new Date().toISOString());
+
+    updateMapPosition(lat, lng, undefined, true);
+    setStatusFeedback(`Đã cập nhật tọa độ thủ công: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+    setTimeout(() => setStatusFeedback(null), 3000);
+
+    performReverseGeocode(lat, lng);
+  };
+
+  // 4. Copy GPS Coordinates to Clipboard
+  const handleCopyCoordinates = () => {
+    const text = `${currentLat.toFixed(6)}, ${currentLng.toFixed(6)}`;
+    navigator.clipboard.writeText(text);
+    setCopiedCoords(true);
+    setTimeout(() => setCopiedCoords(false), 2500);
+  };
+
+  // Search places & landmarks (with OSM / Google / VN landmarks)
+  const handleSearch = (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
       setShowDropdown(false);
       return;
     }
 
+    // Check if query is actually a GPS coordinate or Google Maps link
+    const maybeGps = parseGpsInput(query);
+    if (maybeGps) {
+      handleApplyPastedGps(query);
+      setSearchQuery('');
+      return;
+    }
+
     setIsSearching(true);
     const qLower = query.toLowerCase().trim();
 
-    // 1. Check local rich VN landmarks catalog
-    const localMatches = POPULAR_VN_LANDMARKS.filter(
-      (l) =>
-        l.title.toLowerCase().includes(qLower) ||
-        (l.subtitle && l.subtitle.toLowerCase().includes(qLower)) ||
-        (l.city && l.city.toLowerCase().includes(qLower))
-    );
+    // 1. Instant local landmark recommendations
+    const localMatches: PlaceSuggestion[] = FAMOUS_DATE_SPOTS.filter(
+      (s) =>
+        s.title.toLowerCase().includes(qLower) ||
+        s.aliases.some((a) => a.includes(qLower)) ||
+        (s.province && s.province.toLowerCase().includes(qLower))
+    ).map((s) => ({
+      title: s.title,
+      subtitle: s.province ? `Tỉnh/TP: ${s.province}` : 'Việt Nam',
+      lat: s.lat,
+      lng: s.lng,
+      city: s.province,
+      placeId: `spot_${s.title}`
+    }));
 
-    // 2. Fetch online search for Vietnam places
+    // 2. Query Nominatim search API for Vietnam places
     fetch(
       `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
         query + ' Vietnam'
@@ -162,16 +345,17 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
       .then((res) => res.json())
       .then((data: any[]) => {
         const osmResults: PlaceSuggestion[] = (data || []).map((d) => ({
-          title: d.display_name.split(',')[0],
+          title: d.name || d.display_name.split(',')[0],
           subtitle: d.display_name,
           lat: parseFloat(d.lat),
           lng: parseFloat(d.lon),
-          city: d.address?.city || d.address?.state || d.address?.province
+          city: d.address?.city || d.address?.state || d.address?.province,
+          placeId: d.osm_id ? `osm_${d.osm_id}` : undefined
         }));
 
-        const combined = [...localMatches];
+        const combined: PlaceSuggestion[] = [...localMatches];
         osmResults.forEach((or) => {
-          if (!combined.some((c) => c.title.toLowerCase() === or.title.toLowerCase())) {
+          if (!combined.some((c) => Math.abs(c.lat - or.lat) < 0.0001 && Math.abs(c.lng - or.lng) < 0.0001)) {
             combined.push(or);
           }
         });
@@ -191,112 +375,133 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchQuery.trim().length >= 2) {
-        performSearch(searchQuery);
-      } else if (searchQuery.trim().length === 0) {
-        setSearchResults(POPULAR_VN_LANDMARKS.slice(0, 6));
+        handleSearch(searchQuery);
       } else {
         setSearchResults([]);
         setShowDropdown(false);
       }
-    }, 300);
-
+    }, 350);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  // Select place from search suggestions
+  const handleSelectSearchResult = (item: PlaceSuggestion) => {
+    setCurrentLat(item.lat);
+    setCurrentLng(item.lng);
+    syncCoordInputs(item.lat, item.lng);
+    setCurrentAccuracy(undefined);
+    setCurrentPlaceId(item.placeId);
+    setCurrentTimestamp(new Date().toISOString());
+    setLocationName(item.title);
+    if (item.subtitle) setFormattedAddress(item.subtitle);
+    if (item.city) setSelectedCity(item.city);
+
+    updateMapPosition(item.lat, item.lng, undefined, true);
+    setShowDropdown(false);
+    setSearchQuery(item.title);
+
+    // Reverse geocode to confirm full address
+    performReverseGeocode(item.lat, item.lng, item.title);
+  };
+
+  // Helper to remove all tile layers safely
+  const clearMapTileLayers = (map: L.Map) => {
+    map.eachLayer((layer) => {
+      if (layer instanceof L.TileLayer) {
+        map.removeLayer(layer);
+      }
+    });
+  };
 
   // Initialize Leaflet Map
   useEffect(() => {
     if (!isOpen || !mapContainerRef.current) return;
 
-    setLoading(true);
-    setSelectedAddress(initialAddress);
-    setSearchQuery(initialAddress);
+    setLoadingMap(true);
 
-    let defaultLat = 21.0285; // Hanoi
-    let defaultLng = 105.8542;
+    const initialLat = initialCoords?.lat ?? 21.028514;
+    const initialLng = initialCoords?.lng ?? 105.854212;
 
-    // Check if initialAddress matches known landmark
-    const match = POPULAR_VN_LANDMARKS.find(
-      (l) => l.title.toLowerCase().includes(initialAddress.toLowerCase()) || initialAddress.toLowerCase().includes(l.title.toLowerCase())
-    );
-    if (match) {
-      defaultLat = match.lat;
-      defaultLng = match.lng;
-    }
+    setCurrentLat(initialLat);
+    setCurrentLng(initialLng);
+    syncCoordInputs(initialLat, initialLng);
+    if (initialCoords?.accuracy) setCurrentAccuracy(initialCoords.accuracy);
+    if (initialCoords?.locationTimestamp) setCurrentTimestamp(initialCoords.locationTimestamp);
+    if (initialCoords?.placeId) setCurrentPlaceId(initialCoords.placeId);
+    if (initialLocationName) setLocationName(initialLocationName);
+    if (initialAddress) setFormattedAddress(initialAddress);
 
-    setCurrentCoords({ lat: defaultLat, lng: defaultLng });
-
-    // Clean up previous instance if any
+    // Destroy existing instance if any
     if (mapInstanceRef.current) {
       mapInstanceRef.current.remove();
       mapInstanceRef.current = null;
     }
 
     const map = L.map(mapContainerRef.current, {
-      center: [defaultLat, defaultLng],
-      zoom: 14,
+      center: [initialLat, initialLng],
+      zoom: 16,
       zoomControl: true,
       attributionControl: false
     });
-
     mapInstanceRef.current = map;
 
-    // Tile Layer: Standard OpenStreetMap / CartoDB
-    const streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19,
-      subdomains: 'abcd'
-    });
-
+    // CartoDB Voyager Light Tiles
+    clearMapTileLayers(map);
+    const streetLayer = L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      { maxZoom: 19, subdomains: 'abcd' }
+    );
     streetLayer.addTo(map);
     tileLayerRef.current = streetLayer;
 
-    // Draggable Custom Marker
-    const marker = L.marker([defaultLat, defaultLng], {
-      icon: createCustomIcon(),
+    // Draggable Marker
+    const marker = L.marker([initialLat, initialLng], {
+      icon: createPinIcon(),
       draggable: true
     }).addTo(map);
-
     markerInstanceRef.current = marker;
 
-    // Click on map to place marker
+    // Handle drag end -> User manually adjusts pin
+    marker.on('dragend', () => {
+      const pos = marker.getLatLng();
+      setCurrentLat(pos.lat);
+      setCurrentLng(pos.lng);
+      syncCoordInputs(pos.lat, pos.lng);
+      setCurrentAccuracy(undefined);
+      setCurrentTimestamp(new Date().toISOString());
+      performReverseGeocode(pos.lat, pos.lng);
+    });
+
+    // Handle click on map -> move pin to exact clicked coordinates
     map.on('click', (e: L.LeafletMouseEvent) => {
       const { lat, lng } = e.latlng;
       marker.setLatLng([lat, lng]);
-      reverseGeocode(lat, lng);
+      setCurrentLat(lat);
+      setCurrentLng(lng);
+      syncCoordInputs(lat, lng);
+      setCurrentAccuracy(undefined);
+      setCurrentTimestamp(new Date().toISOString());
+      performReverseGeocode(lat, lng);
     });
 
-    // Drag marker
-    marker.on('dragend', () => {
-      const pos = marker.getLatLng();
-      reverseGeocode(pos.lat, pos.lng);
-    });
-
-    // Force map to recalculate container size
-    setTimeout(() => {
+    // Invalidate map size multiple times to ensure full container rendering without slice issues
+    const timer1 = setTimeout(() => {
       map.invalidateSize();
-      setLoading(false);
-    }, 200);
+      setLoadingMap(false);
+    }, 100);
 
-    // If initial address exists, search for it
-    if (initialAddress.trim() && !match) {
-      fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          initialAddress + ' Vietnam'
-        )}&limit=1&accept-language=vi`
-      )
-        .then((res) => res.json())
-        .then((data) => {
-          if (data && data[0]) {
-            const lat = parseFloat(data[0].lat);
-            const lng = parseFloat(data[0].lon);
-            map.setView([lat, lng], 15);
-            marker.setLatLng([lat, lng]);
-            setCurrentCoords({ lat, lng });
-          }
-        })
-        .catch(() => {});
+    const timer2 = setTimeout(() => {
+      map.invalidateSize();
+    }, 300);
+
+    // If initial address exists but no initial coords, attempt one-time reverse geocode
+    if (!initialCoords?.lat && (initialAddress || initialLocationName)) {
+      performReverseGeocode(initialLat, initialLng);
     }
 
     return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -304,15 +509,14 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
     };
   }, [isOpen]);
 
-  // Switch Map Type (Streets vs Satellite)
-  const toggleMapType = () => {
+  // Switch Map Theme (Light Streets vs Satellite)
+  const toggleMapTheme = () => {
     if (!mapInstanceRef.current) return;
     const next = mapType === 'streets' ? 'satellite' : 'streets';
     setMapType(next);
 
-    if (tileLayerRef.current) {
-      mapInstanceRef.current.removeLayer(tileLayerRef.current);
-    }
+    // Clear all existing tile layers completely first
+    clearMapTileLayers(mapInstanceRef.current);
 
     if (next === 'satellite') {
       const satLayer = L.tileLayer(
@@ -329,62 +533,31 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
       streetLayer.addTo(mapInstanceRef.current);
       tileLayerRef.current = streetLayer;
     }
+
+    setTimeout(() => {
+      mapInstanceRef.current?.invalidateSize();
+    }, 100);
   };
 
-  // Handle selecting search result
-  const handleSelectSearchResult = (result: PlaceSuggestion) => {
-    if (mapInstanceRef.current && markerInstanceRef.current) {
-      mapInstanceRef.current.setView([result.lat, result.lng], 16);
-      markerInstanceRef.current.setLatLng([result.lat, result.lng]);
-      setCurrentCoords({ lat: result.lat, lng: result.lng });
-    }
-
-    const fullAddr = result.subtitle ? `${result.title}, ${result.subtitle}` : result.title;
-    setSelectedAddress(fullAddr);
-    setSearchQuery(result.title);
-    if (result.city) {
-      setSelectedCity(result.city);
-    }
-    setShowDropdown(false);
-  };
-
-  // GPS Geolocation
-  const handleGetCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      alert('Trình duyệt của bạn không hỗ trợ định vị GPS.');
+  // Submit and Confirm Location
+  const handleConfirmLocation = () => {
+    if (!currentLat || !currentLng) {
+      alert('Vui lòng chọn hoặc định vị một điểm trên bản đồ.');
       return;
     }
 
-    setIsLocatingUser(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setIsLocatingUser(false);
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
+    const finalName = locationName.trim() || `${currentLat.toFixed(6)}, ${currentLng.toFixed(6)}`;
+    const finalAddress = formattedAddress.trim() || formatCoordinates(currentLat, currentLng);
 
-        if (mapInstanceRef.current && markerInstanceRef.current) {
-          mapInstanceRef.current.setView([lat, lng], 16);
-          markerInstanceRef.current.setLatLng([lat, lng]);
-        }
-        reverseGeocode(lat, lng);
-      },
-      (err) => {
-        setIsLocatingUser(false);
-        alert('Không thể lấy tọa độ GPS: ' + err.message);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
-
-  const handleConfirm = () => {
-    if (!selectedAddress.trim()) {
-      alert('Vui lòng chọn hoặc nhập vị trí trên bản đồ.');
-      return;
-    }
     onSelectLocation({
-      address: selectedAddress,
-      city: selectedCity,
-      fullPlaceName: selectedAddress
+      lat: currentLat,
+      lng: currentLng,
+      accuracy: currentAccuracy,
+      locationTimestamp: currentTimestamp,
+      placeId: currentPlaceId,
+      locationName: finalName,
+      address: finalAddress,
+      city: selectedCity
     });
     onClose();
   };
@@ -392,39 +565,127 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-fadeIn">
-      <div className="bg-white w-full max-w-3xl rounded-3xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-[100] w-screen h-screen bg-white flex flex-col overflow-hidden animate-fadeIn select-none">
+      
+      {/* 1. TOP FULL-PAGE HEADER BAR */}
+      <header className="h-16 px-3 sm:px-6 bg-white border-b border-slate-200/90 flex items-center justify-between z-30 shrink-0 shadow-2xs">
         
-        {/* Header */}
-        <div className="p-3.5 sm:p-4 bg-white border-b border-slate-100 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center font-bold shadow-2xs">
-              <MapPin className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
-                {title}
-                <span className="text-[10px] bg-rose-50 text-rose-600 border border-rose-200 px-2 py-0.5 rounded-full font-bold">
-                  Bản đồ trực tuyến
-                </span>
-              </h3>
-              <p className="text-[11px] text-slate-500">
-                Tìm kiếm địa danh Việt Nam (Yên Tử, Đà Lạt, Hồ Tây...) hoặc kéo thả ghim
-              </p>
-            </div>
-          </div>
+        {/* Left: Back Button & Title */}
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-2 text-slate-700 hover:text-slate-950 hover:bg-slate-100 rounded-xl transition cursor-pointer font-bold text-xs sm:text-sm border border-slate-200/60"
+            title="Quay lại"
           >
-            <X className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4 text-slate-600" />
+            <span>Quay lại</span>
           </button>
+
+          <div className="h-6 w-[1px] bg-slate-200 hidden sm:block" />
+
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center font-bold shadow-2xs shrink-0">
+              <MapPin className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-[200px] sm:max-w-md">
+                  {title}
+                </h1>
+                <span className="hidden md:inline-flex text-[10px] bg-rose-50 text-rose-600 border border-rose-200 px-2 py-0.5 rounded-full font-bold">
+                  GPS Source of Truth
+                </span>
+              </div>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 hidden sm:block truncate">
+                {subtitle}
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Search Bar with Autocomplete */}
-        <div className="p-3 bg-slate-50 border-b border-slate-200/80 shrink-0 relative z-30">
-          <div className="flex gap-2">
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3.5 py-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl font-bold text-xs transition cursor-pointer hidden sm:block"
+          >
+            Hủy bỏ
+          </button>
+          
+          <button
+            type="button"
+            onClick={handleConfirmLocation}
+            className="px-4 sm:px-5 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs sm:text-sm font-bold shadow-xs hover:shadow transition flex items-center gap-1.5 cursor-pointer"
+          >
+            <Check className="w-4 h-4" />
+            <span>Xác nhận vị trí này</span>
+          </button>
+        </div>
+      </header>
+
+      {/* 2. CONTROL RIBBON: Google Maps Paste, GPS Device, Search Bar */}
+      <div className="p-2.5 sm:p-3 bg-slate-50/95 border-b border-slate-200/90 z-20 shrink-0 space-y-2">
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-2 items-stretch">
+          
+          {/* Row 1: Direct Google Maps / GPS Coordinate Input */}
+          <div className="flex-1 flex gap-2">
+            <div className="relative flex-1">
+              <ClipboardPaste className="w-4 h-4 text-rose-500 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={pastedInput}
+                onChange={(e) => setPastedInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleApplyPastedGps();
+                  }
+                }}
+                onPaste={(e) => {
+                  const text = e.clipboardData.getData('text');
+                  if (text) {
+                    setTimeout(() => handleApplyPastedGps(text), 50);
+                  }
+                }}
+                placeholder="Dán tọa độ hoặc link Google Maps (VD: 21.028511, 105.854444 hoặc link Maps)..."
+                className="w-full pl-9 pr-24 py-2 bg-white border border-rose-200/90 rounded-xl text-xs font-mono text-slate-800 placeholder:text-slate-400 placeholder:font-sans focus:outline-none focus:ring-2 focus:ring-rose-400 shadow-2xs"
+              />
+              <button
+                type="button"
+                onClick={() => handleApplyPastedGps()}
+                disabled={!pastedInput.trim()}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-rose-500 hover:bg-rose-600 disabled:opacity-40 text-white text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+              >
+                <span>Áp dụng</span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
+            </div>
+
+            {/* Real Device GPS Button */}
+            <button
+              type="button"
+              onClick={handleCaptureDeviceGPS}
+              disabled={isLocatingGPS}
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white text-xs font-bold shadow-xs hover:shadow transition flex items-center justify-center gap-2 shrink-0 cursor-pointer disabled:opacity-60"
+            >
+              {isLocatingGPS ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="hidden sm:inline">Đang lấy GPS...</span>
+                </>
+              ) : (
+                <>
+                  <Crosshair className="w-4 h-4" />
+                  <span>Lấy GPS thiết bị</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Row 2: Search by Place Name + Layer toggle */}
+          <div className="flex-1 flex gap-2">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -434,8 +695,8 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
                 onFocus={() => {
                   if (searchResults.length > 0) setShowDropdown(true);
                 }}
-                placeholder="Nhập tên địa danh (VD: Yên Tử, Hồ Gươm, Đà Lạt, Hội An...)"
-                className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-400 shadow-2xs"
+                placeholder="Tìm theo tên quán cafe, địa điểm, đường phố..."
+                className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-400 shadow-2xs"
               />
               {isSearching && (
                 <Loader2 className="w-4 h-4 text-rose-500 animate-spin absolute right-3 top-1/2 -translate-y-1/2" />
@@ -448,154 +709,177 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
                     setSearchResults([]);
                     setShowDropdown(false);
                   }}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
 
-              {/* Autocomplete Dropdown List */}
+              {/* Autocomplete Suggestions Dropdown */}
               {showDropdown && searchResults.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden max-h-56 overflow-y-auto">
-                  <div className="px-3 py-1.5 bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 border-b border-slate-100">
-                    <Sparkles className="w-3 h-3 text-amber-500" />
-                    <span>Gợi ý địa điểm nổi tiếng Việt Nam</span>
+                <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden max-h-60 overflow-y-auto">
+                  <div className="p-2 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Gợi ý địa điểm & Tọa độ chính xác
                   </div>
                   {searchResults.map((item, idx) => (
                     <button
                       key={idx}
                       type="button"
                       onClick={() => handleSelectSearchResult(item)}
-                      className="w-full text-left px-3.5 py-2.5 hover:bg-rose-50/70 border-b border-slate-100 last:border-0 flex items-start gap-2.5 transition cursor-pointer"
+                      className="w-full text-left px-3.5 py-2.5 hover:bg-rose-50/70 border-b border-slate-100 last:border-0 transition flex items-start gap-2.5 cursor-pointer"
                     >
                       <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-bold text-slate-800 truncate">
-                          {item.title}
-                        </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-bold text-slate-800 truncate">{item.title}</div>
                         {item.subtitle && (
-                          <div className="text-[11px] text-slate-500 truncate">
-                            {item.subtitle}
-                          </div>
+                          <div className="text-[11px] text-slate-500 line-clamp-1">{item.subtitle}</div>
                         )}
+                        <div className="text-[10px] text-rose-600 font-mono mt-0.5">
+                          {item.lat.toFixed(6)}, {item.lng.toFixed(6)}
+                        </div>
                       </div>
-                      {item.city && (
-                        <span className="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-medium shrink-0">
-                          {item.city}
-                        </span>
-                      )}
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* GPS Locate Button */}
+            {/* Satellite / Street view switch */}
             <button
               type="button"
-              onClick={handleGetCurrentLocation}
-              disabled={isLocatingUser}
-              className="px-3 py-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-2xs"
-              title="Lấy vị trí GPS hiện tại"
+              onClick={toggleMapTheme}
+              className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl border border-slate-200 text-xs font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer shadow-2xs"
             >
-              {isLocatingUser ? (
-                <Loader2 className="w-4 h-4 animate-spin text-rose-500" />
-              ) : (
-                <Navigation className="w-4 h-4 text-rose-500" />
-              )}
-              <span className="hidden sm:inline">Vị trí của tôi</span>
+              <Layers className="w-4 h-4 text-rose-500" />
+              <span>{mapType === 'streets' ? 'Vệ tinh' : 'Bản đồ'}</span>
             </button>
           </div>
 
-          {/* Quick Filter Tag Buttons for popular landmarks */}
-          <div className="flex items-center gap-1.5 overflow-x-auto mt-2 pt-1 pb-0.5 scrollbar-none">
-            <span className="text-[11px] font-bold text-slate-400 shrink-0">Gợi ý nhanh:</span>
-            {POPULAR_VN_LANDMARKS.slice(0, 6).map((lm, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleSelectSearchResult(lm)}
-                className="text-[11px] px-2.5 py-1 bg-white hover:bg-rose-50 hover:text-rose-600 hover:border-rose-300 border border-slate-200/80 rounded-full text-slate-600 font-medium whitespace-nowrap transition cursor-pointer shadow-2xs shrink-0"
-              >
-                {lm.title.replace('Khu di tích danh thắng ', '').replace(' (Hồ Gươm)', '')}
-              </button>
-            ))}
-          </div>
         </div>
 
-        {/* Interactive Map Area */}
-        <div className="relative flex-1 min-h-[340px] sm:min-h-[380px] bg-slate-100 overflow-hidden">
-          <div ref={mapContainerRef} className="w-full h-full z-10" />
-
-          {loading && (
-            <div className="absolute inset-0 bg-white/75 backdrop-blur-xs flex flex-col items-center justify-center gap-2 z-20">
-              <Loader2 className="w-7 h-7 animate-spin text-rose-500" />
-              <p className="text-xs font-semibold text-slate-600">Đang tải bản đồ...</p>
-            </div>
-          )}
-
-          {/* Map Layer Switcher Floating Button */}
-          <div className="absolute top-3 right-3 z-20 flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={toggleMapType}
-              className="bg-white hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-xl shadow-md border border-slate-200 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
-            >
-              <Layers className="w-3.5 h-3.5 text-rose-500" />
-              <span>{mapType === 'streets' ? 'Xem vệ tinh' : 'Xem bản đồ'}</span>
-            </button>
+        {statusFeedback && (
+          <div className="max-w-7xl mx-auto text-xs text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-xl font-medium flex items-center gap-1.5 animate-fadeIn">
+            <CheckCircle2 className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+            <span>{statusFeedback}</span>
           </div>
-
-          {/* Hint Overlay */}
-          <div className="absolute bottom-3 left-3 z-20 bg-black/60 backdrop-blur-xs text-white text-[11px] px-3 py-1.5 rounded-xl flex items-center gap-1.5 pointer-events-none">
-            <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-            <span>Chạm bản đồ hoặc kéo ghim để định vị chính xác</span>
-          </div>
-        </div>
-
-        {/* Selected Location Details & Action Footer */}
-        <div className="p-3.5 sm:p-4 bg-white border-t border-slate-100 shrink-0 space-y-3">
-          <div className="flex items-start gap-2.5 p-2.5 bg-rose-50/50 rounded-2xl border border-rose-100">
-            <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-bold text-slate-800 truncate">
-                {selectedAddress || 'Chưa chọn vị trí'}
-              </div>
-              <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
-                <span>Tọa độ: {currentCoords.lat.toFixed(4)}, {currentCoords.lng.toFixed(4)}</span>
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${currentCoords.lat},${currentCoords.lng}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-rose-600 hover:underline flex items-center gap-0.5 font-semibold"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  Mở trên Google Maps
-                </a>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer"
-            >
-              Hủy
-            </button>
-            <button
-              type="button"
-              onClick={handleConfirm}
-              className="px-5 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-rose-500/25 active:scale-95"
-            >
-              <Check className="w-4 h-4" />
-              <span>Xác nhận vị trí này</span>
-            </button>
-          </div>
-        </div>
-
+        )}
       </div>
+
+      {/* 3. MAIN FULL-SCREEN MAP CANVAS */}
+      <div className="relative flex-1 w-full h-full min-h-0 bg-slate-100 overflow-hidden" style={{ isolation: 'isolate' }}>
+        
+        {/* Leaflet container */}
+        <div ref={mapContainerRef} className="w-full h-full" />
+
+        {loadingMap && (
+          <div className="absolute inset-0 bg-white/75 backdrop-blur-xs flex flex-col items-center justify-center gap-2 z-20">
+            <Loader2 className="w-8 h-8 text-rose-500 animate-spin" />
+            <span className="text-xs font-medium text-slate-600">Đang tải bản đồ GPS...</span>
+          </div>
+        )}
+
+        {/* Floating live GPS coordinate badge in top left */}
+        <div className="absolute top-4 left-4 z-20 bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-200/80 shadow-lg flex items-center gap-2.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="font-mono text-xs font-bold text-slate-800">
+            {currentLat.toFixed(6)}, {currentLng.toFixed(6)}
+          </div>
+          {currentAccuracy && (
+            <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 px-1.5 py-0.2 rounded-md">
+              ±{currentAccuracy}m
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={handleCopyCoordinates}
+            className="text-[10px] text-slate-500 hover:text-rose-600 bg-slate-100 hover:bg-rose-50 border border-slate-200 px-2 py-0.5 rounded-md transition flex items-center gap-1 cursor-pointer"
+          >
+            {copiedCoords ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+            <span>{copiedCoords ? 'Đã chép' : 'Chép'}</span>
+          </button>
+        </div>
+
+        {/* Floating guidance at bottom center */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-white/95 backdrop-blur-md px-4 py-2 rounded-2xl border border-slate-200/80 shadow-lg text-xs text-slate-700 font-semibold flex items-center gap-2 max-w-[90vw] truncate">
+          <Compass className="w-4 h-4 text-rose-500 shrink-0" />
+          <span>Kéo thả ghim đỏ hoặc nhấp vào bất kỳ đâu trên bản đồ để chọn tọa độ</span>
+        </div>
+      </div>
+
+      {/* 4. BOTTOM METADATA & MANUAL NUMERIC EDIT DRAWER */}
+      <div className="p-3.5 sm:p-4 bg-white border-t border-slate-200/90 z-30 shrink-0 shadow-lg">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-3 items-center">
+          
+          {/* Box 1: Direct Lat / Lng Manual Input Fields */}
+          <div className="p-3 bg-slate-50/90 border border-slate-200/80 rounded-2xl space-y-2">
+            <div className="flex items-center justify-between text-xs text-slate-700 font-bold">
+              <span className="flex items-center gap-1.5">
+                <Crosshair className="w-4 h-4 text-rose-500" />
+                <span>Chỉnh sửa tọa độ số GPS:</span>
+              </span>
+              <span className="text-[10px] text-slate-400 font-mono">
+                {formatCoordinates(currentLat, currentLng)}
+              </span>
+            </div>
+
+            <form onSubmit={handleManualCoordSubmit} className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] text-slate-500 font-semibold block mb-0.5">Vĩ độ (Latitude)</label>
+                <input
+                  type="number"
+                  step="0.000001"
+                  value={rawLatInput}
+                  onChange={(e) => setRawLatInput(e.target.value)}
+                  onBlur={handleManualCoordSubmit}
+                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-400 shadow-2xs"
+                  placeholder="21.028511"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-slate-500 font-semibold block mb-0.5">Kinh độ (Longitude)</label>
+                <input
+                  type="number"
+                  step="0.000001"
+                  value={rawLngInput}
+                  onChange={(e) => setRawLngInput(e.target.value)}
+                  onBlur={handleManualCoordSubmit}
+                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-400 shadow-2xs"
+                  placeholder="105.854444"
+                />
+              </div>
+            </form>
+          </div>
+
+          {/* Box 2: Place Name & Reverse Geocoded Address */}
+          <div className="p-3 bg-slate-50/90 border border-slate-200/80 rounded-2xl space-y-1.5">
+            <div className="flex items-center justify-between text-xs text-slate-700 font-bold">
+              <span className="flex items-center gap-1.5">
+                <MapPin className="w-4 h-4 text-rose-500" />
+                <span>Tên địa điểm & Địa chỉ:</span>
+              </span>
+              {isReverseGeocoding && (
+                <span className="text-[10px] text-rose-500 flex items-center gap-1 font-medium">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Đang dịch địa chỉ...
+                </span>
+              )}
+            </div>
+
+            <input
+              type="text"
+              value={locationName}
+              onChange={(e) => setLocationName(e.target.value)}
+              placeholder="Nhập tên địa điểm (VD: Hồ Hoàn Kiếm, Cafe Giảng, Bà Nà Hills...)"
+              className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-400 shadow-2xs"
+            />
+            
+            <div className="text-[11px] text-slate-500 line-clamp-1 truncate" title={formattedAddress}>
+              {formattedAddress || 'Đang xác định địa chỉ tương ứng với tọa độ GPS...'}
+            </div>
+          </div>
+
+        </div>
+      </div>
+
     </div>
   );
 };

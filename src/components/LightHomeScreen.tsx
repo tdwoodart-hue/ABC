@@ -4,11 +4,12 @@ import { FinanceTab } from './FinanceTab';
 import { NutritionTab } from './NutritionTab';
 import { AchievementsTab } from './AchievementsTab';
 import { AdminTab } from './AdminTab';
-import { MapLocationPickerModal } from './MapLocationPickerModal';
+import { MapLocationPickerModal, SelectedLocationResult } from './MapLocationPickerModal';
 import { ImageLightboxModal } from './ImageLightboxModal';
 import { AvatarEditorModal } from './AvatarEditorModal';
 import { VisitedPlacesTracker } from './VisitedPlacesTracker';
-import { CameraCaptureModal } from './CameraCaptureModal';
+import { LoveFootprintMap } from './LoveFootprintMap';
+import { CameraCaptureModal, CameraLocationMetadata } from './CameraCaptureModal';
 import { WakeUpChallengeCard } from './WakeUpChallengeCard';
 import { CompanionManagerModal } from './CompanionManagerModal';
 import { TagPeopleSelector } from './TagPeopleSelector';
@@ -22,6 +23,7 @@ import {
   syncDeviceToFirestore 
 } from '../utils/deviceHelper';
 import { formatDateVN, formatDateShortVN, formatDateTimeVN } from '../utils/formatDate';
+import { getDeviceHighAccuracyGPS, reverseGeocodeGPS, formatCoordinates } from '../utils/geolocation';
 import { 
   db, 
   doc, 
@@ -74,6 +76,7 @@ import {
   ExternalLink,
   Navigation,
   Map,
+  Compass,
   Apple,
   Star,
   ChevronLeft,
@@ -96,7 +99,8 @@ import {
   History,
   Archive,
   ArrowDownUp,
-  Music
+  Music,
+  Crosshair
 } from 'lucide-react';
 
 interface LightHomeScreenProps {
@@ -201,6 +205,11 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const [journalContent, setJournalContent] = useState('');
   const [journalLocation, setJournalLocation] = useState('');
   const [journalLocationAddress, setJournalLocationAddress] = useState('');
+  const [journalLat, setJournalLat] = useState<number | null>(null);
+  const [journalLng, setJournalLng] = useState<number | null>(null);
+  const [journalAccuracy, setJournalAccuracy] = useState<number | null>(null);
+  const [journalLocationTimestamp, setJournalLocationTimestamp] = useState<string | null>(null);
+  const [journalPlaceId, setJournalPlaceId] = useState<string | null>(null);
   const [journalDate, setJournalDate] = useState(new Date().toISOString().split('T')[0]);
   const [journalMood, setJournalMood] = useState(MOOD_OPTIONS[0]);
   const [journalImages, setJournalImages] = useState<string[]>([]);
@@ -247,7 +256,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   // Journal View Subtab & Location Picker Modal
-  const [journalViewTab, setJournalViewTab] = useState<'feed' | 'places'>('feed');
+  const [journalViewTab, setJournalViewTab] = useState<'feed' | 'love_map' | 'places'>('feed');
   const [isJournalMapPickerOpen, setIsJournalMapPickerOpen] = useState(false);
   const [journalMapTarget, setJournalMapTarget] = useState<'create' | 'edit'>('create');
 
@@ -285,6 +294,11 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const [editContent, setEditContent] = useState('');
   const [editLocation, setEditLocation] = useState('');
   const [editLocationAddress, setEditLocationAddress] = useState('');
+  const [editLat, setEditLat] = useState<number | null>(null);
+  const [editLng, setEditLng] = useState<number | null>(null);
+  const [editAccuracy, setEditAccuracy] = useState<number | null>(null);
+  const [editLocationTimestamp, setEditLocationTimestamp] = useState<string | null>(null);
+  const [editPlaceId, setEditPlaceId] = useState<string | null>(null);
   const [editDate, setEditDate] = useState('');
   const [editImages, setEditImages] = useState<string[]>([]);
   const [editMainImageIndex, setEditMainImageIndex] = useState(0);
@@ -564,23 +578,41 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     setJournalImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Camera Live Capture & Automatic GPS Location Tagging
-  const handleCameraCaptured = (dataUrl: string, autoLocation?: string) => {
+  // Camera Live Capture & Automatic GPS Location Tagging (High-Accuracy metadata)
+  const handleCameraCaptured = (dataUrl: string, autoLocation?: string, meta?: CameraLocationMetadata) => {
     if (cameraModalTarget === 'journal_create') {
       setJournalImages(prev => [...prev, dataUrl]);
-      if (autoLocation && !journalLocation) {
+      if (meta) {
+        setJournalLat(meta.lat);
+        setJournalLng(meta.lng);
+        setJournalAccuracy(meta.accuracy ?? null);
+        setJournalLocationTimestamp(meta.locationTimestamp ?? null);
+        if (meta.locationName || meta.address) {
+          setJournalLocation(meta.locationName || meta.address || '');
+          setJournalLocationAddress(meta.address || meta.locationName || '');
+        }
+      } else if (autoLocation && !journalLocation) {
         setJournalLocation(autoLocation);
         setJournalLocationAddress(autoLocation);
       }
-      setGpsToast(autoLocation ? `Đã chụp ảnh & tự động lưu vị trí: ${autoLocation}` : 'Đã chụp ảnh kỷ niệm thành công!');
+      setGpsToast(meta ? `Đã chụp ảnh & ghi nhận GPS chính xác (±${meta.accuracy ? meta.accuracy.toFixed(0) : 0}m)` : (autoLocation ? `Đã chụp ảnh & tự động lưu vị trí: ${autoLocation}` : 'Đã chụp ảnh kỷ niệm thành công!'));
       setTimeout(() => setGpsToast(null), 4000);
     } else if (cameraModalTarget === 'journal_edit') {
       setEditImages(prev => [...prev, dataUrl]);
-      if (autoLocation && !editLocation) {
+      if (meta) {
+        setEditLat(meta.lat);
+        setEditLng(meta.lng);
+        setEditAccuracy(meta.accuracy ?? null);
+        setEditLocationTimestamp(meta.locationTimestamp ?? null);
+        if (meta.locationName || meta.address) {
+          setEditLocation(meta.locationName || meta.address || '');
+          setEditLocationAddress(meta.address || meta.locationName || '');
+        }
+      } else if (autoLocation && !editLocation) {
         setEditLocation(autoLocation);
         setEditLocationAddress(autoLocation);
       }
-      setGpsToast(autoLocation ? `Đã chụp ảnh & tự động lưu vị trí: ${autoLocation}` : 'Đã chụp ảnh kỷ niệm thành công!');
+      setGpsToast('Đã chụp ảnh & lưu metadata GPS thành công!');
       setTimeout(() => setGpsToast(null), 4000);
     } else if (cameraModalTarget === 'memory') {
       setMemoryImageUrl(dataUrl);
@@ -589,52 +621,36 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     }
   };
 
-  // One-click GPS auto-detection
-  const handleAutoDetectGPS = (target: 'create' | 'edit') => {
-    if (!navigator.geolocation) {
-      alert('Trình duyệt của bạn không hỗ trợ định vị GPS.');
-      return;
-    }
+  // One-click GPS auto-detection using High-Accuracy Device GPS as source of truth
+  const handleAutoDetectGPS = async (target: 'create' | 'edit') => {
     setAutoLocatingGPS(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        try {
-          // Attempt reverse geocoding
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1&accept-language=vi`
-          );
-          if (res.ok) {
-            const data = await res.json();
-            const display = data.display_name || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-            if (target === 'create') {
-              setJournalLocation(display);
-              setJournalLocationAddress(display);
-            } else {
-              setEditLocation(display);
-              setEditLocationAddress(display);
-            }
-            setGpsToast(`Đã tự động định vị vị trí của bạn: ${display}`);
-            setTimeout(() => setGpsToast(null), 4000);
-          } else {
-            const coords = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-            if (target === 'create') setJournalLocation(coords);
-            else setEditLocation(coords);
-          }
-        } catch {
-          const coords = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-          if (target === 'create') setJournalLocation(coords);
-          else setEditLocation(coords);
-        } finally {
-          setAutoLocatingGPS(false);
-        }
-      },
-      (err) => {
-        setAutoLocatingGPS(false);
-        alert('Không thể lấy vị trí GPS: ' + err.message);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+    try {
+      const gps = await getDeviceHighAccuracyGPS();
+      const rev = await reverseGeocodeGPS(gps.latitude, gps.longitude);
+
+      if (target === 'create') {
+        setJournalLat(gps.latitude);
+        setJournalLng(gps.longitude);
+        setJournalAccuracy(gps.accuracy);
+        setJournalLocationTimestamp(gps.timestamp);
+        setJournalLocation(rev.placeName);
+        setJournalLocationAddress(rev.formattedAddress);
+      } else {
+        setEditLat(gps.latitude);
+        setEditLng(gps.longitude);
+        setEditAccuracy(gps.accuracy);
+        setEditLocationTimestamp(gps.timestamp);
+        setEditLocation(rev.placeName);
+        setEditLocationAddress(rev.formattedAddress);
+      }
+
+      setGpsToast(`Đã lấy GPS thiết bị: ${rev.placeName} (độ chính xác ±${gps.accuracy ? gps.accuracy.toFixed(0) : 0}m)`);
+      setTimeout(() => setGpsToast(null), 4000);
+    } catch (err: any) {
+      alert(err?.message || 'Không thể lấy vị trí GPS từ thiết bị.');
+    } finally {
+      setAutoLocatingGPS(false);
+    }
   };
 
   const handleAddExpenseToCreate = () => {
@@ -933,6 +949,13 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       if (journalLocationAddress.trim()) {
         docData.locationAddress = journalLocationAddress.trim();
       }
+      if (journalLat !== null && journalLng !== null) {
+        docData.lat = journalLat;
+        docData.lng = journalLng;
+        if (journalAccuracy !== null) docData.accuracy = journalAccuracy;
+        if (journalLocationTimestamp) docData.locationTimestamp = journalLocationTimestamp;
+        if (journalPlaceId) docData.placeId = journalPlaceId;
+      }
       if (journalImages.length > 0) {
         const selectedMainIdx = Math.min(Math.max(0, journalMainImageIndex), journalImages.length - 1);
         docData.images = journalImages;
@@ -957,6 +980,11 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       setJournalContent('');
       setJournalLocation('');
       setJournalLocationAddress('');
+      setJournalLat(null);
+      setJournalLng(null);
+      setJournalAccuracy(null);
+      setJournalLocationTimestamp(null);
+      setJournalPlaceId(null);
       setJournalImages([]);
       setJournalMainImageIndex(0);
       setJournalExpenses([]);
@@ -1153,6 +1181,11 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     setEditContent(item.content || '');
     setEditLocation(item.location || '');
     setEditLocationAddress(item.locationAddress || '');
+    setEditLat(item.lat ?? null);
+    setEditLng(item.lng ?? null);
+    setEditAccuracy(item.accuracy ?? null);
+    setEditLocationTimestamp(item.locationTimestamp ?? null);
+    setEditPlaceId(item.placeId ?? null);
     setEditDate(item.date || new Date().toISOString().split('T')[0]);
     
     let imgs: string[] = [];
@@ -1177,6 +1210,11 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     setEditContent('');
     setEditLocation('');
     setEditLocationAddress('');
+    setEditLat(null);
+    setEditLng(null);
+    setEditAccuracy(null);
+    setEditLocationTimestamp(null);
+    setEditPlaceId(null);
     setEditDate('');
     setEditImages([]);
     setEditMainImageIndex(0);
@@ -1246,6 +1284,11 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         content: editContent.trim() || deleteField(),
         location: editLocation.trim() || deleteField(),
         locationAddress: editLocationAddress.trim() || deleteField(),
+        lat: editLat !== null && !isNaN(editLat) ? editLat : deleteField(),
+        lng: editLng !== null && !isNaN(editLng) ? editLng : deleteField(),
+        accuracy: editAccuracy !== null ? editAccuracy : deleteField(),
+        locationTimestamp: editLocationTimestamp || deleteField(),
+        placeId: editPlaceId || deleteField(),
         images: editImages.length > 0 ? editImages : deleteField(),
         mainImageIndex: editImages.length > 0 ? selectedMainIdx : deleteField(),
         imageUrl: editImages.length > 0 ? editImages[selectedMainIdx] : deleteField(),
@@ -1558,6 +1601,18 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
               </button>
               <button
                 type="button"
+                onClick={() => setJournalViewTab('love_map')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
+                  journalViewTab === 'love_map'
+                    ? 'bg-rose-500 text-white shadow-xs'
+                    : 'bg-white hover:bg-rose-50 text-slate-600 border border-slate-200/80'
+                }`}
+              >
+                <Compass className="w-3.5 h-3.5 text-rose-400" />
+                <span>🗺️ Bản đồ tình yêu ({journals.filter(j => j.location).length})</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setJournalViewTab('places')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                   journalViewTab === 'places'
@@ -1565,8 +1620,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                     : 'bg-white hover:bg-rose-50 text-slate-600 border border-slate-200/80'
                 }`}
               >
-                <MapPin className="w-3.5 h-3.5" />
-                <span>Nơi đã đi ({journals.filter(j => j.location).length})</span>
+                <Map className="w-3.5 h-3.5" />
+                <span>63 Tỉnh thành</span>
               </button>
 
               {/* Quick Filter for Companions & People on the same line */}
@@ -1868,9 +1923,9 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                   />
                 </div>
 
-                {/* Location Input Field */}
-                <div>
-                  <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
+                {/* Location Input Field with High-Accuracy GPS Metadata */}
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center justify-between gap-1">
                     <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
                       <MapPin className="w-3.5 h-3.5 text-rose-500" />
                       Địa điểm / Nơi hai đứa đã ghé thăm
@@ -1881,14 +1936,15 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                         type="button"
                         onClick={() => handleAutoDetectGPS('create')}
                         disabled={autoLocatingGPS}
-                        className="text-[11px] text-sky-600 hover:text-sky-800 font-semibold flex items-center gap-1 cursor-pointer bg-sky-50 hover:bg-sky-100 px-2 py-0.5 rounded-lg border border-sky-200 transition"
+                        className="text-[11px] text-sky-600 hover:text-sky-800 font-semibold flex items-center gap-1 cursor-pointer bg-sky-50 hover:bg-sky-100 px-2.5 py-1 rounded-lg border border-sky-200 transition"
+                        title="Lấy tọa độ GPS thiết bị với độ chính xác cao nhất"
                       >
                         {autoLocatingGPS ? (
                           <Loader2 className="w-3 h-3 animate-spin text-sky-600" />
                         ) : (
                           <Navigation className="w-3 h-3 text-sky-600" />
                         )}
-                        <span>{autoLocatingGPS ? 'Đang lấy vị trí...' : 'Vị trí của tôi'}</span>
+                        <span>{autoLocatingGPS ? 'Đang đọc GPS...' : 'GPS của tôi'}</span>
                       </button>
                       <button
                         type="button"
@@ -1896,13 +1952,14 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                           setJournalMapTarget('create');
                           setIsJournalMapPickerOpen(true);
                         }}
-                        className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 cursor-pointer bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-lg border border-rose-200 transition"
+                        className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 cursor-pointer bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-lg border border-rose-200 transition"
                       >
                         <MapPin className="w-3 h-3" />
-                        <span>Google Maps</span>
+                        <span>Ghim Bản đồ</span>
                       </button>
                     </div>
                   </div>
+
                   <input
                     type="text"
                     placeholder="VD: Yên Tử, Đà Lạt, Hồ Tây, Phố cổ Hội An, Landmark 81..."
@@ -1910,6 +1967,34 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                     onChange={(e) => setJournalLocation(e.target.value)}
                     className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white"
                   />
+
+                  {/* GPS Metadata Badge if Coordinates Captured */}
+                  {journalLat !== null && journalLng !== null && (
+                    <div className="p-2 bg-rose-50/60 rounded-xl border border-rose-200/80 flex items-center justify-between text-xs text-slate-700">
+                      <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                        <Crosshair className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                        <span className="font-bold">{journalLat.toFixed(6)}, {journalLng.toFixed(6)}</span>
+                        {journalAccuracy && (
+                          <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1 rounded font-sans font-bold">
+                            ±{journalAccuracy.toFixed(0)}m
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setJournalLat(null);
+                          setJournalLng(null);
+                          setJournalAccuracy(null);
+                          setJournalLocationTimestamp(null);
+                          setJournalPlaceId(null);
+                        }}
+                        className="text-[10px] text-rose-500 hover:text-rose-700 font-semibold cursor-pointer"
+                      >
+                        Xóa GPS
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2237,8 +2322,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                       </div>
 
                       {/* Location input field in Edit Form */}
-                      <div>
-                        <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap items-center justify-between gap-1">
                           <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
                             <MapPin className="w-3.5 h-3.5 text-rose-500" />
                             Địa điểm / Nơi hai đứa đã ghé thăm
@@ -2249,14 +2334,14 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                                 type="button"
                                 onClick={() => handleAutoDetectGPS('edit')}
                                 disabled={autoLocatingGPS}
-                                className="text-[11px] text-sky-600 hover:text-sky-800 font-semibold flex items-center gap-1 cursor-pointer bg-sky-50 hover:bg-sky-100 px-2 py-0.5 rounded-lg border border-sky-200 transition"
+                                className="text-[11px] text-sky-600 hover:text-sky-800 font-semibold flex items-center gap-1 cursor-pointer bg-sky-50 hover:bg-sky-100 px-2.5 py-1 rounded-lg border border-sky-200 transition"
                               >
                                 {autoLocatingGPS ? (
                                   <Loader2 className="w-3 h-3 animate-spin text-sky-600" />
                                 ) : (
                                   <Navigation className="w-3 h-3 text-sky-600" />
                                 )}
-                                <span>{autoLocatingGPS ? 'Đang lấy vị trí...' : 'Vị trí của tôi'}</span>
+                                <span>{autoLocatingGPS ? 'Đang đọc GPS...' : 'GPS của tôi'}</span>
                               </button>
                               <button
                                 type="button"
@@ -2264,10 +2349,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                                   setJournalMapTarget('edit');
                                   setIsJournalMapPickerOpen(true);
                                 }}
-                                className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 cursor-pointer bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-lg border border-rose-200 transition"
+                                className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 cursor-pointer bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-lg border border-rose-200 transition"
                               >
                                 <MapPin className="w-3 h-3" />
-                                <span>Google Maps</span>
+                                <span>Ghim Bản đồ</span>
                               </button>
                             </div>
                           )}
@@ -2280,6 +2365,36 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                           onChange={(e) => setEditLocation(e.target.value)}
                           className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white disabled:bg-slate-100"
                         />
+
+                        {/* GPS Coordinates Badge in Edit Mode */}
+                        {editLat !== null && editLng !== null && (
+                          <div className="p-2 bg-rose-50/60 rounded-xl border border-rose-200/80 flex items-center justify-between text-xs text-slate-700">
+                            <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                              <Crosshair className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                              <span className="font-bold">{editLat.toFixed(6)}, {editLng.toFixed(6)}</span>
+                              {editAccuracy && (
+                                <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1 rounded font-sans font-bold">
+                                  ±{editAccuracy.toFixed(0)}m
+                                </span>
+                              )}
+                            </div>
+                            {item.authorUid === userProfile.uid && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditLat(null);
+                                  setEditLng(null);
+                                  setEditAccuracy(null);
+                                  setEditLocationTimestamp(null);
+                                  setEditPlaceId(null);
+                                }}
+                                className="text-[10px] text-rose-500 hover:text-rose-700 font-semibold cursor-pointer"
+                              >
+                                Xóa GPS
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2884,7 +2999,21 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             </>
             )}
 
-            {/* PLACES VISITED VIEW (BẢN ĐỒ & NƠI ĐÃ ĐI) */}
+            {/* LOVE FOOTPRINT & DATE MAP VIEW */}
+            {journalViewTab === 'love_map' && (
+              <div className="space-y-5">
+                <LoveFootprintMap
+                  coupleId={coupleData?.id || userProfile.coupleId || 'our_forever_couple_id'}
+                  userProfile={userProfile}
+                  coupleData={coupleData}
+                  journals={journals}
+                  onOpenJournalLightbox={handleOpenLightbox}
+                  onNavigateToJournal={() => setJournalViewTab('feed')}
+                />
+              </div>
+            )}
+
+            {/* 63 PROVINCES VISITED VIEW */}
             {journalViewTab === 'places' && (
               <div className="space-y-5">
                 {/* 63 Provinces & Specific Places Tracker with Memory Auto-Sync */}
@@ -3688,13 +3817,27 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       <MapLocationPickerModal
         isOpen={isJournalMapPickerOpen}
         onClose={() => setIsJournalMapPickerOpen(false)}
-        onSelectLocation={(data) => {
-          const full = data.fullPlaceName || data.address;
+        initialCoords={
+          journalMapTarget === 'create'
+            ? (journalLat && journalLng ? { lat: journalLat, lng: journalLng, accuracy: journalAccuracy || undefined } : undefined)
+            : (editLat && editLng ? { lat: editLat, lng: editLng, accuracy: editAccuracy || undefined } : undefined)
+        }
+        onSelectLocation={(data: SelectedLocationResult) => {
           if (journalMapTarget === 'create') {
-            setJournalLocation(data.address || full);
+            setJournalLat(data.lat);
+            setJournalLng(data.lng);
+            setJournalAccuracy(data.accuracy || null);
+            setJournalLocationTimestamp(data.locationTimestamp || new Date().toISOString());
+            setJournalPlaceId(data.placeId || null);
+            setJournalLocation(data.locationName);
             setJournalLocationAddress(data.address);
           } else {
-            setEditLocation(data.address || full);
+            setEditLat(data.lat);
+            setEditLng(data.lng);
+            setEditAccuracy(data.accuracy || null);
+            setEditLocationTimestamp(data.locationTimestamp || new Date().toISOString());
+            setEditPlaceId(data.placeId || null);
+            setEditLocation(data.locationName);
             setEditLocationAddress(data.address);
           }
           setIsJournalMapPickerOpen(false);
@@ -3704,7 +3847,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             ? (journalLocationAddress || journalLocation)
             : (editLocationAddress || editLocation)
         }
-        title="Chọn Địa Điểm Kỷ Niệm Trên Google Maps"
+        title="Chọn Vị Trí Kỷ Niệm Trên Bản Đồ"
+        subtitle="Tọa độ GPS độ chính xác cao sẽ được lưu làm nguồn dữ liệu chuẩn cho Bản đồ tình yêu."
       />
 
       {/* Fullscreen Lightbox with Zoom & Photo Comments */}

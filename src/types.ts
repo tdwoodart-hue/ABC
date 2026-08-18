@@ -145,8 +145,14 @@ export interface JournalEntry {
   title: string;
   content?: string;
   date: string;
+  // High-accuracy GPS Metadata (iPhone Photo EXIF style)
+  lat?: number; // Exact latitude from device GPS or map marker
+  lng?: number; // Exact longitude from device GPS or map marker
+  accuracy?: number; // GPS accuracy in meters (e.g. 5.2m)
+  locationTimestamp?: string; // Timestamp when GPS was captured
+  placeId?: string; // Google Places or OSM place_id if picked from map
   location?: string; // Tên địa điểm/Nơi đã đi
-  locationAddress?: string; // Địa chỉ chi tiết nếu có
+  locationAddress?: string; // Địa chỉ chi tiết từ reverse geocoding
   mood?: string;
   imageUrl?: string; // Ảnh chính / Bìa
   images?: string[]; // Tất cả ảnh đính kèm
@@ -203,9 +209,17 @@ export interface VisitedPlace {
   name: string;
   province: string;
   region?: 'bac' | 'trung' | 'nam';
+  category?: 'cafe' | 'date' | 'travel' | 'food' | 'special';
+  lat?: number;
+  lng?: number;
+  accuracy?: number;
+  locationTimestamp?: string;
+  placeId?: string;
+  address?: string;
   dateVisited?: string;
   note?: string;
   imageUrl?: string;
+  images?: string[];
   rating?: number;
   addedByUid: string;
   addedByName: string;

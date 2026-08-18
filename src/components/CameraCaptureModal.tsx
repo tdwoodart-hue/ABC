@@ -1,10 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Camera, RefreshCw, X, Check, MapPin, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
+import { Camera, RefreshCw, X, Check, MapPin, Sparkles, AlertCircle, Loader2, Crosshair } from 'lucide-react';
+import { getDeviceHighAccuracyGPS, reverseGeocodeGPS, formatCoordinates } from '../utils/geolocation';
+
+export interface CameraLocationMetadata {
+  lat: number;
+  lng: number;
+  accuracy?: number;
+  locationTimestamp?: string;
+  locationName?: string;
+  address?: string;
+}
 
 interface CameraCaptureModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCapture: (imageDataUrl: string, autoLocation?: string) => void;
+  onCapture: (imageDataUrl: string, locationData?: CameraLocationMetadata) => void;
 }
 
 export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
@@ -20,57 +30,27 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [currentLocation, setCurrentLocation] = useState<string | null>(null);
+  
+  // High-accuracy GPS metadata
+  const [gpsMetadata, setGpsMetadata] = useState<CameraLocationMetadata | null>(null);
   const [locating, setLocating] = useState(false);
 
-  // Fetch current GPS location and geocode to Vietnamese address
-  const fetchCurrentLocation = () => {
-    if (!navigator.geolocation) return;
+  // Fetch current high-accuracy GPS location directly from hardware
+  const fetchCurrentLocation = async () => {
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        try {
-          // Attempt Google Geocoder if available on window
-          if ((window as any).google && (window as any).google.maps) {
-            const geocoder = new (window as any).google.maps.Geocoder();
-            const latlng = { lat: latitude, lng: longitude };
-            geocoder.geocode({ location: latlng }, (results: any, status: any) => {
-              setLocating(false);
-              if (status === 'OK' && results && results[0]) {
-                const formatted = results[0].formatted_address;
-                setCurrentLocation(formatted);
-              } else {
-                fallbackNominatim(latitude, longitude);
-              }
-            });
-            return;
-          }
-        } catch {
-          // fallback
-        }
-        fallbackNominatim(latitude, longitude);
-      },
-      (err) => {
-        console.warn('Geolocation error during camera capture:', err);
-        setLocating(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
-
-  const fallbackNominatim = async (lat: number, lng: number) => {
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&accept-language=vi`
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const display = data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-        setCurrentLocation(display);
-      }
-    } catch {
-      setCurrentLocation(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+      const gps = await getDeviceHighAccuracyGPS();
+      const geocoded = await reverseGeocodeGPS(gps.latitude, gps.longitude);
+      setGpsMetadata({
+        lat: gps.latitude,
+        lng: gps.longitude,
+        accuracy: gps.accuracy,
+        locationTimestamp: gps.timestamp,
+        locationName: geocoded.placeName,
+        address: geocoded.formattedAddress
+      });
+    } catch (err) {
+      console.warn('Geolocation error during camera capture:', err);
     } finally {
       setLocating(false);
     }
@@ -205,7 +185,7 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
   // Confirm photo
   const handleConfirm = () => {
     if (!capturedImage) return;
-    onCapture(capturedImage, currentLocation || undefined);
+    onCapture(capturedImage, gpsMetadata || undefined);
     onClose();
   };
 
@@ -312,23 +292,35 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
           <canvas ref={canvasRef} className="hidden" />
         </div>
 
-        {/* Live Location Tagging Display */}
+        {/* Live High-Accuracy Location Tagging Display */}
         <div className="p-3 bg-slate-950/80 border-t border-slate-800/80 text-xs flex items-center gap-2">
-          <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+          <Crosshair className="w-3.5 h-3.5 text-rose-400 shrink-0" />
           <div className="min-w-0 flex-1">
-            <span className="text-[10px] text-slate-400 block font-medium">
-              Vị trí tự động nhận diện:
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-slate-400 block font-medium">
+                Tọa độ GPS thiết bị (iPhone Metadata):
+              </span>
+              {gpsMetadata?.accuracy !== undefined && (
+                <span className="text-[9px] bg-rose-500/20 text-rose-300 px-1.5 py-0.2 rounded font-mono">
+                  ±{gpsMetadata.accuracy}m
+                </span>
+              )}
+            </div>
             <p className="text-xs text-rose-200 font-semibold truncate">
               {locating ? (
                 <span className="flex items-center gap-1 text-slate-400">
                   <Loader2 className="w-3 h-3 animate-spin text-rose-400" />
-                  Đang lấy tọa độ GPS...
+                  Đang thu thập GPS vệ tinh có độ chính xác cao...
                 </span>
-              ) : currentLocation ? (
-                currentLocation
+              ) : gpsMetadata ? (
+                <span>
+                  {gpsMetadata.locationName || gpsMetadata.address} 
+                  <span className="text-[10px] text-slate-400 font-mono ml-1.5">
+                    ({gpsMetadata.lat.toFixed(5)}, {gpsMetadata.lng.toFixed(5)})
+                  </span>
+                </span>
               ) : (
-                <span className="text-slate-500 font-normal">Chưa lấy được vị trí (hãy bật GPS trình duyệt)</span>
+                <span className="text-slate-500 font-normal">Chưa định vị GPS (hãy bật quyền vị trí trình duyệt)</span>
               )}
             </p>
           </div>
