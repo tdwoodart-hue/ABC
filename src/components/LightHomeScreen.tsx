@@ -93,7 +93,8 @@ import {
   Users,
   RotateCcw,
   History,
-  Archive
+  Archive,
+  ArrowDownUp
 } from 'lucide-react';
 
 interface LightHomeScreenProps {
@@ -246,7 +247,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const [isJournalMapPickerOpen, setIsJournalMapPickerOpen] = useState(false);
   const [journalMapTarget, setJournalMapTarget] = useState<'create' | 'edit'>('create');
 
-  // Journal Time Filter State
+  // Journal Time & Sort Filter State
+  const [journalSortOrder, setJournalSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [journalDateFilterMode, setJournalDateFilterMode] = useState<'all' | 'this_month' | 'last_month' | 'this_year' | 'month' | 'custom'>('all');
   const [journalFilterMonth, setJournalFilterMonth] = useState<string>(() => {
     const now = new Date();
@@ -1300,7 +1302,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     const prevYearMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
     const currentYear = String(now.getFullYear());
 
-    return journals.filter(j => {
+    const result = journals.filter(j => {
       // 1. Companion filter
       if (selectedCompanionFilter) {
         const hasTagged = j.taggedPeople?.some(p => p.id === selectedCompanionFilter || p.name.toLowerCase() === selectedCompanionFilter.toLowerCase());
@@ -1333,6 +1335,22 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         (j.taggedPeople && j.taggedPeople.some(p => p.name.toLowerCase().includes(term)))
       );
     });
+
+    // Sort by date / createdAt
+    return result.sort((a, b) => {
+      const dateA = a.date || (a.createdAt ? new Date(a.createdAt).toISOString().split('T')[0] : '');
+      const dateB = b.date || (b.createdAt ? new Date(b.createdAt).toISOString().split('T')[0] : '');
+      
+      if (dateA !== dateB) {
+        return journalSortOrder === 'newest' 
+          ? dateB.localeCompare(dateA) 
+          : dateA.localeCompare(dateB);
+      }
+      
+      const timeA = typeof a.createdAt === 'number' ? a.createdAt : 0;
+      const timeB = typeof b.createdAt === 'number' ? b.createdAt : 0;
+      return journalSortOrder === 'newest' ? timeB - timeA : timeA - timeB;
+    });
   }, [
     journals, 
     selectedCompanionFilter, 
@@ -1340,7 +1358,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     journalFilterMonth, 
     journalFilterStartDate, 
     journalFilterEndDate, 
-    journalSearch
+    journalSearch,
+    journalSortOrder
   ]);
 
   return (
@@ -1571,32 +1590,11 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
               )}
             </div>
 
-            {/* Search Journal */}
-            <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-              <input
-                type="text"
-                placeholder="Tìm kiếm theo tiêu đề, nội dung, địa điểm, tên bạn bè / thú cưng..."
-                value={journalSearch}
-                onChange={(e) => setJournalSearch(e.target.value)}
-                className="w-full pl-10 pr-9 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-400 shadow-xs"
-              />
-              {journalSearch && (
-                <button
-                  type="button"
-                  onClick={() => setJournalSearch('')}
-                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 p-0.5 transition cursor-pointer"
-                  title="Xóa tìm kiếm"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            {/* Time Filter Bar (Bộ lọc thời gian) */}
+            {/* Time Filter, Sorting & Compact Search Toolbar */}
             {journalViewTab === 'feed' && (
               <div className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  {/* Left: Time chips and dropdown */}
                   <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 max-w-full">
                     <div className="flex items-center gap-1 text-xs font-semibold text-slate-500 shrink-0 mr-0.5">
                       <Calendar className="w-3.5 h-3.5 text-rose-500 shrink-0" />
@@ -1720,13 +1718,47 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                     </button>
                   </div>
 
-                  {/* Right Stats & Reset */}
-                  <div className="flex items-center gap-2 text-xs shrink-0 ml-auto">
-                    <span className="text-slate-500 text-[11px] font-medium">
-                      {filteredJournals.length}/{journals.length} bài
-                    </span>
+                  {/* Right: Sort Order + Compact Search Input + Reset */}
+                  <div className="flex items-center gap-1.5 shrink-0 justify-end pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                    {/* Sort Order Toggle (Gần nhất / Cũ nhất) */}
+                    <button
+                      type="button"
+                      onClick={() => setJournalSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
+                      className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1 shrink-0 whitespace-nowrap ${
+                        journalSortOrder === 'oldest'
+                          ? 'bg-amber-50 text-amber-700 border border-amber-300 shadow-2xs font-bold'
+                          : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60'
+                      }`}
+                      title={journalSortOrder === 'newest' ? 'Đang sắp xếp: Gần nhất (mới nhất trước)' : 'Đang sắp xếp: Cũ nhất (lâu nhất trước)'}
+                    >
+                      <ArrowDownUp className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                      <span>{journalSortOrder === 'newest' ? 'Gần nhất' : 'Cũ nhất'}</span>
+                    </button>
 
-                    {(journalDateFilterMode !== 'all' || journalSearch.trim() || selectedCompanionFilter) && (
+                    {/* Compact Search Box on Right Corner */}
+                    <div className="relative shrink-0">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2 pointer-events-none" />
+                      <input
+                        type="text"
+                        placeholder="Tìm kiếm..."
+                        value={journalSearch}
+                        onChange={(e) => setJournalSearch(e.target.value)}
+                        className="w-28 sm:w-36 focus:w-44 sm:focus:w-52 transition-all duration-200 pl-7 pr-6 py-1 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200/80 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1.5 focus:ring-rose-400 shadow-2xs placeholder:text-slate-400"
+                      />
+                      {journalSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setJournalSearch('')}
+                          className="absolute right-1.5 top-1.5 text-slate-400 hover:text-slate-600 p-0.5 transition cursor-pointer"
+                          title="Xóa tìm kiếm"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Reset Button if any filter/search is active */}
+                    {(journalDateFilterMode !== 'all' || journalSearch.trim() || selectedCompanionFilter || journalSortOrder !== 'newest') && (
                       <button
                         type="button"
                         onClick={() => {
@@ -1736,12 +1768,13 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                           setIsCustomDateOpen(false);
                           setJournalSearch('');
                           setSelectedCompanionFilter(null);
+                          setJournalSortOrder('newest');
                         }}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-semibold transition cursor-pointer border border-rose-200/60"
-                        title="Xóa tất cả bộ lọc"
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-semibold transition cursor-pointer border border-rose-200/60 shrink-0 shadow-2xs"
+                        title="Đặt lại tất cả bộ lọc & tìm kiếm"
                       >
                         <RotateCcw className="w-3 h-3" />
-                        <span>Đặt lại</span>
+                        <span className="hidden sm:inline">Đặt lại</span>
                       </button>
                     )}
                   </div>
@@ -2096,6 +2129,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                             setIsCustomDateOpen(false);
                             setJournalSearch('');
                             setSelectedCompanionFilter(null);
+                            setJournalSortOrder('newest');
                           }}
                           className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-semibold transition cursor-pointer border border-rose-200/80 inline-flex items-center gap-1.5 shadow-2xs"
                         >
