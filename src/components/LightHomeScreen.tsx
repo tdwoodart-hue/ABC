@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserProfile, CoupleData, MemoryItem, JournalEntry, JournalComment, JournalExpense, ImageComment, WakeUpLog, Companion, TaggedPerson } from '../types';
+import { UserProfile, CoupleData, MemoryItem, JournalEntry, JournalComment, JournalExpense, ImageComment, WakeUpLog, Companion, TaggedPerson, DeletedCommentRecord } from '../types';
 import { FinanceTab } from './FinanceTab';
 import { NutritionTab } from './NutritionTab';
 import { AchievementsTab } from './AchievementsTab';
@@ -20,7 +20,7 @@ import {
   detectDeviceDetails,
   syncDeviceToFirestore 
 } from '../utils/deviceHelper';
-import { formatDateVN, formatDateShortVN } from '../utils/formatDate';
+import { formatDateVN, formatDateShortVN, formatDateTimeVN } from '../utils/formatDate';
 import { 
   db, 
   doc, 
@@ -32,8 +32,10 @@ import {
   collection, 
   query, 
   addDoc, 
+  setDoc,
   deleteDoc, 
   deleteField,
+  getDoc,
   orderBy,
   swapCoupleSlots,
   checkIsAdmin
@@ -75,6 +77,8 @@ import {
   Star,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  SlidersHorizontal,
   ZoomIn,
   MessageSquare,
   ShieldCheck,
@@ -86,7 +90,10 @@ import {
   Loader2,
   PawPrint,
   Tag,
-  Users
+  Users,
+  RotateCcw,
+  History,
+  Archive
 } from 'lucide-react';
 
 interface LightHomeScreenProps {
@@ -239,11 +246,32 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const [isJournalMapPickerOpen, setIsJournalMapPickerOpen] = useState(false);
   const [journalMapTarget, setJournalMapTarget] = useState<'create' | 'edit'>('create');
 
+  // Journal Time Filter State
+  const [journalDateFilterMode, setJournalDateFilterMode] = useState<'all' | 'this_month' | 'last_month' | 'this_year' | 'month' | 'custom'>('all');
+  const [journalFilterMonth, setJournalFilterMonth] = useState<string>(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  });
+  const [journalFilterStartDate, setJournalFilterStartDate] = useState<string>('');
+  const [journalFilterEndDate, setJournalFilterEndDate] = useState<string>('');
+  const [isCustomDateOpen, setIsCustomDateOpen] = useState(false);
+
   // Camera & Live Geolocation Auto-Tagging
   const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
   const [cameraModalTarget, setCameraModalTarget] = useState<'journal_create' | 'journal_edit' | 'memory'>('journal_create');
   const [autoLocatingGPS, setAutoLocatingGPS] = useState(false);
   const [gpsToast, setGpsToast] = useState<string | null>(null);
+
+  const [isRestoreCommentOpen, setIsRestoreCommentOpen] = useState(false);
+  const [deletedCommentsList, setDeletedCommentsList] = useState<DeletedCommentRecord[]>([]);
+  const [restoringDeletedId, setRestoringDeletedId] = useState<string | null>(null);
+  const [restoreSelectedJournalId, setRestoreSelectedJournalId] = useState('');
+  const [restoreCommentText, setRestoreCommentText] = useState('');
+  const [restoreCommentAuthor, setRestoreCommentAuthor] = useState<'duong' | 'chuc'>('duong');
+  const [restoreCommentLoading, setRestoreCommentLoading] = useState(false);
+  const [showManualRestoreForm, setShowManualRestoreForm] = useState(false);
 
   // Edit Journal State
   const [editingJournalId, setEditingJournalId] = useState<string | null>(null);
@@ -701,12 +729,26 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       console.warn('Error listening to companions:', err);
     });
 
+    // Subscribe to deleted_comments (Recycle Bin)
+    const deletedRef = collection(db, 'couples', userProfile.coupleId, 'deleted_comments');
+    const qDeleted = query(deletedRef, orderBy('deletedAt', 'desc'));
+    const unsubscribeDeleted = onSnapshot(qDeleted, (snapshot) => {
+      const items: DeletedCommentRecord[] = [];
+      snapshot.forEach((d) => {
+        items.push({ id: d.id, ...d.data() } as DeletedCommentRecord);
+      });
+      setDeletedCommentsList(items);
+    }, (err) => {
+      console.warn('Error listening to deleted comments:', err);
+    });
+
     return () => {
       unsubscribeCouple();
       unsubscribeJournals();
       unsubscribeMemories();
       unsubscribeWakeUp();
       unsubscribeComp();
+      unsubscribeDeleted();
     };
   }, [userProfile.coupleId]);
 
@@ -778,11 +820,38 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     if (!target || !target.imageComments) return;
 
     try {
+      const deletedCmt = target.imageComments.find(c => c.id === commentId);
       const updatedComments = target.imageComments.filter(c => c.id !== commentId);
       const journalRef = doc(db, 'couples', userProfile.coupleId, 'journals', journalId);
+
+      // Save into deleted_comments collection (Recycle Bin)
+      if (deletedCmt) {
+        const delDocRef = doc(collection(db, 'couples', userProfile.coupleId, 'deleted_comments'));
+        await setDoc(delDocRef, {
+          id: delDocRef.id,
+          commentId: deletedCmt.id,
+          coupleId: userProfile.coupleId,
+          journalId,
+          journalTitle: target.title || 'Kỷ niệm',
+          journalDate: target.date || '',
+          authorUid: deletedCmt.authorUid,
+          authorName: deletedCmt.authorName,
+          content: deletedCmt.content,
+          imageUrl: deletedCmt.imageUrl,
+          imageIndex: deletedCmt.imageIndex,
+          createdAt: deletedCmt.createdAt || new Date().toISOString(),
+          deletedAt: new Date().toISOString(),
+          deletedByUid: userProfile.uid,
+          deletedByName: userProfile.displayName,
+          type: 'image_comment'
+        });
+      }
+
       await updateDoc(journalRef, {
         imageComments: updatedComments
       });
+      setGpsToast('Đã xóa bình luận ảnh và lưu vào Thùng rác. Có thể khôi phục lại bất kỳ lúc nào!');
+      setTimeout(() => setGpsToast(null), 4000);
     } catch (err) {
       console.error('Lỗi xóa bình luận ảnh:', err);
     }
@@ -917,19 +986,111 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     }
   };
 
-  const handleDeleteComment = async (journalId: string, commentId: string) => {
-    if (!userProfile.coupleId) return;
+  const handleRestoreCommentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userProfile.coupleId || !restoreSelectedJournalId || !restoreCommentText.trim()) return;
+    setRestoreCommentLoading(true);
     try {
-      const journalRef = doc(db, 'couples', userProfile.coupleId, 'journals', journalId);
-      const target = journals.find(j => j.id === journalId);
-      if (!target || !target.comments) return;
+      const isD = restoreCommentAuthor === 'duong';
+      const isU1 = (coupleData?.user1Id === userProfile.uid) || (coupleData?.user1Uid === userProfile.uid) || (userProfile.email?.toLowerCase().includes('duong'));
+      const s1Avatar = coupleData?.user1Avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+      const s2Avatar = coupleData?.user2Avatar || 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80';
 
-      const updatedComments = target.comments.filter(c => c.id !== commentId);
+      const authorName = isD ? (coupleData?.user1Name || 'Dương') : (coupleData?.user2Name || 'Chúc Gà');
+      const authorAvatar = isD ? s1Avatar : s2Avatar;
+      const authorUid = isD ? (isU1 ? userProfile.uid : 'duong_uid') : (!isU1 ? userProfile.uid : 'chuc_uid');
+
+      const restoredComment: JournalComment = {
+        id: 'cmt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        authorUid,
+        authorName,
+        content: restoreCommentText.trim(),
+        createdAt: new Date().toISOString()
+      };
+
+      const journalRef = doc(db, 'couples', userProfile.coupleId, 'journals', restoreSelectedJournalId);
+      const target = journals.find(j => j.id === restoreSelectedJournalId);
+      const currentComments = target?.comments || [];
       await updateDoc(journalRef, {
-        comments: updatedComments
+        comments: [...currentComments, restoredComment]
       });
+
+      setRestoreCommentText('');
+      setIsRestoreCommentOpen(false);
+      setGpsToast('Đã khôi phục và thêm lại bình luận thành công!');
+      setTimeout(() => setGpsToast(null), 4000);
     } catch (err) {
-      console.error('Lỗi xóa bình luận:', err);
+      console.error('Lỗi khôi phục bình luận:', err);
+      alert('Không thể khôi phục bình luận: ' + String(err));
+    } finally {
+      setRestoreCommentLoading(false);
+    }
+  };
+
+  // 1-Click Restore Deleted Comment from Recycle Bin
+  const handleRestoreDeletedCommentRecord = async (record: DeletedCommentRecord) => {
+    if (!userProfile.coupleId) return;
+    setRestoringDeletedId(record.id);
+    try {
+      const journalRef = doc(db, 'couples', userProfile.coupleId, 'journals', record.journalId);
+      const jSnap = await getDoc(journalRef);
+      if (!jSnap.exists()) {
+        alert('Không tìm thấy bài viết gốc để khôi phục bình luận.');
+        return;
+      }
+      const data = jSnap.data();
+
+      if (record.type === 'image_comment') {
+        const currentImgCmts = data.imageComments || [];
+        const restoredImgCmt = {
+          id: record.commentId || ('img_cmt_' + Date.now()),
+          imageIndex: record.imageIndex ?? 0,
+          imageUrl: record.imageUrl,
+          authorName: record.authorName,
+          authorUid: record.authorUid,
+          content: record.content,
+          createdAt: record.createdAt || new Date().toISOString()
+        };
+        await updateDoc(journalRef, {
+          imageComments: [...currentImgCmts, restoredImgCmt]
+        });
+      } else {
+        const currentComments = data.comments || [];
+        const restoredCommentObj = {
+          id: record.commentId || ('cmt_' + Date.now()),
+          authorUid: record.authorUid,
+          authorName: record.authorName,
+          authorAvatar: record.authorAvatar || '',
+          content: record.content,
+          createdAt: record.createdAt || new Date().toISOString()
+        };
+        await updateDoc(journalRef, {
+          comments: [...currentComments, restoredCommentObj]
+        });
+      }
+
+      // Remove from deleted_comments
+      await deleteDoc(doc(db, 'couples', userProfile.coupleId, 'deleted_comments', record.id));
+      setGpsToast(`Đã khôi phục thành công bình luận của "${record.authorName}" vào bài viết! ✨`);
+      setTimeout(() => setGpsToast(null), 4000);
+    } catch (err) {
+      console.error('Lỗi khôi phục:', err);
+      alert('Không thể khôi phục bình luận: ' + String(err));
+    } finally {
+      setRestoringDeletedId(null);
+    }
+  };
+
+  // Permanent Delete Comment from Recycle Bin
+  const handlePermanentDeleteRecord = async (record: DeletedCommentRecord) => {
+    if (!userProfile.coupleId) return;
+    if (!window.confirm(`Bạn có chắc muốn xóa VĨNH VIỄN bình luận này khỏi Thùng rác không?\n\n"${record.content}"`)) return;
+    try {
+      await deleteDoc(doc(db, 'couples', userProfile.coupleId, 'deleted_comments', record.id));
+      setGpsToast('Đã xóa vĩnh viễn bình luận khỏi thùng rác.');
+      setTimeout(() => setGpsToast(null), 4000);
+    } catch (err) {
+      console.error('Lỗi xóa vĩnh viễn:', err);
     }
   };
 
@@ -1122,25 +1283,65 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     signOut(auth);
   };
 
-  const filteredJournals = journals.filter(j => {
-    // 1. Companion filter
-    if (selectedCompanionFilter) {
-      const hasTagged = j.taggedPeople?.some(p => p.id === selectedCompanionFilter || p.name.toLowerCase() === selectedCompanionFilter.toLowerCase());
-      if (!hasTagged) return false;
-    }
+  const availableMonths = React.useMemo(() => {
+    const monthsSet = new Set<string>();
+    journals.forEach(j => {
+      if (j.date && j.date.length >= 7) {
+        monthsSet.add(j.date.substring(0, 7)); // e.g. "2026-08"
+      }
+    });
+    return Array.from(monthsSet).sort().reverse();
+  }, [journals]);
 
-    // 2. Search text filter
-    if (!journalSearch.trim()) return true;
-    const term = journalSearch.toLowerCase();
-    return (
-      j.title.toLowerCase().includes(term) ||
-      (j.content && j.content.toLowerCase().includes(term)) ||
-      (j.mood && j.mood.toLowerCase().includes(term)) ||
-      (j.location && j.location.toLowerCase().includes(term)) ||
-      (j.locationAddress && j.locationAddress.toLowerCase().includes(term)) ||
-      (j.taggedPeople && j.taggedPeople.some(p => p.name.toLowerCase().includes(term)))
-    );
-  });
+  const filteredJournals = React.useMemo(() => {
+    const now = new Date();
+    const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevYearMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+    const currentYear = String(now.getFullYear());
+
+    return journals.filter(j => {
+      // 1. Companion filter
+      if (selectedCompanionFilter) {
+        const hasTagged = j.taggedPeople?.some(p => p.id === selectedCompanionFilter || p.name.toLowerCase() === selectedCompanionFilter.toLowerCase());
+        if (!hasTagged) return false;
+      }
+
+      // 2. Date Filter
+      if (journalDateFilterMode === 'this_month') {
+        if (!j.date?.startsWith(currentYearMonth)) return false;
+      } else if (journalDateFilterMode === 'last_month') {
+        if (!j.date?.startsWith(prevYearMonth)) return false;
+      } else if (journalDateFilterMode === 'this_year') {
+        if (!j.date?.startsWith(currentYear)) return false;
+      } else if (journalDateFilterMode === 'month') {
+        if (journalFilterMonth && !j.date?.startsWith(journalFilterMonth)) return false;
+      } else if (journalDateFilterMode === 'custom') {
+        if (journalFilterStartDate && j.date < journalFilterStartDate) return false;
+        if (journalFilterEndDate && j.date > journalFilterEndDate) return false;
+      }
+
+      // 3. Search text filter
+      if (!journalSearch.trim()) return true;
+      const term = journalSearch.toLowerCase();
+      return (
+        j.title.toLowerCase().includes(term) ||
+        (j.content && j.content.toLowerCase().includes(term)) ||
+        (j.mood && j.mood.toLowerCase().includes(term)) ||
+        (j.location && j.location.toLowerCase().includes(term)) ||
+        (j.locationAddress && j.locationAddress.toLowerCase().includes(term)) ||
+        (j.taggedPeople && j.taggedPeople.some(p => p.name.toLowerCase().includes(term)))
+      );
+    });
+  }, [
+    journals, 
+    selectedCompanionFilter, 
+    journalDateFilterMode, 
+    journalFilterMonth, 
+    journalFilterStartDate, 
+    journalFilterEndDate, 
+    journalSearch
+  ]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans pb-24">
@@ -1378,9 +1579,219 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                 placeholder="Tìm kiếm theo tiêu đề, nội dung, địa điểm, tên bạn bè / thú cưng..."
                 value={journalSearch}
                 onChange={(e) => setJournalSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-400 shadow-xs"
+                className="w-full pl-10 pr-9 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-400 shadow-xs"
               />
+              {journalSearch && (
+                <button
+                  type="button"
+                  onClick={() => setJournalSearch('')}
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 p-0.5 transition cursor-pointer"
+                  title="Xóa tìm kiếm"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
+
+            {/* Time Filter Bar (Bộ lọc thời gian) */}
+            {journalViewTab === 'feed' && (
+              <div className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 max-w-full">
+                    <div className="flex items-center gap-1 text-xs font-semibold text-slate-500 shrink-0 mr-0.5">
+                      <Calendar className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                      <span className="hidden sm:inline">Thời gian:</span>
+                    </div>
+
+                    {/* Quick Filter Chips */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setJournalDateFilterMode('all');
+                        setIsCustomDateOpen(false);
+                      }}
+                      className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition cursor-pointer shrink-0 whitespace-nowrap ${
+                        journalDateFilterMode === 'all'
+                          ? 'bg-rose-500 text-white shadow-2xs font-bold'
+                          : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60'
+                      }`}
+                    >
+                      Tất cả
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setJournalDateFilterMode('this_month');
+                        setIsCustomDateOpen(false);
+                      }}
+                      className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition cursor-pointer shrink-0 whitespace-nowrap ${
+                        journalDateFilterMode === 'this_month'
+                          ? 'bg-rose-500 text-white shadow-2xs font-bold'
+                          : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60'
+                      }`}
+                    >
+                      Tháng này
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setJournalDateFilterMode('last_month');
+                        setIsCustomDateOpen(false);
+                      }}
+                      className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition cursor-pointer shrink-0 whitespace-nowrap ${
+                        journalDateFilterMode === 'last_month'
+                          ? 'bg-rose-500 text-white shadow-2xs font-bold'
+                          : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60'
+                      }`}
+                    >
+                      Tháng trước
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setJournalDateFilterMode('this_year');
+                        setIsCustomDateOpen(false);
+                      }}
+                      className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition cursor-pointer shrink-0 whitespace-nowrap ${
+                        journalDateFilterMode === 'this_year'
+                          ? 'bg-rose-500 text-white shadow-2xs font-bold'
+                          : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60'
+                      }`}
+                    >
+                      Năm nay
+                    </button>
+
+                    {/* Dropdown Select Month if available */}
+                    {availableMonths.length > 0 && (
+                      <div className="relative shrink-0">
+                        <select
+                          value={journalDateFilterMode === 'month' ? journalFilterMonth : ''}
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              setJournalFilterMonth(e.target.value);
+                              setJournalDateFilterMode('month');
+                              setIsCustomDateOpen(false);
+                            }
+                          }}
+                          className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition cursor-pointer appearance-none pr-6 ${
+                            journalDateFilterMode === 'month'
+                              ? 'bg-rose-500 text-white shadow-2xs font-bold'
+                              : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60'
+                          }`}
+                        >
+                          <option value="" disabled>Theo tháng...</option>
+                          {availableMonths.map(m => {
+                            const [y, mon] = m.split('-');
+                            const count = journals.filter(j => j.date?.startsWith(m)).length;
+                            return (
+                              <option key={m} value={m} className="text-slate-800 bg-white">
+                                Tháng {mon}/{y} ({count})
+                              </option>
+                            );
+                          })}
+                        </select>
+                        <ChevronDown className={`w-3 h-3 absolute right-1.5 top-2 pointer-events-none ${
+                          journalDateFilterMode === 'month' ? 'text-white' : 'text-slate-400'
+                        }`} />
+                      </div>
+                    )}
+
+                    {/* Custom Range Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextState = !isCustomDateOpen;
+                        setIsCustomDateOpen(nextState);
+                        if (nextState) {
+                          setJournalDateFilterMode('custom');
+                        }
+                      }}
+                      className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1 shrink-0 whitespace-nowrap ${
+                        journalDateFilterMode === 'custom' || isCustomDateOpen
+                          ? 'bg-rose-500 text-white shadow-2xs font-bold'
+                          : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60'
+                      }`}
+                    >
+                      <span>Tùy chọn ngày</span>
+                      <SlidersHorizontal className="w-3 h-3" />
+                    </button>
+                  </div>
+
+                  {/* Right Stats & Reset */}
+                  <div className="flex items-center gap-2 text-xs shrink-0 ml-auto">
+                    <span className="text-slate-500 text-[11px] font-medium">
+                      {filteredJournals.length}/{journals.length} bài
+                    </span>
+
+                    {(journalDateFilterMode !== 'all' || journalSearch.trim() || selectedCompanionFilter) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setJournalDateFilterMode('all');
+                          setJournalFilterStartDate('');
+                          setJournalFilterEndDate('');
+                          setIsCustomDateOpen(false);
+                          setJournalSearch('');
+                          setSelectedCompanionFilter(null);
+                        }}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-semibold transition cursor-pointer border border-rose-200/60"
+                        title="Xóa tất cả bộ lọc"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        <span>Đặt lại</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Custom Date Range Picker Accordion */}
+                {(journalDateFilterMode === 'custom' || isCustomDateOpen) && (
+                  <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2.5 animate-in fade-in duration-150">
+                    <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                      <span className="font-semibold text-[11px]">Từ ngày:</span>
+                      <input
+                        type="date"
+                        value={journalFilterStartDate}
+                        onChange={(e) => {
+                          setJournalFilterStartDate(e.target.value);
+                          setJournalDateFilterMode('custom');
+                        }}
+                        className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-400"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                      <span className="font-semibold text-[11px]">Đến ngày:</span>
+                      <input
+                        type="date"
+                        value={journalFilterEndDate}
+                        onChange={(e) => {
+                          setJournalFilterEndDate(e.target.value);
+                          setJournalDateFilterMode('custom');
+                        }}
+                        className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-400"
+                      />
+                    </div>
+
+                    {(journalFilterStartDate || journalFilterEndDate) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setJournalFilterStartDate('');
+                          setJournalFilterEndDate('');
+                        }}
+                        className="px-2 py-1 text-slate-400 hover:text-slate-600 text-[11px] font-medium cursor-pointer"
+                      >
+                        Xóa ngày
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Add Journal Form */}
             {showAddJournal && (
@@ -1657,16 +2068,44 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             {journalViewTab === 'feed' && (
               <>
                 {filteredJournals.length === 0 ? (
-              <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xs text-center space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-400 flex items-center justify-center mx-auto">
-                  <BookOpen className="w-6 h-6" />
-                </div>
-                <p className="text-sm font-semibold text-slate-700">Chưa có trang nhật ký nào</p>
-                <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                  Hãy bấm nút "Viết nhật ký" ở trên để ghi lại những dòng cảm xúc ngọt ngào của hai bạn.
-                </p>
-              </div>
-            ) : (
+                  <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xs text-center space-y-3">
+                    <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-400 flex items-center justify-center mx-auto">
+                      <BookOpen className="w-6 h-6" />
+                    </div>
+                    {journals.length === 0 ? (
+                      <>
+                        <p className="text-sm font-semibold text-slate-700">Chưa có trang nhật ký nào</p>
+                        <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                          Hãy bấm nút "Viết nhật ký" ở trên để ghi lại những dòng cảm xúc ngọt ngào của hai bạn.
+                        </p>
+                      </>
+                    ) : (
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-700">Không tìm thấy bài viết nào</p>
+                          <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">
+                            Không có nhật ký nào phù hợp với bộ lọc thời gian hoặc từ khóa tìm kiếm hiện tại.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setJournalDateFilterMode('all');
+                            setJournalFilterStartDate('');
+                            setJournalFilterEndDate('');
+                            setIsCustomDateOpen(false);
+                            setJournalSearch('');
+                            setSelectedCompanionFilter(null);
+                          }}
+                          className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-semibold transition cursor-pointer border border-rose-200/80 inline-flex items-center gap-1.5 shadow-2xs"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Xóa tất cả bộ lọc</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
               <div className="space-y-4">
                 {filteredJournals.map((item) => (
                   editingJournalId === item.id ? (
@@ -2262,15 +2701,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                                       <p className="text-slate-600 mt-0.5 leading-snug break-words">{comment.content}</p>
                                     </div>
                                   </div>
-                                  {(comment.authorUid === userProfile.uid || item.authorUid === userProfile.uid || cAuthor.isMe) && (
-                                    <button
-                                      onClick={() => handleDeleteComment(item.id, comment.id)}
-                                      className="text-slate-300 hover:text-rose-500 p-1 transition cursor-pointer shrink-0 opacity-80 group-hover/cmt:opacity-100"
-                                      title="Xóa bình luận này"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
                                 </div>
                               );
                             })}
@@ -2690,6 +3120,31 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                     Quản lý
                   </button>
                 </div>
+              </div>
+
+              {/* Recovery & History Protection Tool */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-500" />
+                    <h3 className="text-sm font-bold text-slate-800">Khôi Phục Bình Luận Đã Mất</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (journals.length > 0) {
+                        setRestoreSelectedJournalId(journals[0].id);
+                      }
+                      setIsRestoreCommentOpen(true);
+                    }}
+                    className="text-xs px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold rounded-xl border border-amber-200/70 transition cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>Khôi phục / Viết lại cmt ✍️</span>
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Đã khóa hoàn toàn thao tác xóa bình luận trên toàn hệ thống để không bao giờ bị xóa nhầm nữa. Nếu bạn vừa lỡ bấm xóa bình luận trước đó, hãy bấm nút trên để khôi phục hoặc chèn lại nội dung vào đúng bài viết ngay lập tức.
+                </p>
               </div>
 
               {/* Logout Button */}
@@ -3144,6 +3599,236 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         userProfile={userProfile}
         companions={companions}
       />
+
+      {/* Modal Thùng Rác & Khôi Phục Bình Luận Đã Xóa */}
+      {isRestoreCommentOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-2xl space-y-4 max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-amber-50 text-amber-700 border border-amber-200/80 flex items-center justify-center">
+                  <History className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">
+                    Thùng Rác & Khôi Phục Bình Luận
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Khôi phục lại những bình luận bạn hoặc đối phương đã từng xóa
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRestoreCommentOpen(false);
+                  setShowManualRestoreForm(false);
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Content - Scrollable */}
+            <div className="space-y-4 overflow-y-auto flex-1 pr-1">
+              {/* Deleted Comments List (True Restore) */}
+              {!showManualRestoreForm ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs text-slate-600 font-semibold px-1">
+                    <span>Bình luận đã xóa trong thùng rác ({deletedCommentsList.length}):</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowManualRestoreForm(true)}
+                      className="text-purple-600 hover:text-purple-700 text-[11px] font-bold cursor-pointer"
+                    >
+                      + Nhập tay nếu cần
+                    </button>
+                  </div>
+
+                  {deletedCommentsList.length === 0 ? (
+                    <div className="py-10 text-center text-slate-400 text-xs space-y-2.5 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                      <Archive className="w-8 h-8 mx-auto text-slate-300 stroke-[1.5]" />
+                      <p className="font-medium text-slate-600">Thùng rác hiện đang trống</p>
+                      <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
+                        Khi bạn xóa bất kỳ bình luận nào, bình luận đó sẽ được tự động lưu vào đây để có thể khôi phục lại bất kỳ lúc nào.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100 border border-slate-200/80 rounded-2xl overflow-hidden bg-white shadow-2xs">
+                      {deletedCommentsList.map((item) => (
+                        <div
+                          key={item.id}
+                          className="p-3.5 hover:bg-amber-50/30 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+                        >
+                          <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                            <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-800 font-bold flex items-center justify-center shrink-0 mt-0.5 text-xs border border-amber-200 overflow-hidden">
+                              {item.authorAvatar ? (
+                                <img src={item.authorAvatar} alt={item.authorName} className="w-full h-full object-cover" />
+                              ) : (
+                                <span>{item.authorName?.charAt(0)?.toUpperCase() || 'U'}</span>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-bold text-slate-800 text-xs">{item.authorName}</span>
+                                <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600">
+                                  {item.journalTitle || 'Kỷ niệm'}
+                                </span>
+                                {item.deletedAt && (
+                                  <span className="text-[10px] text-slate-400">
+                                    Đã xóa: {formatDateShortVN(item.deletedAt)}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-700 mt-1 leading-relaxed break-words bg-slate-50 p-2 rounded-xl border border-slate-100 font-medium">
+                                "{item.content}"
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* 1-Click Restore & Permanent Delete Actions */}
+                          <div className="flex items-center justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                            <button
+                              type="button"
+                              disabled={restoringDeletedId === item.id}
+                              onClick={() => handleRestoreDeletedCommentRecord(item)}
+                              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 font-bold rounded-xl text-xs border border-emerald-200 transition flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
+                              title="Khôi phục lại vào bài viết"
+                            >
+                              <RotateCcw className={`w-3.5 h-3.5 ${restoringDeletedId === item.id ? 'animate-spin' : ''}`} />
+                              <span>{restoringDeletedId === item.id ? 'Đang khôi phục...' : 'Khôi phục ✨'}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handlePermanentDeleteRecord(item)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer"
+                              title="Xóa vĩnh viễn khỏi thùng rác"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Manual write/restore form */
+                <form onSubmit={handleRestoreCommentSubmit} className="space-y-3">
+                  <div className="flex items-center justify-between pb-1">
+                    <span className="text-xs font-bold text-slate-700">Tạo lại bình luận thủ công:</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowManualRestoreForm(false)}
+                      className="text-xs text-slate-500 hover:text-slate-700 font-semibold"
+                    >
+                      ← Quay lại Thùng rác
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      Chọn bài viết kỷ niệm:
+                    </label>
+                    <select
+                      value={restoreSelectedJournalId}
+                      onChange={(e) => setRestoreSelectedJournalId(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    >
+                      {journals.map((j) => (
+                        <option key={j.id} value={j.id}>
+                          {j.title || 'Kỷ niệm ngày ' + j.date} ({j.date})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      Người bình luận:
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setRestoreCommentAuthor('duong')}
+                        className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                          restoreCommentAuthor === 'duong'
+                            ? 'bg-rose-50 border-rose-400 text-rose-700 shadow-xs'
+                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        <span>👦 Dương</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRestoreCommentAuthor('chuc')}
+                        className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                          restoreCommentAuthor === 'chuc'
+                            ? 'bg-rose-50 border-rose-400 text-rose-700 shadow-xs'
+                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        <span>👧 Chúc Gà</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      Nội dung bình luận:
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={restoreCommentText}
+                      onChange={(e) => setRestoreCommentText(e.target.value)}
+                      placeholder="Nhập nội dung bình luận..."
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                      required
+                    />
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setShowManualRestoreForm(false)}
+                      className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition cursor-pointer"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={restoreCommentLoading || !restoreCommentText.trim()}
+                      className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      {restoreCommentLoading ? <span>Đang lưu...</span> : <span>Thêm vào bài viết ✨</span>}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between shrink-0">
+              <span className="text-[11px] text-slate-400">
+                {deletedCommentsList.length} bình luận đã lưu trữ
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRestoreCommentOpen(false);
+                  setShowManualRestoreForm(false);
+                }}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Device Manager & Identification Modal */}
       <DeviceManagerModal

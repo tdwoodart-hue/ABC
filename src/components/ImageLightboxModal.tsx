@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { JournalEntry, UserProfile, ImageComment, CoupleData } from '../types';
 import { formatDateTimeVN, formatDateVN } from '../utils/formatDate';
+import { checkIsAdmin } from '../lib/firebase';
 import {
   ArrowLeft,
   X,
@@ -53,6 +54,8 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [activeMenuCommentId, setActiveMenuCommentId] = useState<string | null>(null);
+  const [deleteCommentTarget, setDeleteCommentTarget] = useState<ImageComment | null>(null);
+  const [deletingComment, setDeletingComment] = useState(false);
 
   const imageList: string[] = useMemo(() => {
     if (!journal) return [];
@@ -158,13 +161,18 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
     }
   };
 
-  const handleDeleteComment = async (commentId: string) => {
+  const handleConfirmDeleteComment = async () => {
+    if (!deleteCommentTarget || !journal) return;
+    setDeletingComment(true);
     try {
-      await onDeleteImageComment(journal.id, commentId);
-      setActiveMenuCommentId(null);
-      showToast('Đã xóa bình luận');
+      await onDeleteImageComment(journal.id, deleteCommentTarget.id);
+      showToast('Đã xóa bình luận ảnh thành công!');
+      setDeleteCommentTarget(null);
     } catch (err) {
       console.error('Lỗi xóa bình luận ảnh:', err);
+      showToast('Lỗi khi xóa bình luận: ' + String(err));
+    } finally {
+      setDeletingComment(false);
     }
   };
 
@@ -451,7 +459,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                         </span>
                       </div>
 
-                      {/* Reply & Options Icons */}
+                      {/* Reply Icon */}
                       <div className="flex items-center gap-1 relative">
                         <button
                           type="button"
@@ -463,33 +471,6 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                         >
                           <Reply className="w-4 h-4" />
                         </button>
-
-                        {(isMe || journal.authorUid === currentUser.uid) && (
-                          <div className="relative">
-                            <button
-                              type="button"
-                              onClick={() => setActiveMenuCommentId(isMenuOpen ? null : comment.id)}
-                              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-full transition cursor-pointer"
-                              title="Tùy chọn"
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
-
-                            {/* Dropdown menu for deleting */}
-                            {isMenuOpen && (
-                              <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-30 min-w-[120px]">
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteComment(comment.id)}
-                                  className="w-full px-3 py-1.5 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-1.5 cursor-pointer"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                  <span>Xóa bình luận</span>
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </div>
                     </div>
 

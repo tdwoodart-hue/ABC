@@ -294,4 +294,24 @@ export interface DeviceRecord {
   isTrusted: boolean;
 }
 
+export interface DeletedCommentRecord {
+  id: string;
+  commentId: string;
+  coupleId: string;
+  journalId: string;
+  journalTitle?: string;
+  journalDate?: string;
+  authorUid: string;
+  authorName: string;
+  authorAvatar?: string;
+  content: string;
+  createdAt: string;
+  deletedAt: string;
+  deletedByUid: string;
+  deletedByName: string;
+  type?: 'journal_comment' | 'image_comment';
+  imageIndex?: number;
+  imageUrl?: string;
+}
+
 

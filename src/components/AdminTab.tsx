@@ -14,7 +14,7 @@ import {
   updateFinanceTransaction,
   batchReassignFinancePayer
 } from '../lib/firebase';
-import { UserProfile, CoupleData } from '../types';
+import { UserProfile, CoupleData, DeletedCommentRecord } from '../types';
 import { 
   Users, 
   Shield, 
@@ -37,10 +37,30 @@ import {
   DollarSign,
   Receipt,
   ArrowLeftRight,
-  User as UserIcon
+  User as UserIcon,
+  MessageCircle,
+  MessageSquare,
+  Sparkles,
+  Plus,
+  RotateCcw,
+  History,
+  Archive
 } from 'lucide-react';
-import { formatDateVN, formatDateShortVN } from '../utils/formatDate';
+import { formatDateVN, formatDateShortVN, formatDateTimeVN } from '../utils/formatDate';
 import { EditTransactionModal } from './EditTransactionModal';
+
+export interface AdminCommentItem {
+  coupleId: string;
+  journalId: string;
+  journalTitle: string;
+  journalDate: string;
+  commentId: string;
+  authorUid: string;
+  authorName: string;
+  authorAvatar?: string;
+  content: string;
+  createdAt: string;
+}
 
 interface AdminTabProps {
   currentUser: UserProfile;
@@ -51,11 +71,28 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [couplesList, setCouplesList] = useState<CoupleData[]>([]);
   const [financeList, setFinanceList] = useState<any[]>([]);
+  const [commentsList, setCommentsList] = useState<AdminCommentItem[]>([]);
+  const [deletedCommentsList, setDeletedCommentsList] = useState<DeletedCommentRecord[]>([]);
+  const [commentViewMode, setCommentViewMode] = useState<'active' | 'deleted'>('active');
+  const [commentSearchTerm, setCommentSearchTerm] = useState('');
+  const [adminJournalsList, setAdminJournalsList] = useState<{ id: string; title: string; date: string; coupleId: string }[]>([]);
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+  const [commentToDelete, setCommentToDelete] = useState<AdminCommentItem | null>(null);
+  const [restoringCommentId, setRestoringCommentId] = useState<string | null>(null);
+  const [permanentDeletingId, setPermanentDeletingId] = useState<string | null>(null);
+
+  // Add / Restore comment modal
+  const [isAddCommentOpen, setIsAddCommentOpen] = useState(false);
+  const [addCommentJournalId, setAddCommentJournalId] = useState('');
+  const [addCommentAuthor, setAddCommentAuthor] = useState<'duong' | 'chuc'>('duong');
+  const [addCommentContent, setAddCommentContent] = useState('');
+  const [addingCommentLoading, setAddingCommentLoading] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [financeSearchTerm, setFinanceSearchTerm] = useState('');
-  const [selectedSubTab, setSelectedSubTab] = useState<'users' | 'couples' | 'finances' | 'system'>('users');
+  const [selectedSubTab, setSelectedSubTab] = useState<'users' | 'couples' | 'comments' | 'finances' | 'system'>('users');
   const [editingAdminTx, setEditingAdminTx] = useState<any | null>(null);
   const [processingFinance, setProcessingFinance] = useState(false);
 
@@ -65,7 +102,8 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
     totalCouples: 0,
     totalJournals: 0,
     totalMeals: 0,
-    totalFinance: 0
+    totalFinance: 0,
+    totalComments: 0
   });
 
   // Edit User Modal
@@ -139,6 +177,9 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
       // 3. For every couple ID, resolve doc & subcollections
       const fetchedCouples: CoupleData[] = [];
       const allFinancesMap = new Map<string, any>();
+      const fetchedAllComments: AdminCommentItem[] = [];
+      const fetchedDeletedComments: DeletedCommentRecord[] = [];
+      const fetchedJournalsForAdmin: { id: string; title: string; date: string; coupleId: string }[] = [];
       let totalJournalsCount = 0;
       let totalMealsCount = 0;
 
@@ -171,10 +212,65 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
           createdAt: coupleData?.createdAt || new Date().toISOString()
         });
 
-        // Count journals
+        // Count journals & collect comments
         try {
           const jSnap = await getDocs(collection(db, 'couples', cid, 'journals'));
           totalJournalsCount += jSnap.size;
+          jSnap.forEach((jDoc) => {
+            const jData = jDoc.data();
+            fetchedJournalsForAdmin.push({
+              id: jDoc.id,
+              title: jData.title || `Kỷ niệm ngày ${jData.date || ''}`,
+              date: jData.date || '',
+              coupleId: cid
+            });
+
+            if (Array.isArray(jData.comments)) {
+              jData.comments.forEach((c: any) => {
+                fetchedAllComments.push({
+                  coupleId: cid,
+                  journalId: jDoc.id,
+                  journalTitle: jData.title || `Kỷ niệm ngày ${jData.date || ''}`,
+                  journalDate: jData.date || '',
+                  commentId: c.id || ('cmt_' + Math.random().toString(36).substring(2, 8)),
+                  authorUid: c.authorUid || '',
+                  authorName: c.authorName || 'Người dùng',
+                  authorAvatar: c.authorAvatar || '',
+                  content: c.content || '',
+                  createdAt: c.createdAt || new Date().toISOString()
+                });
+              });
+            }
+          });
+        } catch {
+          // ignore
+        }
+
+        // Fetch deleted comments from recycle bin
+        try {
+          const delSnap = await getDocs(collection(db, 'couples', cid, 'deleted_comments'));
+          delSnap.forEach((dDoc) => {
+            const dData = dDoc.data();
+            fetchedDeletedComments.push({
+              id: dDoc.id,
+              commentId: dData.commentId || dDoc.id,
+              coupleId: cid,
+              journalId: dData.journalId || '',
+              journalTitle: dData.journalTitle || 'Kỷ niệm',
+              journalDate: dData.journalDate || '',
+              authorUid: dData.authorUid || '',
+              authorName: dData.authorName || 'Người dùng',
+              authorAvatar: dData.authorAvatar || '',
+              content: dData.content || '',
+              createdAt: dData.createdAt || '',
+              deletedAt: dData.deletedAt || '',
+              deletedByUid: dData.deletedByUid || '',
+              deletedByName: dData.deletedByName || 'Admin',
+              type: dData.type || 'journal_comment',
+              imageIndex: dData.imageIndex,
+              imageUrl: dData.imageUrl
+            });
+          });
         } catch {
           // ignore
         }
@@ -225,15 +321,33 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
         return dateB.localeCompare(dateA);
       });
 
+      // Sort comments by createdAt desc
+      fetchedAllComments.sort((a, b) => {
+        const dateA = a.createdAt || '';
+        const dateB = b.createdAt || '';
+        return dateB.localeCompare(dateA);
+      });
+
+      // Sort deleted comments by deletedAt desc
+      fetchedDeletedComments.sort((a, b) => {
+        const dateA = a.deletedAt || a.createdAt || '';
+        const dateB = b.deletedAt || b.createdAt || '';
+        return dateB.localeCompare(dateA);
+      });
+
       setCouplesList(fetchedCouples);
       setFinanceList(allFinances);
+      setCommentsList(fetchedAllComments);
+      setDeletedCommentsList(fetchedDeletedComments);
+      setAdminJournalsList(fetchedJournalsForAdmin);
 
       setStats({
         totalUsers: fetchedUsers.length,
         totalCouples: fetchedCouples.length,
         totalJournals: totalJournalsCount,
         totalMeals: totalMealsCount,
-        totalFinance: allFinances.length
+        totalFinance: allFinances.length,
+        totalComments: fetchedAllComments.length
       });
     } catch (err: any) {
       console.error('Lỗi nạp dữ liệu admin:', err);
@@ -462,6 +576,195 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
     }
   };
 
+  // Admin Delete Comment: Open custom confirmation dialog
+  const handleAdminDeleteComment = (comment: AdminCommentItem) => {
+    setCommentToDelete(comment);
+  };
+
+  // Confirm delete comment
+  const handleConfirmDeleteComment = async () => {
+    if (!commentToDelete) return;
+    setDeletingCommentId(commentToDelete.commentId);
+    try {
+      const journalRef = doc(db, 'couples', commentToDelete.coupleId, 'journals', commentToDelete.journalId);
+      const jSnap = await getDoc(journalRef);
+      if (!jSnap.exists()) {
+        showNotification('error', 'Không tìm thấy bài viết chứa bình luận này.');
+        return;
+      }
+      const data = jSnap.data();
+      const currentComments = data.comments || [];
+      const deletedCmt = currentComments.find((c: any) => c.id === commentToDelete.commentId);
+      const updated = currentComments.filter((c: any) => c.id !== commentToDelete.commentId);
+
+      // Save into deleted_comments subcollection (Recycle bin)
+      const delDocRef = doc(collection(db, 'couples', commentToDelete.coupleId, 'deleted_comments'));
+      await setDoc(delDocRef, {
+        id: delDocRef.id,
+        commentId: commentToDelete.commentId,
+        coupleId: commentToDelete.coupleId,
+        journalId: commentToDelete.journalId,
+        journalTitle: commentToDelete.journalTitle || 'Kỷ niệm',
+        journalDate: commentToDelete.journalDate || '',
+        authorUid: commentToDelete.authorUid || (deletedCmt?.authorUid || ''),
+        authorName: commentToDelete.authorName || (deletedCmt?.authorName || 'Người dùng'),
+        authorAvatar: commentToDelete.authorAvatar || (deletedCmt?.authorAvatar || ''),
+        content: commentToDelete.content || (deletedCmt?.content || ''),
+        createdAt: commentToDelete.createdAt || (deletedCmt?.createdAt || new Date().toISOString()),
+        deletedAt: new Date().toISOString(),
+        deletedByUid: currentUser.uid,
+        deletedByName: currentUser.displayName || 'Admin',
+        type: 'journal_comment'
+      });
+
+      await updateDoc(journalRef, {
+        comments: updated
+      });
+      showNotification('success', `Đã xóa bình luận của "${commentToDelete.authorName}" và lưu vào Thùng rác. Bạn có thể khôi phục lại bất kỳ lúc nào.`);
+      setCommentToDelete(null);
+      await fetchAdminData();
+    } catch (err: any) {
+      showNotification('error', 'Lỗi khi xóa bình luận: ' + err.message);
+    } finally {
+      setDeletingCommentId(null);
+    }
+  };
+
+  // 1-Click Restore Deleted Comment from Recycle Bin
+  const handleAdminRestoreDeletedComment = async (item: DeletedCommentRecord) => {
+    setRestoringCommentId(item.id);
+    try {
+      const journalRef = doc(db, 'couples', item.coupleId, 'journals', item.journalId);
+      const jSnap = await getDoc(journalRef);
+      if (!jSnap.exists()) {
+        showNotification('error', 'Không tìm thấy bài viết gốc để khôi phục bình luận.');
+        return;
+      }
+      const data = jSnap.data();
+
+      if (item.type === 'image_comment') {
+        const currentImgCmts = data.imageComments || [];
+        const restoredImgCmt = {
+          id: item.commentId || ('img_cmt_' + Date.now()),
+          imageIndex: item.imageIndex ?? 0,
+          imageUrl: item.imageUrl,
+          authorName: item.authorName,
+          authorUid: item.authorUid,
+          content: item.content,
+          createdAt: item.createdAt || new Date().toISOString()
+        };
+        await updateDoc(journalRef, {
+          imageComments: [...currentImgCmts, restoredImgCmt]
+        });
+      } else {
+        const currentComments = data.comments || [];
+        const restoredCommentObj = {
+          id: item.commentId || ('cmt_' + Date.now()),
+          authorUid: item.authorUid,
+          authorName: item.authorName,
+          authorAvatar: item.authorAvatar || '',
+          content: item.content,
+          createdAt: item.createdAt || new Date().toISOString()
+        };
+        await updateDoc(journalRef, {
+          comments: [...currentComments, restoredCommentObj]
+        });
+      }
+
+      // Remove from deleted_comments subcollection
+      await deleteDoc(doc(db, 'couples', item.coupleId, 'deleted_comments', item.id));
+      showNotification('success', `Đã khôi phục thành công bình luận của "${item.authorName}" vào bài viết "${item.journalTitle || 'Kỷ niệm'}"! ✨`);
+      await fetchAdminData();
+    } catch (err: any) {
+      showNotification('error', 'Lỗi khôi phục: ' + err.message);
+    } finally {
+      setRestoringCommentId(null);
+    }
+  };
+
+  // Permanent Delete Comment from Recycle Bin
+  const handleAdminPermanentDeleteComment = async (item: DeletedCommentRecord) => {
+    if (!window.confirm(`Xóa VĨNH VIỄN bình luận này khỏi Thùng rác?\n\n"${item.content}"`)) return;
+    setPermanentDeletingId(item.id);
+    try {
+      await deleteDoc(doc(db, 'couples', item.coupleId, 'deleted_comments', item.id));
+      showNotification('success', 'Đã xóa vĩnh viễn bình luận khỏi thùng rác.');
+      await fetchAdminData();
+    } catch (err: any) {
+      showNotification('error', 'Lỗi khi xóa vĩnh viễn: ' + err.message);
+    } finally {
+      setPermanentDeletingId(null);
+    }
+  };
+
+  // Admin Add / Restore Comment
+  const handleAdminAddComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addCommentJournalId || !addCommentContent.trim()) return;
+    setAddingCommentLoading(true);
+    try {
+      const targetJournal = adminJournalsList.find(j => j.id === addCommentJournalId);
+      if (!targetJournal) {
+        showNotification('error', 'Không tìm thấy bài viết đã chọn.');
+        return;
+      }
+
+      const isD = addCommentAuthor === 'duong';
+      const authorName = isD ? 'Dương' : 'Chúc Gà';
+      const authorUid = isD ? (usersList.find(u => u.email?.toLowerCase().includes('duong'))?.uid || 'duong_uid') : (usersList.find(u => u.email?.toLowerCase().includes('chucga'))?.uid || 'chuc_uid');
+
+      const newCmt = {
+        id: 'cmt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        authorUid,
+        authorName,
+        content: addCommentContent.trim(),
+        createdAt: new Date().toISOString()
+      };
+
+      const journalRef = doc(db, 'couples', targetJournal.coupleId, 'journals', targetJournal.id);
+      const jSnap = await getDoc(journalRef);
+      if (!jSnap.exists()) {
+        showNotification('error', 'Bài viết không tồn tại trong cơ sở dữ liệu.');
+        return;
+      }
+      const currentComments = jSnap.data()?.comments || [];
+      await updateDoc(journalRef, {
+        comments: [...currentComments, newCmt]
+      });
+
+      showNotification('success', `Đã thêm/khôi phục bình luận cho bài viết "${targetJournal.title}".`);
+      setIsAddCommentOpen(false);
+      setAddCommentContent('');
+      await fetchAdminData();
+    } catch (err: any) {
+      showNotification('error', 'Lỗi thêm bình luận: ' + err.message);
+    } finally {
+      setAddingCommentLoading(false);
+    }
+  };
+
+  const filteredComments = commentsList.filter(c => {
+    const q = commentSearchTerm.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      c.content.toLowerCase().includes(q) ||
+      c.authorName.toLowerCase().includes(q) ||
+      c.journalTitle.toLowerCase().includes(q) ||
+      c.journalDate.includes(q)
+    );
+  });
+
+  const filteredDeletedComments = deletedCommentsList.filter(c => {
+    const q = commentSearchTerm.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      c.content.toLowerCase().includes(q) ||
+      c.authorName.toLowerCase().includes(q) ||
+      (c.journalTitle && c.journalTitle.toLowerCase().includes(q)) ||
+      (c.journalDate && c.journalDate.includes(q))
+    );
+  });
+
   const filteredUsers = usersList.filter(u => {
     const q = searchTerm.toLowerCase().trim();
     if (!q) return true;
@@ -528,7 +831,7 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
         </div>
 
         {/* Overview Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2">
+        <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 pt-2">
           <div 
             onClick={() => setSelectedSubTab('users')}
             className={`p-4 rounded-2xl border text-center cursor-pointer transition ${
@@ -549,6 +852,17 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
             <p className="text-xs text-rose-600 font-medium">Cặp đôi</p>
             <p className="text-2xl font-black text-rose-700 mt-1">{stats.totalCouples}</p>
             <p className="text-[10px] text-rose-400 mt-0.5">Phòng đôi</p>
+          </div>
+
+          <div 
+            onClick={() => setSelectedSubTab('comments')}
+            className={`p-4 rounded-2xl border text-center cursor-pointer transition ${
+              selectedSubTab === 'comments' ? 'bg-purple-100 border-purple-400 ring-2 ring-purple-400' : 'bg-purple-50/60 hover:bg-purple-100/60 border-purple-200/80'
+            }`}
+          >
+            <p className="text-xs text-purple-600 font-medium">Bình luận</p>
+            <p className="text-2xl font-black text-purple-700 mt-1">{stats.totalComments}</p>
+            <p className="text-[10px] text-purple-400 mt-0.5">Toàn hệ thống</p>
           </div>
 
           <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-200/80 text-center">
@@ -577,7 +891,7 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
       </div>
 
       {/* Sub-tab Navigation */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-3 flex-wrap">
         <button
           type="button"
           onClick={() => setSelectedSubTab('users')}
@@ -602,6 +916,19 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
         >
           <Heart className="w-4 h-4" />
           <span>Quản lý Cặp đôi ({couplesList.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSelectedSubTab('comments')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+            selectedSubTab === 'comments'
+              ? 'bg-rose-500 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <MessageCircle className="w-4 h-4" />
+          <span>Quản lý & Xóa Bình luận ({commentsList.length})</span>
         </button>
 
         <button
@@ -876,6 +1203,273 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* SUB-TAB: COMMENTS MANAGEMENT */}
+      {selectedSubTab === 'comments' && (
+        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+            <div>
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <MessageCircle className="w-5 h-5 text-purple-600" />
+                Quản lý & Khôi Phục Bình Luận
+              </h3>
+              <p className="text-xs text-slate-500">
+                Xem toàn bộ bình luận đang hiển thị hoặc khôi phục 1-chạm những bình luận đã từng bị xóa từ Thùng rác.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              {/* Search Comments */}
+              <div className="relative w-full sm:w-64">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Tìm nội dung, tác giả, bài viết..."
+                  value={commentSearchTerm}
+                  onChange={(e) => setCommentSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-purple-500 transition"
+                />
+                {commentSearchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setCommentSearchTerm('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Add Comment Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (adminJournalsList.length > 0) {
+                    setAddCommentJournalId(adminJournalsList[0].id);
+                  }
+                  setIsAddCommentOpen(true);
+                }}
+                className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold border border-purple-200 rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Viết thêm cmt</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Toggle View: Active vs Recycle Bin (Deleted) */}
+          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+            <button
+              type="button"
+              onClick={() => setCommentViewMode('active')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                commentViewMode === 'active'
+                  ? 'bg-purple-600 text-white shadow-xs'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Bình luận đang hiển thị ({filteredComments.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCommentViewMode('deleted')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                commentViewMode === 'deleted'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/60'
+              }`}
+            >
+              <History className="w-4 h-4" />
+              <span>Thùng rác & Đã xóa ({filteredDeletedComments.length})</span>
+              {deletedCommentsList.length > 0 && (
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${commentViewMode === 'deleted' ? 'bg-amber-700 text-white' : 'bg-amber-200 text-amber-900'}`}>
+                  {deletedCommentsList.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* ACTIVE COMMENTS VIEW */}
+          {commentViewMode === 'active' && (
+            <div>
+              {loading ? (
+                <div className="py-12 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+                  <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                  <span>Đang tải danh sách bình luận...</span>
+                </div>
+              ) : filteredComments.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 text-xs space-y-2">
+                  <MessageSquare className="w-8 h-8 mx-auto text-slate-300 stroke-[1.5]" />
+                  <p>{commentSearchTerm ? 'Không tìm thấy bình luận nào khớp với từ khóa tìm kiếm.' : 'Chưa có bình luận nào trên toàn hệ thống.'}</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs text-slate-500 font-medium px-1">
+                    <span>Hiển thị <strong>{filteredComments.length}</strong> bình luận đang hoạt động:</span>
+                    <span className="text-[11px] text-slate-400">Khi xóa, bình luận sẽ được lưu vào Thùng rác để có thể khôi phục lại</span>
+                  </div>
+
+                  <div className="divide-y divide-slate-100 border border-slate-200/80 rounded-2xl overflow-hidden bg-white shadow-2xs">
+                    {filteredComments.map((comment) => (
+                      <div
+                        key={comment.commentId}
+                        className="p-4 hover:bg-slate-50/70 transition flex flex-col md:flex-row md:items-center justify-between gap-3 group"
+                      >
+                        <div className="flex items-start gap-3 min-w-0 flex-1">
+                          {/* Avatar */}
+                          <div className="w-9 h-9 rounded-full bg-purple-100 text-purple-700 font-bold flex items-center justify-center shrink-0 mt-0.5 border border-purple-200 overflow-hidden">
+                            {comment.authorAvatar ? (
+                              <img src={comment.authorAvatar} alt={comment.authorName} className="w-full h-full object-cover" />
+                            ) : (
+                              <span>{comment.authorName.charAt(0).toUpperCase()}</span>
+                            )}
+                          </div>
+
+                          {/* Comment Details */}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-slate-800 text-xs">
+                                {comment.authorName}
+                              </span>
+                              <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 font-medium border border-purple-100">
+                                Bài viết: {comment.journalTitle} ({comment.journalDate})
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {comment.createdAt ? formatDateTimeVN(comment.createdAt) : ''}
+                              </span>
+                            </div>
+
+                            {/* Content text */}
+                            <p className="text-xs text-slate-700 mt-1 leading-relaxed break-words bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                              {comment.content}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Action: Delete Button */}
+                        <div className="flex items-center justify-end gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
+                          <button
+                            type="button"
+                            disabled={deletingCommentId === comment.commentId}
+                            onClick={() => handleAdminDeleteComment(comment)}
+                            className="px-3 py-1.5 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-600 font-bold rounded-xl text-xs border border-rose-200/80 transition flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
+                            title="Xóa bình luận này (lưu vào Thùng rác)"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>{deletingCommentId === comment.commentId ? 'Đang xóa...' : 'Xóa cmt'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* DELETED COMMENTS / RECYCLE BIN VIEW */}
+          {commentViewMode === 'deleted' && (
+            <div className="space-y-4">
+              <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200/80 text-amber-900 text-xs flex items-start gap-2.5">
+                <History className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="font-bold">Thùng rác & Lịch sử bình luận đã xóa</p>
+                  <p className="text-amber-800 text-[11px]">
+                    Toàn bộ bình luận đã từng bị xóa được bảo lưu tại đây. Bạn chỉ cần nhấn nút <strong>"Khôi phục lại bài viết"</strong> để đưa bình luận trở lại đúng bài viết gốc với 1 chạm.
+                  </p>
+                </div>
+              </div>
+
+              {filteredDeletedComments.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 text-xs space-y-2 border border-dashed border-slate-200 rounded-2xl">
+                  <Archive className="w-8 h-8 mx-auto text-slate-300 stroke-[1.5]" />
+                  <p>{commentSearchTerm ? 'Không tìm thấy bình luận đã xóa nào khớp từ khóa.' : 'Thùng rác hiện đang trống. Chưa có bình luận nào bị xóa gần đây.'}</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs text-slate-500 font-medium px-1">
+                    <span>Có <strong>{filteredDeletedComments.length}</strong> bình luận trong Thùng rác:</span>
+                    <span className="text-[11px] text-emerald-600 font-semibold">Bấm nút xanh lá để Khôi phục lập tức</span>
+                  </div>
+
+                  <div className="divide-y divide-slate-100 border border-slate-200/80 rounded-2xl overflow-hidden bg-white shadow-2xs">
+                    {filteredDeletedComments.map((item) => (
+                      <div
+                        key={item.id}
+                        className="p-4 hover:bg-slate-50/70 transition flex flex-col md:flex-row md:items-center justify-between gap-3 group"
+                      >
+                        <div className="flex items-start gap-3 min-w-0 flex-1">
+                          {/* Avatar */}
+                          <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-800 font-bold flex items-center justify-center shrink-0 mt-0.5 border border-amber-200 overflow-hidden">
+                            {item.authorAvatar ? (
+                              <img src={item.authorAvatar} alt={item.authorName} className="w-full h-full object-cover" />
+                            ) : (
+                              <span>{item.authorName.charAt(0).toUpperCase()}</span>
+                            )}
+                          </div>
+
+                          {/* Details */}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-slate-800 text-xs">
+                                {item.authorName}
+                              </span>
+                              <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 font-medium border border-amber-200">
+                                Bài viết: {item.journalTitle || 'Kỷ niệm'} {item.journalDate ? `(${item.journalDate})` : ''}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                Đã xóa lúc: {item.deletedAt ? formatDateTimeVN(item.deletedAt) : 'Gần đây'}
+                              </span>
+                              {item.deletedByName && (
+                                <span className="text-[10px] px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded">
+                                  Bởi: {item.deletedByName}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Content */}
+                            <p className="text-xs text-slate-700 mt-1.5 leading-relaxed break-words bg-amber-50/40 p-2.5 rounded-xl border border-amber-100/70 font-medium">
+                              "{item.content}"
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex items-center justify-end gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
+                          {/* 1-Click Restore */}
+                          <button
+                            type="button"
+                            disabled={restoringCommentId === item.id}
+                            onClick={() => handleAdminRestoreDeletedComment(item)}
+                            className="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 font-bold rounded-xl text-xs border border-emerald-200 transition flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
+                            title="Khôi phục lại vào bài viết này"
+                          >
+                            <RotateCcw className={`w-3.5 h-3.5 ${restoringCommentId === item.id ? 'animate-spin' : ''}`} />
+                            <span>{restoringCommentId === item.id ? 'Đang khôi phục...' : 'Khôi phục lại bài viết ✨'}</span>
+                          </button>
+
+                          {/* Permanent Delete */}
+                          <button
+                            type="button"
+                            disabled={permanentDeletingId === item.id}
+                            onClick={() => handleAdminPermanentDeleteComment(item)}
+                            className="p-1.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-500 rounded-xl transition cursor-pointer"
+                            title="Xóa vĩnh viễn khỏi thùng rác"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -1384,6 +1978,174 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
                 {deleting ? 'Đang xóa...' : 'Xóa vĩnh viễn'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRM DELETE COMMENT */}
+      {commentToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-slate-200 shadow-xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center shrink-0">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="text-base font-bold text-slate-800">Xác nhận Xóa Bình Luận</h4>
+                <p className="text-xs text-slate-500">Quyền Admin Master hệ thống</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-xs">
+              <div className="flex items-center justify-between text-slate-500 font-medium">
+                <span>Người viết: <strong className="text-slate-800">{commentToDelete.authorName}</strong></span>
+                <span className="text-[10px] bg-white px-2 py-0.5 rounded-md border border-slate-200">{commentToDelete.journalDate}</span>
+              </div>
+              <div className="text-slate-500">
+                Bài viết: <strong className="text-slate-800">{commentToDelete.journalTitle}</strong>
+              </div>
+              <div className="p-2.5 bg-white rounded-xl border border-slate-200 text-slate-800 italic leading-relaxed break-words">
+                "{commentToDelete.content}"
+              </div>
+            </div>
+
+            <p className="text-xs text-rose-600 font-medium bg-rose-50/70 p-2.5 rounded-xl border border-rose-100">
+              ⚠️ Bình luận này sẽ bị gỡ bỏ vĩnh viễn khỏi bài viết kỷ niệm. Bạn có chắc chắn muốn xóa không?
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setCommentToDelete(null)}
+                disabled={!!deletingCommentId}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteComment}
+                disabled={!!deletingCommentId}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {deletingCommentId ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Đang xóa...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Xác nhận xóa</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ADD / RESTORE COMMENT */}
+      {isAddCommentOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-slate-200 shadow-xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-purple-50 text-purple-600">
+                  <MessageCircle className="w-5 h-5" />
+                </div>
+                <h4 className="text-base font-bold text-slate-800">Thêm / Khôi phục Bình luận</h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddCommentOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAdminAddComment} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Chọn bài viết kỷ niệm:
+                </label>
+                <select
+                  value={addCommentJournalId}
+                  onChange={(e) => setAddCommentJournalId(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-purple-500"
+                  required
+                >
+                  {adminJournalsList.map((j) => (
+                    <option key={j.id} value={j.id}>
+                      {j.title} ({j.date || 'Không có ngày'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Người đăng bình luận:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAddCommentAuthor('duong')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition text-center cursor-pointer ${
+                      addCommentAuthor === 'duong'
+                        ? 'bg-blue-500 text-white border-blue-500'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Dương
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAddCommentAuthor('chuc')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition text-center cursor-pointer ${
+                      addCommentAuthor === 'chuc'
+                        ? 'bg-rose-500 text-white border-rose-500'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Chúc Gà
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Nội dung bình luận:
+                </label>
+                <textarea
+                  rows={3}
+                  value={addCommentContent}
+                  onChange={(e) => setAddCommentContent(e.target.value)}
+                  placeholder="Nhập nội dung bình luận muốn thêm hoặc khôi phục..."
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-purple-500 resize-none"
+                  required
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAddCommentOpen(false)}
+                  disabled={addingCommentLoading}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={addingCommentLoading}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {addingCommentLoading ? 'Đang lưu...' : 'Lưu bình luận'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
