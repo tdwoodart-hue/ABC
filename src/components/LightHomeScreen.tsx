@@ -24,6 +24,7 @@ import {
 } from '../utils/deviceHelper';
 import { formatDateVN, formatDateShortVN, formatDateTimeVN } from '../utils/formatDate';
 import { getDeviceHighAccuracyGPS, reverseGeocodeGPS, formatCoordinates } from '../utils/geolocation';
+import { compressImageToDataUrl, isVideoUrl } from '../utils/imageCompression';
 import { 
   db, 
   doc, 
@@ -100,7 +101,9 @@ import {
   Archive,
   ArrowDownUp,
   Music,
-  Crosshair
+  Crosshair,
+  Play,
+  Film
 } from 'lucide-react';
 
 interface LightHomeScreenProps {
@@ -132,45 +135,6 @@ const MOOD_OPTIONS = [
   'Mệt mỏi',
   'Kỷ niệm'
 ];
-
-const compressAndConvertToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 800;
-        const MAX_HEIGHT = 800;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-        resolve(dataUrl);
-      };
-      img.onerror = (err) => reject(err);
-    };
-    reader.onerror = (err) => reject(err);
-  });
-};
 
 export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, onRefreshProfile }) => {
   const isAdminUser = checkIsAdmin(userProfile);
@@ -562,12 +526,12 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     try {
       const newImages: string[] = [];
       for (let i = 0; i < files.length; i++) {
-        const base64 = await compressAndConvertToBase64(files[i]);
+        const base64 = await compressImageToDataUrl(files[i]);
         newImages.push(base64);
       }
       setJournalImages(prev => [...prev, ...newImages]);
     } catch (err) {
-      console.error('Lỗi đọc file ảnh nhật ký:', err);
+      console.error('Lỗi đọc file ảnh/video nhật ký:', err);
     } finally {
       setJournalImageLoading(false);
       e.target.value = '';
@@ -676,10 +640,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     if (!file) return;
     setMemoryImageLoading(true);
     try {
-      const base64 = await compressAndConvertToBase64(file);
+      const base64 = await compressImageToDataUrl(file);
       setMemoryImageUrl(base64);
     } catch (err) {
-      console.error('Lỗi đọc file ảnh kỷ niệm:', err);
+      console.error('Lỗi đọc file ảnh/video kỷ niệm:', err);
     } finally {
       setMemoryImageLoading(false);
     }
@@ -1233,12 +1197,12 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     try {
       const newImages: string[] = [];
       for (let i = 0; i < files.length; i++) {
-        const base64 = await compressAndConvertToBase64(files[i]);
+        const base64 = await compressImageToDataUrl(files[i]);
         newImages.push(base64);
       }
       setEditImages(prev => [...prev, ...newImages]);
     } catch (err) {
-      console.error('Lỗi đọc file ảnh khi sửa:', err);
+      console.error('Lỗi đọc file ảnh/video khi sửa:', err);
     } finally {
       setEditImageLoading(false);
       e.target.value = '';
@@ -2013,7 +1977,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1">
-                      Thêm ảnh kỷ niệm (Chụp trực tiếp hoặc Tải lên)
+                      Thêm ảnh & video kỷ niệm (Chụp hoặc Tải lên)
                     </label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
@@ -2030,10 +1994,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
 
                       <label className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-dashed border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-700 font-semibold cursor-pointer transition">
                         <Upload className="w-4 h-4 text-slate-500" />
-                        <span>{journalImageLoading ? 'Đang đọc...' : 'Tải từ máy'}</span>
+                        <span>{journalImageLoading ? 'Đang đọc...' : 'Tải ảnh/video'}</span>
                         <input
                           type="file"
-                          accept="image/*"
+                          accept="image/*,video/*"
                           multiple
                           onChange={handleJournalFileChange}
                           className="hidden"
@@ -2044,58 +2008,71 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                   </div>
                 </div>
 
-                {/* Attached images preview list */}
+                {/* Attached media preview list */}
                 {journalImages.length > 0 && (
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-semibold text-slate-500">Đã chọn {journalImages.length} ảnh:</span>
+                      <span className="text-[11px] font-semibold text-slate-500">Đã chọn {journalImages.length} tệp:</span>
                       <span className="text-[10px] text-amber-800 font-semibold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                        Ảnh chính: #{journalMainImageIndex + 1}
+                        Ảnh/video chính: #{journalMainImageIndex + 1}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {journalImages.map((img, idx) => (
-                        <div 
-                          key={idx} 
-                          className={`relative h-24 rounded-xl overflow-hidden bg-slate-100 border-2 transition ${
-                            journalMainImageIndex === idx ? 'border-amber-400 shadow-sm ring-2 ring-amber-200' : 'border-slate-200'
-                          }`}
-                        >
-                          <img src={img} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
-                          
-                          {/* Set main image button */}
-                          <button
-                            type="button"
-                            onClick={() => setJournalMainImageIndex(idx)}
-                            className={`absolute top-1 left-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shadow-xs ${
-                              journalMainImageIndex === idx
-                                ? 'bg-amber-400 text-slate-950'
-                                : 'bg-black/60 hover:bg-amber-400 hover:text-slate-950 text-white'
+                      {journalImages.map((img, idx) => {
+                        const isVid = isVideoUrl(img);
+                        return (
+                          <div 
+                            key={idx} 
+                            className={`relative h-24 rounded-xl overflow-hidden bg-slate-900 border-2 transition ${
+                              journalMainImageIndex === idx ? 'border-amber-400 shadow-sm ring-2 ring-amber-200' : 'border-slate-200'
                             }`}
-                            title="Chọn làm ảnh chính cho kỷ niệm"
                           >
-                            <Star className={`w-3 h-3 ${journalMainImageIndex === idx ? 'fill-slate-950 text-slate-950' : 'text-amber-300'}`} />
-                            <span>{journalMainImageIndex === idx ? 'Chính' : 'Đặt'}</span>
-                          </button>
+                            {isVid ? (
+                              <video src={img} className="w-full h-full object-cover" />
+                            ) : (
+                              <img src={img} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
+                            )}
+                            
+                            {isVid && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/25 pointer-events-none">
+                                <Play className="w-6 h-6 text-white fill-white/80" />
+                              </div>
+                            )}
 
-                          {/* Delete image button */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              handleRemoveJournalImage(idx);
-                              if (journalMainImageIndex === idx) {
-                                setJournalMainImageIndex(0);
-                              } else if (journalMainImageIndex > idx) {
-                                setJournalMainImageIndex(prev => prev - 1);
-                              }
-                            }}
-                            className="absolute top-1 right-1 p-1 bg-black/60 hover:bg-rose-600 text-white rounded-full transition cursor-pointer"
-                            title="Xóa ảnh này"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
+                            {/* Set main image button */}
+                            <button
+                              type="button"
+                              onClick={() => setJournalMainImageIndex(idx)}
+                              className={`absolute top-1 left-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shadow-xs ${
+                                journalMainImageIndex === idx
+                                  ? 'bg-amber-400 text-slate-950'
+                                  : 'bg-black/60 hover:bg-amber-400 hover:text-slate-950 text-white'
+                              }`}
+                              title="Chọn làm tệp chính cho kỷ niệm"
+                            >
+                              <Star className={`w-3 h-3 ${journalMainImageIndex === idx ? 'fill-slate-950 text-slate-950' : 'text-amber-300'}`} />
+                              <span>{journalMainImageIndex === idx ? 'Chính' : 'Đặt'}</span>
+                            </button>
+
+                            {/* Delete image button */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleRemoveJournalImage(idx);
+                                if (journalMainImageIndex === idx) {
+                                  setJournalMainImageIndex(0);
+                                } else if (journalMainImageIndex > idx) {
+                                  setJournalMainImageIndex(prev => prev - 1);
+                                }
+                              }}
+                              className="absolute top-1 right-1 p-1 bg-black/60 hover:bg-rose-600 text-white rounded-full transition cursor-pointer"
+                              title="Xóa tệp này"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -2415,7 +2392,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                         {item.authorUid === userProfile.uid && (
                           <div>
                             <label className="block text-xs font-semibold text-slate-600 mb-1">
-                              Thêm ảnh kỷ niệm
+                              Thêm ảnh & video kỷ niệm
                             </label>
                             <div className="grid grid-cols-2 gap-2">
                               <button
@@ -2432,10 +2409,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
 
                               <label className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-dashed border-slate-300 hover:border-slate-400 rounded-xl text-xs text-slate-700 font-semibold cursor-pointer transition">
                                 <Upload className="w-4 h-4 text-slate-500" />
-                                <span>{editImageLoading ? 'Đang đọc...' : 'Tải từ máy'}</span>
+                                <span>{editImageLoading ? 'Đang đọc...' : 'Tải ảnh/video'}</span>
                                 <input
                                   type="file"
-                                  accept="image/*"
+                                  accept="image/*,video/*"
                                   multiple
                                   onChange={handleEditJournalFileChange}
                                   className="hidden"
@@ -2451,55 +2428,69 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                       {editImages.length > 0 && (
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
-                            <span className="text-[11px] font-semibold text-slate-500">Danh sách ảnh ({editImages.length}):</span>
+                            <span className="text-[11px] font-semibold text-slate-500">Danh sách tệp ({editImages.length}):</span>
                             <span className="text-[10px] text-amber-800 font-semibold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                              Ảnh chính: #{editMainImageIndex + 1}
+                              Ảnh/video chính: #{editMainImageIndex + 1}
                             </span>
                           </div>
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            {editImages.map((img, idx) => (
-                              <div 
-                                key={idx} 
-                                className={`relative h-24 rounded-xl overflow-hidden bg-slate-100 border-2 transition ${
-                                  editMainImageIndex === idx ? 'border-amber-400 shadow-sm ring-2 ring-amber-200' : 'border-slate-200'
-                                }`}
-                              >
-                                <img src={img} alt={`Edit preview ${idx}`} className="w-full h-full object-cover" />
-                                {item.authorUid === userProfile.uid && (
-                                  <>
-                                    <button
-                                      type="button"
-                                      onClick={() => setEditMainImageIndex(idx)}
-                                      className={`absolute top-1 left-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shadow-xs ${
-                                        editMainImageIndex === idx
-                                          ? 'bg-amber-400 text-slate-950'
-                                          : 'bg-black/60 hover:bg-amber-400 hover:text-slate-950 text-white'
-                                      }`}
-                                      title="Chọn làm ảnh chính cho kỷ niệm"
-                                    >
-                                      <Star className={`w-3 h-3 ${editMainImageIndex === idx ? 'fill-slate-950 text-slate-950' : 'text-amber-300'}`} />
-                                      <span>{editMainImageIndex === idx ? 'Chính' : 'Đặt'}</span>
-                                    </button>
+                            {editImages.map((img, idx) => {
+                              const isVid = isVideoUrl(img);
+                              return (
+                                <div 
+                                  key={idx} 
+                                  className={`relative h-24 rounded-xl overflow-hidden bg-slate-900 border-2 transition ${
+                                    editMainImageIndex === idx ? 'border-amber-400 shadow-sm ring-2 ring-amber-200' : 'border-slate-200'
+                                  }`}
+                                >
+                                  {isVid ? (
+                                    <video src={img} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <img src={img} alt={`Edit preview ${idx}`} className="w-full h-full object-cover" />
+                                  )}
 
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        handleRemoveEditImage(idx);
-                                        if (editMainImageIndex === idx) {
-                                          setEditMainImageIndex(0);
-                                        } else if (editMainImageIndex > idx) {
-                                          setEditMainImageIndex(prev => prev - 1);
-                                        }
-                                      }}
-                                      className="absolute top-1 right-1 p-1 bg-black/60 hover:bg-rose-600 text-white rounded-full transition cursor-pointer"
-                                      title="Xóa ảnh này"
-                                    >
-                                      <X className="w-3 h-3" />
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            ))}
+                                  {isVid && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/25 pointer-events-none">
+                                      <Play className="w-6 h-6 text-white fill-white/80" />
+                                    </div>
+                                  )}
+
+                                  {item.authorUid === userProfile.uid && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => setEditMainImageIndex(idx)}
+                                        className={`absolute top-1 left-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shadow-xs ${
+                                          editMainImageIndex === idx
+                                            ? 'bg-amber-400 text-slate-950'
+                                            : 'bg-black/60 hover:bg-amber-400 hover:text-slate-950 text-white'
+                                        }`}
+                                        title="Chọn làm tệp chính cho kỷ niệm"
+                                      >
+                                        <Star className={`w-3 h-3 ${editMainImageIndex === idx ? 'fill-slate-950 text-slate-950' : 'text-amber-300'}`} />
+                                        <span>{editMainImageIndex === idx ? 'Chính' : 'Đặt'}</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          handleRemoveEditImage(idx);
+                                          if (editMainImageIndex === idx) {
+                                            setEditMainImageIndex(0);
+                                          } else if (editMainImageIndex > idx) {
+                                            setEditMainImageIndex(prev => prev - 1);
+                                          }
+                                        }}
+                                        className="absolute top-1 right-1 p-1 bg-black/60 hover:bg-rose-600 text-white rounded-full transition cursor-pointer"
+                                        title="Xóa tệp này"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -2797,7 +2788,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                         />
                       )}
 
-                      {/* Photos grid display on feed (Multi-image or single image) */}
+                      {/* Media grid display on feed (Multi-image/video or single) */}
                       {item.images && item.images.length > 0 ? (
                         <div className={`mt-2 ${
                           item.images.length === 1 ? 'w-full' :
@@ -2805,8 +2796,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                           'grid grid-cols-2 sm:grid-cols-3 gap-2'
                         }`}>
                           {item.images.map((img, idx) => {
-                            const isMain = idx === (item.mainImageIndex ?? 0);
                             const isSingle = item.images && item.images.length === 1;
+                            const isVid = isVideoUrl(img);
                             const imgCommentsCount = (item.imageComments || []).filter(
                               c => c.imageIndex === idx || (c.imageUrl && c.imageUrl === img)
                             ).length;
@@ -2815,24 +2806,44 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                               <div 
                                 key={idx} 
                                 onClick={() => handleOpenLightbox(item, idx)}
-                                className={`relative rounded-2xl overflow-hidden bg-slate-50 border border-slate-200/80 cursor-pointer group shadow-2xs hover:shadow-md transition ${
+                                className={`relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-200/80 cursor-pointer group shadow-2xs hover:shadow-md transition ${
                                   isSingle ? 'w-full flex items-center justify-center' : 'h-48'
                                 }`}
                               >
-                                <img
-                                  src={img}
-                                  alt={`${item.title} ${idx + 1}`}
-                                  className={`${
-                                    isSingle 
-                                      ? 'w-full h-auto max-h-[600px] object-contain rounded-2xl' 
-                                      : 'w-full h-full object-cover group-hover:scale-105'
-                                  } transition-transform duration-300`}
-                                  onError={(e) => {
-                                    (e.target as HTMLElement).style.display = 'none';
-                                  }}
-                                />
-
-
+                                {isVid ? (
+                                  <div className="w-full h-full relative flex items-center justify-center bg-slate-950">
+                                    <video
+                                      src={img}
+                                      className={`${
+                                        isSingle 
+                                          ? 'w-full h-auto max-h-[600px] object-contain rounded-2xl' 
+                                          : 'w-full h-full object-cover group-hover:scale-105'
+                                      } transition-transform duration-300`}
+                                    />
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition">
+                                      <div className="p-3 rounded-full bg-rose-500/90 text-white shadow-md">
+                                        <Play className="w-6 h-6 fill-white" />
+                                      </div>
+                                    </div>
+                                    <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-white text-[10px] font-bold flex items-center gap-1 backdrop-blur-xs">
+                                      <Film className="w-3 h-3 text-rose-400" />
+                                      <span>Video</span>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <img
+                                    src={img}
+                                    alt={`${item.title} ${idx + 1}`}
+                                    className={`${
+                                      isSingle 
+                                        ? 'w-full h-auto max-h-[600px] object-contain rounded-2xl' 
+                                        : 'w-full h-full object-cover group-hover:scale-105'
+                                    } transition-transform duration-300`}
+                                    onError={(e) => {
+                                      (e.target as HTMLElement).style.display = 'none';
+                                    }}
+                                  />
+                                )}
 
                                 {/* Comment Count on Photo */}
                                 {imgCommentsCount > 0 && (
@@ -2843,11 +2854,13 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                                 )}
 
                                 {/* Hover Zoom Overlay */}
-                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                                  <div className="p-2 rounded-full bg-white/30 backdrop-blur-md text-white shadow-sm">
-                                    <ZoomIn className="w-5 h-5 drop-shadow" />
+                                {!isVid && (
+                                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                                    <div className="p-2 rounded-full bg-white/30 backdrop-blur-md text-white shadow-sm">
+                                      <ZoomIn className="w-5 h-5 drop-shadow" />
+                                    </div>
                                   </div>
-                                </div>
+                                )}
                               </div>
                             );
                           })}
@@ -2855,16 +2868,34 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                       ) : item.imageUrl ? (
                         <div 
                           onClick={() => handleOpenLightbox(item, 0)}
-                          className="w-full rounded-2xl overflow-hidden bg-slate-50 border border-slate-200/80 mt-2 cursor-pointer group relative shadow-2xs hover:shadow-md transition flex items-center justify-center"
+                          className="w-full rounded-2xl overflow-hidden bg-slate-900 border border-slate-200/80 mt-2 cursor-pointer group relative shadow-2xs hover:shadow-md transition flex items-center justify-center"
                         >
-                          <img
-                            src={item.imageUrl}
-                            alt={item.title}
-                            className="w-full h-auto max-h-[600px] object-contain rounded-2xl transition-transform duration-300"
-                            onError={(e) => {
-                              (e.target as HTMLElement).style.display = 'none';
-                            }}
-                          />
+                          {isVideoUrl(item.imageUrl) ? (
+                            <div className="w-full h-full relative flex items-center justify-center bg-slate-950">
+                              <video
+                                src={item.imageUrl}
+                                className="w-full h-auto max-h-[600px] object-contain rounded-2xl"
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition">
+                                <div className="p-3 rounded-full bg-rose-500/90 text-white shadow-md">
+                                  <Play className="w-6 h-6 fill-white" />
+                                </div>
+                              </div>
+                              <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-white text-[10px] font-bold flex items-center gap-1 backdrop-blur-xs">
+                                <Film className="w-3 h-3 text-rose-400" />
+                                <span>Video</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <img
+                              src={item.imageUrl}
+                              alt={item.title}
+                              className="w-full h-auto max-h-[600px] object-contain rounded-2xl transition-transform duration-300"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = 'none';
+                              }}
+                            />
+                          )}
 
                           {/* Comment Count on Photo */}
                           {(item.imageComments && item.imageComments.length > 0) && (
@@ -2875,11 +2906,13 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                           )}
 
                           {/* Hover Zoom Overlay */}
-                          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                            <div className="p-2 rounded-full bg-white/30 backdrop-blur-md text-white shadow-sm">
-                              <ZoomIn className="w-5 h-5 drop-shadow" />
+                          {!isVideoUrl(item.imageUrl) && (
+                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                              <div className="p-2 rounded-full bg-white/30 backdrop-blur-md text-white shadow-sm">
+                                <ZoomIn className="w-5 h-5 drop-shadow" />
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       ) : null}
 

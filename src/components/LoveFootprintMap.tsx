@@ -14,9 +14,7 @@ import {
   ExternalLink, 
   Layers, 
   Compass, 
-  Route, 
   Star, 
-  Clock, 
   Coffee, 
   Plane, 
   Music, 
@@ -25,7 +23,6 @@ import {
   Check, 
   Trash2, 
   Edit3,
-  Flame,
   ZoomIn,
   RefreshCw,
   LocateFixed,
@@ -33,7 +30,9 @@ import {
   Crosshair,
   Info,
   CheckCircle2,
-  ListFilter
+  Video,
+  Play,
+  Film
 } from 'lucide-react';
 import L from 'leaflet';
 import { db, collection, addDoc, doc, deleteDoc, updateDoc, onSnapshot, query, orderBy } from '../lib/firebase';
@@ -41,7 +40,7 @@ import { UserProfile, CoupleData, JournalEntry, VisitedPlace, TaggedPerson } fro
 import { JournalMusicPlayer } from './JournalMusicPlayer';
 import { MapLocationPickerModal, SelectedLocationResult } from './MapLocationPickerModal';
 import { formatCoordinates, getDeviceHighAccuracyGPS, reverseGeocodeGPS } from '../utils/geolocation';
-import { compressAndConvertToBase64 } from '../utils/imageCompression';
+import { compressImageToDataUrl, isVideoUrl } from '../utils/imageCompression';
 
 export interface MapFootprintItem {
   id: string;
@@ -89,18 +88,18 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersGroupRef = useRef<L.LayerGroup | null>(null);
-  const polylineRef = useRef<L.Polyline | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
 
   const [customPlaces, setCustomPlaces] = useState<VisitedPlace[]>([]);
   const [selectedFootprint, setSelectedFootprint] = useState<MapFootprintItem | null>(null);
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<'all' | 'date' | 'travel' | 'cafe' | 'special'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showLoveTrail, setShowLoveTrail] = useState(true);
-  const [mapTheme, setMapTheme] = useState<'pastel' | 'satellite' | 'streets'>('pastel');
-  const [currentActivePhotoIndex, setCurrentActivePhotoIndex] = useState(0);
+  
+  // Default to Satellite Map as requested by user
+  const [mapTheme, setMapTheme] = useState<'satellite' | 'streets' | 'pastel'>('satellite');
+  const [currentActiveMediaIndex, setCurrentActiveMediaIndex] = useState(0);
 
-  // Unlocated Memories banner toggle
+  // Unlocated Memories modal/banner toggle
   const [showUnlocatedList, setShowUnlocatedList] = useState(false);
   const [fixingJournal, setFixingJournal] = useState<JournalEntry | null>(null);
 
@@ -121,6 +120,7 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
   const [newSpotPlaceId, setNewSpotPlaceId] = useState<string | null>(null);
   const [submittingSpot, setSubmittingSpot] = useState(false);
   const [isSpotMapPickerOpen, setIsSpotMapPickerOpen] = useState(false);
+  const [isMediaLoading, setIsMediaLoading] = useState(false);
 
   // 1. Subscribe to custom visited_places collection in Firestore
   useEffect(() => {
@@ -177,11 +177,11 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
         cat = 'special';
       }
 
-      // Slight optical offset only if multiple pins land on the exact identical millimeter
+      // Slight optical offset only if multiple pins land on the exact identical coordinate
       const coordKey = `${lat.toFixed(6)},${lng.toFixed(6)}`;
       if (usedLocations.has(coordKey)) {
-        lat += (Math.random() - 0.5) * 0.0003;
-        lng += (Math.random() - 0.5) * 0.0003;
+        lat += (Math.random() - 0.5) * 0.0002;
+        lng += (Math.random() - 0.5) * 0.0002;
       }
       usedLocations.add(coordKey);
 
@@ -220,8 +220,8 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
       let lng = p.lng;
       const coordKey = `${lat.toFixed(6)},${lng.toFixed(6)}`;
       if (usedLocations.has(coordKey)) {
-        lat += (Math.random() - 0.5) * 0.0003;
-        lng += (Math.random() - 0.5) * 0.0003;
+        lat += (Math.random() - 0.5) * 0.0002;
+        lng += (Math.random() - 0.5) * 0.0002;
       }
       usedLocations.add(coordKey);
 
@@ -248,8 +248,8 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
       });
     });
 
-    // Sort chronologically (oldest to newest for trail connection)
-    return items.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    // Sort newest to oldest
+    return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [journals, customPlaces]);
 
   // Filtered Footprints
@@ -272,7 +272,7 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
     });
   }, [unifiedFootprints, activeCategoryFilter, searchQuery]);
 
-  // Helper to create custom heart / photo pin icon
+  // Custom heart pin marker designed for satellite & street map
   const createMapPinIcon = (item: MapFootprintItem, isSelected: boolean) => {
     const isSpecial = item.category === 'special';
     const isCafe = item.category === 'cafe';
@@ -288,25 +288,26 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
       ? 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)'
       : 'linear-gradient(135deg, #f43f5e 0%, #fb7185 100%)';
 
-    const size = isSelected ? 44 : 36;
-    const pinHeight = isSelected ? 54 : 44;
+    const size = isSelected ? 42 : 34;
+    const pinHeight = isSelected ? 50 : 42;
 
     const thumbnail = item.imageUrl || (item.images && item.images[0]);
+    const isVideoThumb = isVideoUrl(thumbnail);
 
     return L.divIcon({
       className: 'love-map-pin',
       html: `
-        <div style="position: relative; width: ${size}px; height: ${pinHeight}px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);">
+        <div style="position: relative; width: ${size}px; height: ${pinHeight}px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));">
           ${isSelected ? `
             <div style="
               position: absolute;
               top: 0;
               left: 50%;
               transform: translateX(-50%);
-              width: ${size + 14}px;
-              height: ${size + 14}px;
+              width: ${size + 16}px;
+              height: ${size + 16}px;
               border-radius: 50%;
-              background: rgba(244, 63, 94, 0.25);
+              background: rgba(244, 63, 94, 0.35);
               animation: pulse-ring 1.8s infinite;
             "></div>
           ` : ''}
@@ -316,28 +317,35 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
             background: ${bgGradient};
             border-radius: 50% 50% 50% 0;
             transform: rotate(-45deg);
-            box-shadow: 0 6px 18px rgba(225, 29, 72, ${isSelected ? '0.55' : '0.35'}), 0 2px 5px rgba(0,0,0,0.12);
             display: flex;
             align-items: center;
             justify-content: center;
-            border: ${isSelected ? '3px solid white' : '2px solid white'};
+            border: ${isSelected ? '2.5px solid #ffffff' : '2px solid #ffffff'};
             overflow: hidden;
           ">
-            ${thumbnail ? `
-              <div style="
-                transform: rotate(45deg);
-                width: 100%;
-                height: 100%;
-                overflow: hidden;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-              ">
-                <img src="${thumbnail}" style="width: 100%; height: 100%; object-fit: cover;" />
-              </div>
-            ` : `
-              <svg style="transform: rotate(45deg); width: ${isSelected ? '20px' : '16px'}; height: ${isSelected ? '20px' : '16px'}; fill: white; color: white;" viewBox="0 0 24 24">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+            ${thumbnail ? (
+              isVideoThumb ? `
+                <div style="transform: rotate(45deg); display: flex; align-items: center; justify-content: center;">
+                  <svg style="width: 16px; height: 16px; fill: white; color: white;" viewBox="0 0 24 24">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                  </svg>
+                </div>
+              ` : `
+                <div style="
+                  transform: rotate(45deg);
+                  width: 100%;
+                  height: 100%;
+                  overflow: hidden;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                ">
+                  <img src="${thumbnail}" style="width: 100%; height: 100%; object-fit: cover;" />
+                </div>
+              `
+            ) : `
+              <svg style="transform: rotate(45deg); width: ${isSelected ? '18px' : '15px'}; height: ${isSelected ? '18px' : '15px'}; fill: white; color: white;" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
               </svg>
             `}
           </div>
@@ -348,7 +356,7 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
             transform: translateX(-50%);
             width: ${size * 0.3}px;
             height: 3px;
-            background: rgba(0,0,0,0.3);
+            background: rgba(0,0,0,0.4);
             border-radius: 50%;
             filter: blur(1px);
           "></div>
@@ -360,41 +368,41 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
     });
   };
 
-  // 4. Initialize Leaflet Map
+  // Helper to remove all tile layers safely
+  const clearMapTileLayers = (map: L.Map) => {
+    map.eachLayer((layer) => {
+      if (layer instanceof L.TileLayer) {
+        map.removeLayer(layer);
+      }
+    });
+  };
+
+  // 4. Initialize Leaflet Map (Default Satellite View)
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    // Create Map
+    // Create Map centered at newest footprint or default Vietnam view
     const initialCenter = unifiedFootprints.length > 0 
-      ? [unifiedFootprints[unifiedFootprints.length - 1].lat, unifiedFootprints[unifiedFootprints.length - 1].lng] as [number, number]
+      ? [unifiedFootprints[0].lat, unifiedFootprints[0].lng] as [number, number]
       : [16.0544, 107.5] as [number, number];
 
     const map = L.map(mapContainerRef.current, {
       center: initialCenter,
-      zoom: unifiedFootprints.length > 0 ? 11 : 6,
+      zoom: unifiedFootprints.length > 0 ? 12 : 6,
       zoomControl: false,
       attributionControl: false
     });
 
     mapInstanceRef.current = map;
 
-    // Add Tile Layer (CartoDB Positron for light romantic pastel aesthetic)
-    const getTileUrl = (theme: 'pastel' | 'satellite' | 'streets') => {
-      if (theme === 'pastel') {
-        return 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-      } else if (theme === 'satellite') {
-        return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-      } else {
-        return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-      }
-    };
-
-    const tileLayer = L.tileLayer(getTileUrl(mapTheme), {
-      maxZoom: 19,
-      subdomains: 'abcd'
-    }).addTo(map);
-
-    tileLayerRef.current = tileLayer;
+    // Default to Satellite Tile Layer
+    clearMapTileLayers(map);
+    const satLayer = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { maxZoom: 19 }
+    );
+    satLayer.addTo(map);
+    tileLayerRef.current = satLayer;
 
     // Markers layer group
     const markersGroup = L.layerGroup().addTo(map);
@@ -417,36 +425,34 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
 
   // Update Tile Layer when mapTheme changes
   useEffect(() => {
-    if (!mapInstanceRef.current || !tileLayerRef.current) return;
-    tileLayerRef.current.remove();
+    if (!mapInstanceRef.current) return;
+    clearMapTileLayers(mapInstanceRef.current);
 
-    let url = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-    if (mapTheme === 'satellite') {
-      url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-    } else if (mapTheme === 'streets') {
+    let url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+    let subdomains: string | undefined = undefined;
+
+    if (mapTheme === 'streets') {
       url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    } else if (mapTheme === 'pastel') {
+      url = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+      subdomains = 'abcd';
     }
 
-    tileLayerRef.current = L.tileLayer(url, {
+    const tile = L.tileLayer(url, {
       maxZoom: 19,
-      subdomains: 'abcd'
-    }).addTo(mapInstanceRef.current);
+      subdomains
+    });
+    tile.addTo(mapInstanceRef.current);
+    tileLayerRef.current = tile;
   }, [mapTheme]);
 
-  // Render Markers and Love Trail Polyline
+  // Render Markers (NO connecting lines / NO polyline trail as requested)
   useEffect(() => {
     if (!mapInstanceRef.current || !markersGroupRef.current) return;
 
     markersGroupRef.current.clearLayers();
 
-    if (polylineRef.current) {
-      polylineRef.current.remove();
-      polylineRef.current = null;
-    }
-
-    const latLngs: L.LatLngExpression[] = [];
-
-    // Add markers for filtered items
+    // Add markers for filtered items (strictly points without connecting lines)
     filteredFootprints.forEach((item) => {
       const isSelected = selectedFootprint?.id === item.id;
       const marker = L.marker([item.lat, item.lng], {
@@ -456,33 +462,33 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
 
       marker.on('click', () => {
         setSelectedFootprint(item);
-        setCurrentActivePhotoIndex(0);
+        setCurrentActiveMediaIndex(0);
         if (mapInstanceRef.current) {
-          mapInstanceRef.current.flyTo([item.lat, item.lng], Math.max(mapInstanceRef.current.getZoom(), 12), {
-            duration: 0.8
-          });
+          mapInstanceRef.current.flyTo([item.lat, item.lng], 15, { duration: 0.6 });
         }
       });
 
-      marker.addTo(markersGroupRef.current!);
-      latLngs.push([item.lat, item.lng]);
+      markersGroupRef.current?.addLayer(marker);
     });
+  }, [filteredFootprints, selectedFootprint]);
 
-    // Draw Love Trail line between points
-    if (showLoveTrail && latLngs.length > 1) {
-      const polyline = L.polyline(latLngs, {
-        color: '#f43f5e',
-        weight: 3.5,
-        opacity: 0.85,
-        dashArray: '8, 8',
-        lineCap: 'round',
-        lineJoin: 'round'
-      }).addTo(mapInstanceRef.current);
-      polylineRef.current = polyline;
+  // Center map on user's current GPS location
+  const handleLocateMe = async () => {
+    try {
+      const gps = await getDeviceHighAccuracyGPS();
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.flyTo([gps.latitude, gps.longitude], 16, { duration: 1 });
+      }
+    } catch (err: any) {
+      alert('Không thể định vị vị trí hiện tại của thiết bị.');
     }
-  }, [filteredFootprints, selectedFootprint, showLoveTrail]);
+  };
 
-  // Quick pinpoint / correct location for an unlocated memory
+  // Zoom controls
+  const handleZoomIn = () => mapInstanceRef.current?.zoomIn();
+  const handleZoomOut = () => mapInstanceRef.current?.zoomOut();
+
+  // Save manual GPS fix for an old unlocated memory
   const handleSaveFixingLocation = async (data: SelectedLocationResult) => {
     if (!fixingJournal || !coupleId) return;
 
@@ -500,60 +506,37 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
       });
 
       setFixingJournal(null);
-
-      // Focus map to newly saved point
       if (mapInstanceRef.current) {
-        mapInstanceRef.current.flyTo([data.lat, data.lng], 14, { duration: 1 });
+        mapInstanceRef.current.flyTo([data.lat, data.lng], 16, { duration: 1 });
       }
     } catch (err) {
-      console.error('Lỗi cập nhật tọa độ nhật ký:', err);
-      alert('Không thể lưu tọa độ: ' + String(err));
+      console.error('Lỗi cập nhật tọa độ nhật ký cũ:', err);
+      alert('Không thể cập nhật tọa độ GPS.');
     }
   };
 
-  // Quick Locate user with high accuracy GPS
-  const handleLocateMe = async () => {
-    if (!mapInstanceRef.current) return;
-    try {
-      const gps = await getDeviceHighAccuracyGPS();
-      mapInstanceRef.current.flyTo([gps.latitude, gps.longitude], 15, { duration: 1.2 });
-      L.circle([gps.latitude, gps.longitude], {
-        radius: gps.accuracy || 20,
-        color: '#f43f5e',
-        fillColor: '#f43f5e',
-        fillOpacity: 0.2
-      }).addTo(mapInstanceRef.current);
-    } catch (err: any) {
-      alert(err?.message || 'Không thể lấy GPS thiết bị.');
-    }
-  };
-
-  // Zoom to fit all pins
-  const handleFitBounds = () => {
-    if (!mapInstanceRef.current || filteredFootprints.length === 0) return;
-    const bounds = L.latLngBounds(filteredFootprints.map(f => [f.lat, f.lng]));
-    mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
-  };
-
-  // Image Upload handler for Add Spot
-  const handleSpotImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle media file upload (Images AND Videos)
+  const handleSpotMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
+
+    setIsMediaLoading(true);
     try {
-      const imgs: string[] = [];
+      const newMediaList: string[] = [];
       for (let i = 0; i < files.length; i++) {
-        const b64 = await compressAndConvertToBase64(files[i]);
-        imgs.push(b64);
+        const dataUrl = await compressImageToDataUrl(files[i]);
+        newMediaList.push(dataUrl);
       }
-      setNewSpotImages(prev => [...prev, ...imgs]);
+      setNewSpotImages(prev => [...prev, ...newMediaList]);
     } catch (err) {
-      console.error('Lỗi nén ảnh địa điểm:', err);
+      console.error('Lỗi đọc file media:', err);
     } finally {
+      setIsMediaLoading(false);
       e.target.value = '';
     }
   };
 
-  // Submit New Custom Spot with exact GPS coordinates
+  // Submit new custom spot
   const handleAddCustomSpotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!coupleId || !newSpotTitle.trim()) return;
@@ -586,7 +569,7 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
         createdAt: new Date().toISOString()
       };
 
-      const docRef = await addDoc(placesRef, placeData);
+      await addDoc(placesRef, placeData);
       
       // Reset form
       setNewSpotTitle('');
@@ -601,9 +584,8 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
       setNewSpotPlaceId(null);
       setShowAddModal(false);
 
-      // Focus map to newly added spot
       if (mapInstanceRef.current) {
-        mapInstanceRef.current.flyTo([placeData.lat, placeData.lng], 14, { duration: 1 });
+        mapInstanceRef.current.flyTo([placeData.lat, placeData.lng], 15, { duration: 1 });
       }
     } catch (err: any) {
       console.error('Lỗi thêm địa điểm:', err);
@@ -626,77 +608,55 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
   };
 
   return (
-    <div className="relative w-full rounded-3xl overflow-hidden border border-slate-200/90 shadow-xl bg-white flex flex-col h-[750px] sm:h-[820px]">
+    <div className="relative w-full rounded-3xl overflow-hidden border border-slate-200/90 shadow-lg bg-slate-900 flex flex-col h-[650px] sm:h-[760px]">
       
-      {/* 1. Header Toolbar */}
-      <div className="p-3.5 sm:p-4 bg-white/95 backdrop-blur-md border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 z-10 shrink-0">
+      {/* 1. TOP FLOATING SEARCH & CATEGORY BAR (Clean, Compact, Minimal) */}
+      <div className="absolute top-3 left-3 right-3 z-20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pointer-events-none">
         
-        {/* Left: Title & Stats */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center font-bold shadow-2xs">
-            <Compass className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-slate-900">
-                Bản Đồ Dấu Chân Tình Yêu
-              </h2>
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-600 border border-rose-100 flex items-center gap-1">
-                <Heart className="w-3 h-3 fill-rose-500 text-rose-500" />
-                {unifiedFootprints.length} dấu chân GPS
-              </span>
-            </div>
-            <p className="text-xs text-slate-500">
-              Định vị GPS độ chính xác cao ghi dấu mọi khoảnh khắc bên nhau
-            </p>
-          </div>
-        </div>
-
-        {/* Right: Search, Filter & Add Button */}
-        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+        {/* Left: Glass Search & Filter bar */}
+        <div className="flex items-center gap-2 pointer-events-auto flex-1 max-w-lg">
+          
           {/* Search Box */}
-          <div className="relative flex-1 sm:w-56">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <div className="relative flex-1 bg-white/95 backdrop-blur-md rounded-2xl shadow-md border border-white/60">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm quán cafe, nơi hẹn..."
-              className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1.5 focus:ring-rose-400"
+              placeholder="Tìm kiếm địa điểm, quán cafe, nơi hẹn..."
+              className="w-full pl-9 pr-8 py-2 bg-transparent text-xs font-semibold text-slate-800 focus:outline-none placeholder:text-slate-400"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-0.5"
               >
-                <X className="w-3 h-3" />
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
-          {/* Unlocated Memories Alert Button */}
+          {/* Unlocated Alert Badge (if any) */}
           {unlocatedJournals.length > 0 && (
             <button
               type="button"
               onClick={() => setShowUnlocatedList(!showUnlocatedList)}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
-                showUnlocatedList
-                  ? 'bg-amber-500 text-white border-amber-600'
-                  : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
-              }`}
-              title={`${unlocatedJournals.length} kỷ niệm chưa có tọa độ GPS`}
+              className="bg-amber-500 hover:bg-amber-600 text-white px-2.5 py-2 rounded-2xl shadow-md text-xs font-bold transition flex items-center gap-1 shrink-0 cursor-pointer"
+              title={`${unlocatedJournals.length} kỷ niệm chưa có GPS`}
             >
-              <AlertCircle className="w-3.5 h-3.5" />
-              <span>{unlocatedJournals.length} chưa ghim GPS</span>
+              <AlertCircle className="w-4 h-4" />
+              <span className="hidden sm:inline">{unlocatedJournals.length} chưa ghim</span>
             </button>
           )}
+        </div>
 
-          {/* Add Custom Spot */}
+        {/* Right: Quick Add Button */}
+        <div className="flex items-center gap-2 pointer-events-auto justify-end">
           <button
             type="button"
             onClick={() => setShowAddModal(true)}
-            className="px-3.5 py-1.5 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white font-bold rounded-xl text-xs shadow-xs hover:shadow transition flex items-center gap-1.5 cursor-pointer shrink-0"
+            className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-2xl text-xs shadow-lg transition flex items-center gap-1.5 cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4" />
             <span>Ghim điểm hẹn</span>
@@ -704,47 +664,70 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
         </div>
       </div>
 
-      {/* 2. Unlocated Memories Notification Banner (if any) */}
+      {/* 2. CATEGORY FILTER PILLS (Floating Over Map) */}
+      <div className="absolute top-16 sm:top-14 left-3 z-20 pointer-events-auto flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 max-w-[calc(100vw-40px)] sm:max-w-xl">
+        {[
+          { id: 'all', label: `Tất cả (${unifiedFootprints.length})`, icon: Sparkles },
+          { id: 'date', label: 'Hẹn hò', icon: Heart },
+          { id: 'travel', label: 'Du lịch', icon: Plane },
+          { id: 'cafe', label: 'Cafe', icon: Coffee },
+          { id: 'special', label: 'Đặc biệt', icon: Star },
+        ].map((cat) => {
+          const Icon = cat.icon;
+          const isActive = activeCategoryFilter === cat.id;
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => setActiveCategoryFilter(cat.id as any)}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-sm backdrop-blur-md ${
+                isActive
+                  ? 'bg-rose-500 text-white shadow-rose-500/30'
+                  : 'bg-black/40 hover:bg-black/60 text-white border border-white/20'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{cat.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 3. UNLOCATED MEMORIES MODAL / SHEET (Clean overlay) */}
       {unlocatedJournals.length > 0 && showUnlocatedList && (
-        <div className="p-3.5 bg-amber-50 border-b border-amber-200/80 z-20 shrink-0 animate-fadeIn">
-          <div className="flex items-center justify-between pb-2 mb-2 border-b border-amber-200/60">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-600" />
-              <span className="text-xs font-bold text-amber-900">
-                Có {unlocatedJournals.length} kỷ niệm chưa có tọa độ GPS chính xác
-              </span>
+        <div className="absolute top-28 left-3 right-3 sm:right-auto sm:w-96 z-30 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-amber-200 p-3.5 animate-fadeIn">
+          <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
+              <AlertCircle className="w-4 h-4 text-amber-500" />
+              <span>{unlocatedJournals.length} kỷ niệm chưa có GPS</span>
             </div>
             <button
               type="button"
               onClick={() => setShowUnlocatedList(false)}
-              className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              className="text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
-          <p className="text-[11px] text-amber-800 mb-2.5">
-            Bản đồ chỉ hiển thị các kỷ niệm có tọa độ GPS thực tế. Hãy bấm "Ghim GPS" để chọn vị trí chính xác trên bản đồ:
+          <p className="text-[11px] text-slate-500 mb-2">
+            Bản đồ chỉ hiển thị các kỷ niệm có tọa độ GPS chính xác. Bấm để ghim vị trí:
           </p>
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
             {unlocatedJournals.map((j) => (
               <div
                 key={j.id}
-                className="p-2 bg-white rounded-xl border border-amber-200/80 shadow-2xs flex items-center gap-2.5 shrink-0 min-w-[240px] max-w-[280px]"
+                className="p-2 bg-slate-50 hover:bg-rose-50 rounded-xl border border-slate-200/80 flex items-center justify-between gap-2 text-xs"
               >
-                <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 text-xs font-bold">
-                  {j.mood || '💖'}
-                </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs font-bold text-slate-800 truncate">{j.title}</div>
-                  <div className="text-[10px] text-slate-500">{j.date} {j.location ? `• ${j.location}` : ''}</div>
+                  <div className="font-bold text-slate-800 truncate">{j.title}</div>
+                  <div className="text-[10px] text-slate-400">{j.date} {j.location ? `• ${j.location}` : ''}</div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setFixingJournal(j)}
-                  className="px-2 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-[10px] font-bold transition flex items-center gap-1 shrink-0 cursor-pointer"
+                  className="px-2.5 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-[10px] font-bold shrink-0 transition cursor-pointer"
                 >
-                  <MapPin className="w-3 h-3" />
-                  <span>Ghim GPS</span>
+                  Ghim GPS
                 </button>
               </div>
             ))}
@@ -752,315 +735,266 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
         </div>
       )}
 
-      {/* 3. Category Filter Chips & Map Controls Ribbon */}
-      <div className="px-3.5 py-2 bg-slate-50/90 border-b border-slate-100 flex items-center justify-between gap-2 overflow-x-auto z-10 shrink-0">
-        
-        {/* Category Pills */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          {[
-            { id: 'all', label: 'Tất cả', icon: Sparkles },
-            { id: 'date', label: 'Hẹn hò', icon: Heart },
-            { id: 'travel', label: 'Du lịch', icon: Plane },
-            { id: 'cafe', label: 'Cafe & Trà', icon: Coffee },
-            { id: 'special', label: 'Khoảnh khắc vàng', icon: Star },
-          ].map((cat) => {
-            const Icon = cat.icon;
-            const isActive = activeCategoryFilter === cat.id;
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setActiveCategoryFilter(cat.id as any)}
-                className={`px-3 py-1 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                  isActive
-                    ? 'bg-rose-500 text-white shadow-2xs'
-                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'
-                }`}
-              >
-                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                <span>{cat.label}</span>
-              </button>
-            );
-          })}
-        </div>
+      {/* 4. MAIN MAP CANVAS */}
+      <div className="relative flex-1 w-full h-full min-h-0 bg-slate-950" style={{ isolation: 'isolate' }}>
+        <div ref={mapContainerRef} className="w-full h-full" />
 
-        {/* Trail Toggle & Theme Switcher */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            type="button"
-            onClick={() => setShowLoveTrail(!showLoveTrail)}
-            className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition flex items-center gap-1 cursor-pointer ${
-              showLoveTrail
-                ? 'bg-rose-50 border-rose-300 text-rose-700'
-                : 'bg-white border-slate-200 text-slate-500'
-            }`}
-            title="Bật/Tắt đường nối hành trình tình yêu theo thời gian"
-          >
-            <Route className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Đường dấu chân</span>
-          </button>
-
+        {/* Floating Right Control Tools */}
+        <div className="absolute right-3 top-28 z-20 flex flex-col gap-2 pointer-events-auto">
+          
+          {/* Layer switcher: Vệ tinh vs Đường phố vs Pastel */}
           <button
             type="button"
             onClick={() => {
-              const next = mapTheme === 'pastel' ? 'satellite' : mapTheme === 'satellite' ? 'streets' : 'pastel';
+              const next = mapTheme === 'satellite' ? 'streets' : mapTheme === 'streets' ? 'pastel' : 'satellite';
               setMapTheme(next);
             }}
-            className="px-2.5 py-1 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition flex items-center gap-1 cursor-pointer"
-            title="Chuyển đổi kiểu hiển thị bản đồ"
+            className="w-10 h-10 rounded-2xl bg-black/60 hover:bg-black/80 backdrop-blur-md text-white border border-white/20 flex items-center justify-center shadow-lg transition cursor-pointer"
+            title={`Chế độ bản đồ hiện tại: ${mapTheme === 'satellite' ? 'Ảnh vệ tinh' : mapTheme === 'streets' ? 'Đường phố' : 'Pastel'}`}
           >
-            <Layers className="w-3.5 h-3.5 text-slate-400" />
-            <span className="hidden sm:inline">
-              {mapTheme === 'pastel' ? 'Pastel' : mapTheme === 'satellite' ? 'Vệ tinh' : 'Đường phố'}
-            </span>
+            <Layers className="w-5 h-5 text-rose-400" />
           </button>
-        </div>
-      </div>
 
-      {/* 4. Main Stage: Leaflet Map */}
-      <div className="relative flex-1 w-full bg-slate-100 min-h-0">
-        <div ref={mapContainerRef} className="w-full h-full" />
-
-        {/* Floating Quick Action Controls on Map */}
-        <div className="absolute top-3 right-3 z-20 flex flex-col gap-2">
-          {/* Locate Device GPS Button */}
+          {/* Locate Device GPS */}
           <button
             type="button"
             onClick={handleLocateMe}
-            className="p-2.5 bg-white/95 hover:bg-white text-slate-700 rounded-2xl shadow-md border border-slate-200/80 transition flex items-center justify-center cursor-pointer hover:text-rose-600"
-            title="Định vị vị trí hiện tại của thiết bị"
+            className="w-10 h-10 rounded-2xl bg-black/60 hover:bg-black/80 backdrop-blur-md text-white border border-white/20 flex items-center justify-center shadow-lg transition cursor-pointer"
+            title="Định vị vị trí của tôi"
           >
-            <LocateFixed className="w-4 h-4" />
+            <LocateFixed className="w-5 h-5 text-emerald-400" />
           </button>
 
-          {/* Fit all bounds */}
+          {/* Zoom In */}
           <button
             type="button"
-            onClick={handleFitBounds}
-            className="p-2.5 bg-white/95 hover:bg-white text-slate-700 rounded-2xl shadow-md border border-slate-200/80 transition flex items-center justify-center cursor-pointer hover:text-rose-600"
-            title="Thu phóng xem toàn bộ dấu chân"
+            onClick={handleZoomIn}
+            className="w-10 h-10 rounded-2xl bg-black/60 hover:bg-black/80 backdrop-blur-md text-white border border-white/20 flex items-center justify-center shadow-lg text-lg font-bold transition cursor-pointer"
+            title="Phóng to"
           >
-            <ZoomIn className="w-4 h-4" />
+            +
+          </button>
+
+          {/* Zoom Out */}
+          <button
+            type="button"
+            onClick={handleZoomOut}
+            className="w-10 h-10 rounded-2xl bg-black/60 hover:bg-black/80 backdrop-blur-md text-white border border-white/20 flex items-center justify-center shadow-lg text-lg font-bold transition cursor-pointer"
+            title="Thu nhỏ"
+          >
+            -
           </button>
         </div>
 
-        {/* GPS Source of Truth Watermark Badge */}
-        <div className="absolute bottom-3 left-3 z-20 bg-white/90 backdrop-blur-xs px-3 py-1.5 rounded-2xl border border-slate-200/80 shadow-md text-[11px] text-slate-600 font-medium flex items-center gap-1.5">
-          <Crosshair className="w-3.5 h-3.5 text-rose-500" />
-          <span>Tọa độ GPS thiết bị (iPhone Metadata)</span>
+        {/* Map Theme Indicator Badge */}
+        <div className="absolute bottom-3 left-3 z-20 pointer-events-none">
+          <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/15 text-[10px] font-bold text-white flex items-center gap-1.5 shadow-md">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>{mapTheme === 'satellite' ? 'Ảnh Vệ Tinh Trực Tuyến' : mapTheme === 'streets' ? 'Bản Đồ Đường Phố' : 'Bản Đồ Nhẹ'}</span>
+            <span className="text-rose-400">({filteredFootprints.length} điểm)</span>
+          </div>
         </div>
+      </div>
 
-        {/* 5. Selected Footprint Details Slide-Up Card */}
-        {selectedFootprint && (
-          <div className="absolute bottom-3 right-3 left-3 sm:left-auto sm:w-96 max-h-[75vh] bg-white rounded-3xl border border-slate-200 shadow-2xl z-30 overflow-hidden flex flex-col animate-slideUp">
-            
-            {/* Card Header with Category & Close */}
-            <div className="p-3.5 bg-gradient-to-r from-rose-50/80 to-white border-b border-slate-100 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-200">
-                  {selectedFootprint.category === 'cafe' ? '☕ Quán Cafe' :
-                   selectedFootprint.category === 'travel' ? '✈️ Du lịch' :
-                   selectedFootprint.category === 'food' ? '🍲 Ăn uống' :
-                   selectedFootprint.category === 'special' ? '⭐ Khoảnh khắc đặc biệt' : '💖 Buổi hẹn hò'}
-                </span>
-                <span className="text-[11px] text-slate-500 font-medium">
-                  {selectedFootprint.date}
-                </span>
+      {/* 5. SELECTED FOOTPRINT BOTTOM CARD (Compact, Modern, Supports Videos) */}
+      {selectedFootprint && (
+        <div className="absolute bottom-3 left-3 right-3 sm:left-auto sm:right-3 sm:w-[420px] max-h-[75vh] overflow-y-auto z-30 bg-white/95 backdrop-blur-md rounded-3xl p-4 shadow-2xl border border-white/80 animate-slideUp">
+          
+          {/* Header */}
+          <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center font-bold shrink-0">
+                <Heart className="w-4 h-4 fill-rose-500 text-rose-500" />
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedFootprint(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Scrollable Body */}
-            <div className="p-4 space-y-3 overflow-y-auto flex-1 text-xs">
-              
-              {/* Title & Location Name */}
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 leading-snug">
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-slate-900 truncate">
                   {selectedFootprint.title}
                 </h3>
-                <div className="flex items-start gap-1.5 mt-1 text-slate-600">
-                  <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
-                  <span className="font-semibold">{selectedFootprint.locationName}</span>
-                </div>
-                {selectedFootprint.address && selectedFootprint.address !== selectedFootprint.locationName && (
-                  <p className="text-[11px] text-slate-500 ml-5 line-clamp-2">
-                    {selectedFootprint.address}
-                  </p>
-                )}
-              </div>
-
-              {/* Precise GPS Metadata Info Card */}
-              <div className="p-2.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-1">
-                <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500">
-                  <span className="flex items-center gap-1 text-slate-700">
-                    <Crosshair className="w-3 h-3 text-rose-500" />
-                    Tọa độ GPS lưu trữ:
-                  </span>
-                  {selectedFootprint.accuracy && (
-                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-1 py-0.2 rounded font-mono">
-                      ±{selectedFootprint.accuracy}m
-                    </span>
-                  )}
-                </div>
-                <div className="font-mono font-bold text-[11px] text-slate-800">
-                  {selectedFootprint.lat.toFixed(6)}, {selectedFootprint.lng.toFixed(6)}
-                </div>
-                <div className="text-[10px] text-slate-400 font-mono">
-                  {formatCoordinates(selectedFootprint.lat, selectedFootprint.lng)}
+                <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                  <Calendar className="w-3 h-3 text-rose-400" />
+                  <span>{selectedFootprint.date}</span>
                 </div>
               </div>
+            </div>
 
-              {/* Photo Gallery (if photos exist) */}
-              {selectedFootprint.images && selectedFootprint.images.length > 0 && (
-                <div className="space-y-1.5">
-                  <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-100 border border-slate-200">
-                    <img
-                      src={selectedFootprint.images[currentActivePhotoIndex] || selectedFootprint.imageUrl}
-                      alt={selectedFootprint.title}
-                      className="w-full h-full object-cover cursor-pointer hover:scale-105 transition duration-300"
-                      onClick={() => {
-                        if (selectedFootprint.journalRef && onOpenJournalLightbox) {
-                          onOpenJournalLightbox(selectedFootprint.journalRef, currentActivePhotoIndex);
-                        }
-                      }}
-                    />
-                    {selectedFootprint.images.length > 1 && (
-                      <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
-                        {currentActivePhotoIndex + 1}/{selectedFootprint.images.length}
+            <button
+              type="button"
+              onClick={() => setSelectedFootprint(null)}
+              className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Media Player / Carousel (Images AND Videos support) */}
+          {selectedFootprint.images && selectedFootprint.images.length > 0 && (
+            <div className="my-2.5 space-y-1.5">
+              {(() => {
+                const currentMedia = selectedFootprint.images[currentActiveMediaIndex] || selectedFootprint.images[0];
+                const isVid = isVideoUrl(currentMedia);
+
+                return (
+                  <div className="relative w-full h-48 rounded-2xl overflow-hidden bg-slate-900 border border-slate-200">
+                    {isVid ? (
+                      <video
+                        src={currentMedia}
+                        controls
+                        playsInline
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <img
+                        src={currentMedia}
+                        alt={selectedFootprint.title}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+
+                    {/* Media Type Badge */}
+                    {isVid && (
+                      <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Film className="w-3 h-3 text-rose-400" />
+                        <span>Video</span>
                       </div>
                     )}
                   </div>
+                );
+              })()}
 
-                  {/* Thumbnail Row */}
-                  {selectedFootprint.images.length > 1 && (
-                    <div className="flex gap-1.5 overflow-x-auto pb-1">
-                      {selectedFootprint.images.map((img, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setCurrentActivePhotoIndex(idx)}
-                          className={`w-11 h-11 rounded-xl overflow-hidden border-2 shrink-0 transition cursor-pointer ${
-                            currentActivePhotoIndex === idx ? 'border-rose-500 shadow-xs' : 'border-transparent opacity-70 hover:opacity-100'
-                          }`}
-                        >
-                          <img src={img} alt="Thumb" className="w-full h-full object-cover" />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Story / Memory text */}
-              {selectedFootprint.story && (
-                <div className="p-3 bg-rose-50/40 rounded-2xl border border-rose-100/80 text-slate-700 leading-relaxed italic">
-                  "{selectedFootprint.story}"
-                </div>
-              )}
-
-              {/* Music Player */}
-              {selectedFootprint.musicUrl && (
-                <JournalMusicPlayer
-                  musicUrl={selectedFootprint.musicUrl}
-                  musicTitle={selectedFootprint.musicTitle}
-                />
-              )}
-
-              {/* Tagged people / companions */}
-              {selectedFootprint.taggedPeople && selectedFootprint.taggedPeople.length > 0 && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[11px] text-slate-500 font-semibold">Cùng với:</span>
-                  {selectedFootprint.taggedPeople.map(p => (
-                    <span key={p.id} className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold">
-                      {p.avatar ? `${p.avatar} ` : ''}{p.name}
-                    </span>
-                  ))}
+              {/* Thumbnails list if multiple items */}
+              {selectedFootprint.images.length > 1 && (
+                <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                  {selectedFootprint.images.map((media, idx) => {
+                    const isVid = isVideoUrl(media);
+                    const isSelected = idx === currentActiveMediaIndex;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setCurrentActiveMediaIndex(idx)}
+                        className={`relative w-12 h-12 rounded-xl overflow-hidden border shrink-0 transition cursor-pointer ${
+                          isSelected ? 'border-rose-500 ring-2 ring-rose-300' : 'border-slate-200 opacity-70'
+                        }`}
+                      >
+                        {isVid ? (
+                          <div className="w-full h-full bg-slate-800 flex items-center justify-center text-white">
+                            <Play className="w-4 h-4 text-rose-400 fill-rose-400" />
+                          </div>
+                        ) : (
+                          <img src={media} alt="Thumb" className="w-full h-full object-cover" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
+          )}
 
-            {/* Card Footer Actions */}
-            <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0">
-              <div className="text-[10px] text-slate-400">
-                Tác giả: <span className="font-semibold text-slate-600">{selectedFootprint.authorName || 'Hai đứa'}</span>
+          {/* Location details */}
+          <div className="space-y-1.5 text-xs text-slate-600 pt-1">
+            <div className="flex items-center justify-between gap-1 p-2 bg-rose-50/60 rounded-xl border border-rose-100">
+              <div className="flex items-center gap-1.5 truncate">
+                <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                <span className="font-bold text-slate-800 truncate">{selectedFootprint.locationName}</span>
               </div>
-
-              <div className="flex items-center gap-1.5">
-                {selectedFootprint.type === 'journal' && selectedFootprint.journalRef && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (selectedFootprint.journalRef) {
-                        setFixingJournal(selectedFootprint.journalRef);
-                      }
-                    }}
-                    className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                    title="Chỉnh sửa ghim vị trí trên bản đồ"
-                  >
-                    <Edit3 className="w-3 h-3" />
-                    <span>Sửa ghim</span>
-                  </button>
-                )}
-
-                {selectedFootprint.type === 'custom_place' && selectedFootprint.rawPlace && (
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteCustomPlace(selectedFootprint.rawPlace!.id)}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer"
-                    title="Xóa điểm hẹn này"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedFootprint.address || selectedFootprint.locationName)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] text-rose-600 font-bold hover:underline flex items-center gap-0.5 shrink-0"
+              >
+                <span>Chỉ đường</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
             </div>
 
+            {/* GPS Metadata coordinates badge */}
+            <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono px-1">
+              <span className="flex items-center gap-1">
+                <Crosshair className="w-3 h-3 text-rose-400" />
+                <span>{selectedFootprint.lat.toFixed(6)}, {selectedFootprint.lng.toFixed(6)}</span>
+              </span>
+              {selectedFootprint.accuracy && (
+                <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1 rounded font-sans font-bold">
+                  ±{selectedFootprint.accuracy}m
+                </span>
+              )}
+            </div>
+
+            {/* Story */}
+            {selectedFootprint.story && (
+              <p className="text-slate-700 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100 leading-relaxed whitespace-pre-line">
+                {selectedFootprint.story}
+              </p>
+            )}
+
+            {/* Music */}
+            {selectedFootprint.musicUrl && (
+              <div className="pt-1">
+                <JournalMusicPlayer musicUrl={selectedFootprint.musicUrl} musicTitle={selectedFootprint.musicTitle} />
+              </div>
+            )}
           </div>
-        )}
 
-      </div>
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-2 pt-2.5 border-t border-slate-100 mt-2">
+            {selectedFootprint.type === 'journal' && selectedFootprint.journalRef && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (onOpenJournalLightbox && selectedFootprint.journalRef) {
+                    onOpenJournalLightbox(selectedFootprint.journalRef, currentActiveMediaIndex);
+                  } else if (onNavigateToJournal) {
+                    onNavigateToJournal();
+                  }
+                }}
+                className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold border border-rose-200 transition cursor-pointer flex items-center gap-1"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Xem nhật ký</span>
+              </button>
+            )}
 
-      {/* 6. Modal: Add Custom Spot with Live GPS Map Pinning */}
+            {selectedFootprint.type === 'custom_place' && (
+              <button
+                type="button"
+                onClick={() => handleDeleteCustomPlace(selectedFootprint.id.replace('place_', ''))}
+                className="px-3 py-1.5 text-slate-400 hover:text-rose-500 rounded-xl text-xs transition cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 6. MODAL: ADD CUSTOM SPOT / FOOTPRINT (Supports Images AND Videos) */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
-          <div className="bg-white w-full max-w-lg rounded-3xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-scaleUp">
             
             {/* Modal Header */}
-            <div className="p-4 bg-white border-b border-slate-100 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
-                  <Heart className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-800">
-                    Ghim Địa Điểm / Quán Hẹn Hò Mới
-                  </h3>
-                  <p className="text-[11px] text-slate-500">
-                    Lưu tọa độ GPS và kỷ niệm đáng nhớ tại nơi hai đứa từng qua
-                  </p>
-                </div>
+            <div className="p-4 bg-gradient-to-r from-rose-500 to-rose-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-5 h-5" />
+                <h3 className="font-bold text-sm">Ghim Điểm Hẹn & Dấu Chân Tình Yêu</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition cursor-pointer"
+                className="p-1 hover:bg-white/20 rounded-full transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Modal Form Content */}
+            {/* Modal Form Body */}
             <form onSubmit={handleAddCustomSpotSubmit} className="p-4 space-y-3.5 overflow-y-auto flex-1 text-xs">
               
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Tên địa điểm / Quán cafe / Khách sạn: *
+                  Tên địa điểm / Quán cafe / Nơi hẹn hò: *
                 </label>
                 <input
                   type="text"
@@ -1085,7 +1019,7 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
                     className="px-2.5 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-[11px] font-bold shadow-2xs transition flex items-center gap-1 cursor-pointer"
                   >
                     <MapPin className="w-3 h-3" />
-                    <span>{newSpotLat ? 'Thay đổi vị trí ghim' : 'Ghim trên Bản đồ'}</span>
+                    <span>{newSpotLat ? 'Đổi vị trí ghim' : 'Ghim trên Bản đồ'}</span>
                   </button>
                 </div>
 
@@ -1105,7 +1039,7 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
                   </div>
                 ) : (
                   <div className="text-[11px] text-rose-600 italic">
-                    ⚠️ Chưa có tọa độ GPS. Hãy bấm nút "Ghim trên Bản đồ" hoặc tự động lấy GPS thiết bị.
+                    ⚠️ Chưa có tọa độ GPS. Hãy bấm nút "Ghim trên Bản đồ" để chọn tọa độ chính xác.
                   </div>
                 )}
               </div>
@@ -1156,42 +1090,52 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
                 />
               </div>
 
-              {/* Image Upload */}
+              {/* Media Upload: Supports Photos AND Videos */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Ảnh kỷ niệm chụp tại đây:
+                  Thêm Ảnh hoặc Video kỷ niệm (Hỗ trợ MP4, WEBM, MOV, Ảnh...):
                 </label>
                 <div className="flex items-center gap-2">
                   <label className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer transition">
-                    <Camera className="w-4 h-4 text-rose-500" />
-                    <span>Chọn ảnh tải lên</span>
+                    <Video className="w-4 h-4 text-rose-500" />
+                    <span>{isMediaLoading ? 'Đang đọc...' : 'Chọn Ảnh / Video'}</span>
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/*,video/*"
                       multiple
-                      onChange={handleSpotImageUpload}
+                      onChange={handleSpotMediaUpload}
+                      disabled={isMediaLoading}
                       className="hidden"
                     />
                   </label>
                   <span className="text-[11px] text-slate-400">
-                    {newSpotImages.length} ảnh đã chọn
+                    {newSpotImages.length} tệp đã chọn
                   </span>
                 </div>
 
                 {newSpotImages.length > 0 && (
-                  <div className="flex gap-2 overflow-x-auto pt-2">
-                    {newSpotImages.map((img, i) => (
-                      <div key={i} className="relative w-14 h-14 rounded-xl overflow-hidden border border-slate-200 shrink-0 group">
-                        <img src={img} alt="Preview" className="w-full h-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => setNewSpotImages(prev => prev.filter((_, idx) => idx !== i))}
-                          className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
+                  <div className="flex gap-2 overflow-x-auto pt-2 no-scrollbar">
+                    {newSpotImages.map((media, i) => {
+                      const isVid = isVideoUrl(media);
+                      return (
+                        <div key={i} className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shrink-0 group bg-slate-900">
+                          {isVid ? (
+                            <div className="w-full h-full flex items-center justify-center text-white">
+                              <Play className="w-5 h-5 text-rose-400 fill-rose-400" />
+                            </div>
+                          ) : (
+                            <img src={media} alt="Preview" className="w-full h-full object-cover" />
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setNewSpotImages(prev => prev.filter((_, idx) => idx !== i))}
+                            className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4 text-rose-400" />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
