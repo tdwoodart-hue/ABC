@@ -528,8 +528,9 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
         newMediaList.push(dataUrl);
       }
       setNewSpotImages(prev => [...prev, ...newMediaList]);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Lỗi đọc file media:', err);
+      alert(err?.message || 'Lỗi đọc tệp media. Vui lòng chọn tệp dung lượng nhẹ hơn.');
     } finally {
       setIsMediaLoading(false);
       e.target.value = '';

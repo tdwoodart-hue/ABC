@@ -6,6 +6,7 @@ export interface UserProfile {
   coupleId: string;
   createdAt: string;
   phone?: string;
+  phoneNumber?: string;
   address?: string;
   birthday?: string;
   avatarUrl?: string;
@@ -42,6 +43,9 @@ export interface CoupleData {
   user1Birthday?: string;
   user2Birthday?: string;
   loveStory?: string;
+  bankName?: string;
+  bankAccountNo?: string;
+  accountHolderName?: string;
 }
 
 export interface MemoryItem {
@@ -51,6 +55,7 @@ export interface MemoryItem {
   imageUrl?: string;
   authorName: string;
   authorUid: string;
+  authorAvatar?: string;
   createdAt: string;
 }
 
@@ -58,6 +63,7 @@ export interface JournalComment {
   id: string;
   authorName: string;
   authorUid: string;
+  authorAvatar?: string;
   content: string;
   createdAt: string;
 }
@@ -163,6 +169,7 @@ export interface JournalEntry {
   musicTitle?: string; // Tên bài hát hiển thị
   authorName: string;
   authorUid: string;
+  authorAvatar?: string;
   createdAt: string;
   updatedAt?: string;
   comments?: JournalComment[];

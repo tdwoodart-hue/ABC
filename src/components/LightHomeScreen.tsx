@@ -530,8 +530,9 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         newImages.push(base64);
       }
       setJournalImages(prev => [...prev, ...newImages]);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Lỗi đọc file ảnh/video nhật ký:', err);
+      alert(err?.message || 'Lỗi đọc tệp tải lên. Vui lòng chọn tệp dung lượng nhẹ hơn hoặc clip ngắn!');
     } finally {
       setJournalImageLoading(false);
       e.target.value = '';
@@ -642,8 +643,9 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     try {
       const base64 = await compressImageToDataUrl(file);
       setMemoryImageUrl(base64);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Lỗi đọc file ảnh/video kỷ niệm:', err);
+      alert(err?.message || 'Lỗi đọc tệp kỷ niệm. Vui lòng chọn tệp dung lượng nhẹ hơn.');
     } finally {
       setMemoryImageLoading(false);
     }
@@ -1201,8 +1203,9 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         newImages.push(base64);
       }
       setEditImages(prev => [...prev, ...newImages]);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Lỗi đọc file ảnh/video khi sửa:', err);
+      alert(err?.message || 'Lỗi đọc tệp tải lên. Vui lòng chọn tệp dung lượng nhẹ hơn.');
     } finally {
       setEditImageLoading(false);
       e.target.value = '';
@@ -2005,6 +2008,9 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                         />
                       </label>
                     </div>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Hỗ trợ ảnh & clip video ngắn (&lt; 3.5MB). Với video dài, hai bạn có thể dán link video vào bài viết.
+                    </p>
                   </div>
                 </div>
 
