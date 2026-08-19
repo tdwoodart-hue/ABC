@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { JournalEntry, UserProfile, ImageComment, CoupleData } from '../types';
 import { formatDateTimeVN, formatDateVN } from '../utils/formatDate';
 import { checkIsAdmin } from '../lib/firebase';
-import { isVideoUrl } from '../utils/imageCompression';
 import {
   ArrowLeft,
   X,
@@ -21,9 +20,7 @@ import {
   Image as ImageIcon,
   ChevronDown,
   Camera,
-  Users,
-  Film,
-  Play
+  Users
 } from 'lucide-react';
 
 interface ImageLightboxModalProps {
@@ -299,24 +296,14 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
           </div>
         </header>
 
-        {/* Rounded Media Container (Tightly wraps photo/video with rounded-3xl and clean border) */}
+        {/* Rounded Image Container (Tightly wraps photo with rounded-3xl and clean border, NO white letterboxing gaps) */}
         <div className="relative w-full flex justify-center shrink-0">
-          <div className="relative max-w-full rounded-3xl overflow-hidden shadow-sm border border-slate-200/80 bg-slate-950 group flex items-center justify-center">
-            {isVideoUrl(currentImageUrl) ? (
-              <video
-                src={currentImageUrl}
-                controls
-                autoPlay
-                playsInline
-                className="max-h-[68vh] sm:max-h-[72vh] w-auto max-w-full object-contain rounded-3xl block"
-              />
-            ) : (
-              <img
-                src={currentImageUrl}
-                alt={`Kỷ niệm ${currentIndex + 1}`}
-                className="max-h-[68vh] sm:max-h-[72vh] w-auto max-w-full object-contain rounded-3xl block"
-              />
-            )}
+          <div className="relative max-w-full rounded-3xl overflow-hidden shadow-sm border border-slate-200/80 group">
+            <img
+              src={currentImageUrl}
+              alt={`Kỷ niệm ${currentIndex + 1}`}
+              className="max-h-[68vh] sm:max-h-[72vh] w-auto max-w-full object-contain rounded-3xl block"
+            />
 
             {/* Left / Right Floating Navigation Buttons */}
             {imageList.length > 1 && (
@@ -325,7 +312,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                   type="button"
                   onClick={handlePrev}
                   className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 hover:bg-black/65 text-white backdrop-blur-xs flex items-center justify-center transition cursor-pointer shadow-md"
-                  title="Tệp trước"
+                  title="Ảnh trước"
                 >
                   <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
@@ -334,47 +321,39 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                   type="button"
                   onClick={handleNext}
                   className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 hover:bg-black/65 text-white backdrop-blur-xs flex items-center justify-center transition cursor-pointer shadow-md"
-                  title="Tệp tiếp theo"
+                  title="Ảnh tiếp theo"
                 >
                   <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
               </>
             )}
 
-            {/* Media indicator (e.g. 1/3) if multiple items */}
+            {/* Photo indicator (e.g. 1/3) if multiple photos */}
             {imageList.length > 1 && (
-              <div className="absolute bottom-3 right-3 bg-black/50 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
-                {isVideoUrl(currentImageUrl) && <Film className="w-3 h-3 text-rose-400" />}
-                <span>{currentIndex + 1} / {imageList.length}</span>
+              <div className="absolute bottom-3 right-3 bg-black/50 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-1 rounded-full">
+                {currentIndex + 1} / {imageList.length}
               </div>
             )}
           </div>
         </div>
 
-        {/* Thumbnail Selector Strip (if multiple media) */}
+        {/* Thumbnail Selector Strip (if multiple photos) */}
         {imageList.length > 1 && (
-          <div className="flex items-center gap-2 overflow-x-auto py-2.5 px-1 mt-1 no-scrollbar">
-            {imageList.map((media, idx) => {
+          <div className="flex items-center gap-2 overflow-x-auto py-2.5 px-1 mt-1">
+            {imageList.map((img, idx) => {
               const isSelected = idx === currentIndex;
-              const isVid = isVideoUrl(media);
               return (
                 <button
                   key={idx}
                   type="button"
                   onClick={() => setCurrentIndex(idx)}
-                  className={`relative w-14 h-14 rounded-2xl overflow-hidden shrink-0 border-2 transition cursor-pointer bg-slate-900 ${
+                  className={`relative w-14 h-14 rounded-2xl overflow-hidden shrink-0 border-2 transition cursor-pointer ${
                     isSelected
                       ? 'border-rose-500 shadow-md ring-2 ring-rose-300 scale-105'
                       : 'border-white opacity-60 hover:opacity-100 hover:border-slate-300'
                   }`}
                 >
-                  {isVid ? (
-                    <div className="w-full h-full flex items-center justify-center text-white">
-                      <Play className="w-5 h-5 text-rose-400 fill-rose-400" />
-                    </div>
-                  ) : (
-                    <img src={media} alt={`Thumbnail ${idx}`} className="w-full h-full object-cover" />
-                  )}
+                  <img src={img} alt={`Thumbnail ${idx}`} className="w-full h-full object-cover" />
                   {idx === currentMainIndex && (
                     <div className="absolute top-1 right-1 bg-amber-400 p-0.5 rounded-full shadow-xs">
                       <Star className="w-2.5 h-2.5 fill-slate-900 text-slate-900" />

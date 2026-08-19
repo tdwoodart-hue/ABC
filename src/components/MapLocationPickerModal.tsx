@@ -106,7 +106,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
   const [searchResults, setSearchResults] = useState<PlaceSuggestion[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [mapType, setMapType] = useState<'streets' | 'satellite'>('satellite');
+  const [mapType, setMapType] = useState<'streets' | 'satellite'>('streets');
   const [statusFeedback, setStatusFeedback] = useState<string | null>(null);
   const [copiedCoords, setCopiedCoords] = useState(false);
 
@@ -445,14 +445,14 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
     });
     mapInstanceRef.current = map;
 
-    // Initialize Satellite Layer by default
+    // CartoDB Voyager Light Tiles
     clearMapTileLayers(map);
-    const initialTileLayer = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      { maxZoom: 19 }
+    const streetLayer = L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      { maxZoom: 19, subdomains: 'abcd' }
     );
-    initialTileLayer.addTo(map);
-    tileLayerRef.current = initialTileLayer;
+    streetLayer.addTo(map);
+    tileLayerRef.current = streetLayer;
 
     // Draggable Marker
     const marker = L.marker([initialLat, initialLng], {
