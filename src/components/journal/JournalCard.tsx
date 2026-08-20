@@ -122,7 +122,7 @@ export const JournalCard: React.FC<JournalCardProps> = ({
       {/* 1. Header: Author Info, Date, Actions */}
       <div className="p-4 sm:p-5 pb-3 sm:pb-3 flex items-center justify-between gap-3 border-b border-slate-100/80">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="relative shrink-0">
+          <div className="shrink-0">
             <div className="w-10 h-10 rounded-full border border-rose-100 p-0.5 overflow-hidden shadow-2xs bg-white">
               <img
                 src={author.avatar}
@@ -133,11 +133,6 @@ export const JournalCard: React.FC<JournalCardProps> = ({
                 }}
               />
             </div>
-            {author.isMe && (
-              <span className="absolute -bottom-1 -right-1 bg-rose-500 text-white text-[9px] font-bold px-1 py-0.2 rounded-full shadow-2xs">
-                Bạn
-              </span>
-            )}
           </div>
 
           <div className="min-w-0">
@@ -145,11 +140,6 @@ export const JournalCard: React.FC<JournalCardProps> = ({
               <span className="font-bold text-slate-800 text-sm truncate">
                 {author.name}
               </span>
-              {author.role && (
-                <span className="text-[10px] px-1.5 py-0.2 bg-rose-50 text-rose-600 rounded-md font-medium">
-                  {author.role}
-                </span>
-              )}
             </div>
             <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5 whitespace-nowrap">
               <Calendar className="w-3 h-3 text-rose-400 shrink-0" />

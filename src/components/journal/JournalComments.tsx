@@ -76,11 +76,6 @@ export const JournalComments: React.FC<JournalCommentsProps> = ({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className="font-bold text-slate-800 text-[11px]">{cAuthor.name}</span>
-                    {cAuthor.isMe && (
-                      <span className="text-[9px] px-1 py-0.2 bg-rose-100 text-rose-700 rounded-md font-bold">
-                        Bạn
-                      </span>
-                    )}
                   </div>
                   <p className="text-slate-600 mt-0.5 leading-snug break-words">
                     {comment.content}
