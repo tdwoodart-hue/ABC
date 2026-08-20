@@ -1,4 +1,5 @@
-// V2_TRUUS_STYLE — replace the CONTENT of src/components/LoadingSplash.tsx with this file.
+// LoadingSplash.tsx — TRUUS-PROPORTION VERSION
+// Replace: src/components/LoadingSplash.tsx
 import React, { useEffect, useRef, useState } from 'react';
 
 interface LoadingSplashProps {
@@ -6,126 +7,161 @@ interface LoadingSplashProps {
   onFinished: () => void;
 }
 
-const DRAW_IN_MS = 800;
-const DRAW_OUT_MS = 1500;
+/*
+ * Matched to the reference transition's actual proportions:
+ * scale: 0.7
+ * stroke: 8% -> 31%
+ * draw in: 2.2s
+ * draw out: 2.7s
+ */
+const DRAW_IN_MS = 2200;
+const DRAW_OUT_MS = 2700;
+const START_STROKE = 8;
+const MAX_STROKE = 31;
+
+const clamp01 = (value: number) =>
+  Math.max(0, Math.min(1, value));
 
 const easeInOut = (t: number) =>
   t < 0.5
     ? 4 * t * t * t
     : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
-const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+const easeOut = (t: number) =>
+  1 - Math.pow(1 - t, 3);
 
 export const LoadingSplash: React.FC<LoadingSplashProps> = ({
   ready,
   onFinished,
 }) => {
   const pathRef = useRef<SVGPathElement | null>(null);
-  const contentRef = useRef<HTMLDivElement | null>(null);
-  const rafRef = useRef<number | null>(null);
-  const exitStartedRef = useRef(false);
+  const logoRef = useRef<HTMLDivElement | null>(null);
+
+  const animationFrameRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
+  const exitStartedRef = useRef(false);
 
   const [covered, setCovered] = useState(false);
 
-  const stopRaf = () => {
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
+  const cancelFrame = () => {
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
     }
   };
 
-  const animate = (
+  const runAnimation = (
     duration: number,
-    frame: (progress: number) => void,
-    done?: () => void
+    onFrame: (progress: number) => void,
+    onDone?: () => void
   ) => {
-    stopRaf();
+    cancelFrame();
 
-    const startedAt = performance.now();
+    const startTime = performance.now();
 
     const tick = (now: number) => {
       if (!mountedRef.current) return;
 
-      const progress = Math.min(
-        1,
-        (now - startedAt) / duration
+      const progress = clamp01(
+        (now - startTime) / duration
       );
 
-      frame(progress);
+      onFrame(progress);
 
       if (progress < 1) {
-        rafRef.current = requestAnimationFrame(tick);
+        animationFrameRef.current =
+          requestAnimationFrame(tick);
       } else {
-        rafRef.current = null;
-        done?.();
+        animationFrameRef.current = null;
+        onDone?.();
       }
     };
 
-    rafRef.current = requestAnimationFrame(tick);
+    animationFrameRef.current =
+      requestAnimationFrame(tick);
   };
 
-  // Phase 1: draw + expand the scribble until it covers the viewport.
+  /*
+   * PHASE 1 — snake enters
+   *
+   * A relatively thin stroke travels along one long curved path.
+   * While its head advances, the body grows from 8% to 31%.
+   * The SVG itself is oversized but scaled to 0.7, matching the
+   * visual proportion of the reference instead of becoming a giant blob.
+   */
   useEffect(() => {
     mountedRef.current = true;
 
     const path = pathRef.current;
-    const content = contentRef.current;
+    const logo = logoRef.current;
 
-    if (!path || !content) return;
+    if (!path || !logo) return;
 
     const length = path.getTotalLength();
 
-    path.style.strokeDasharray = `${length}px`;
-    path.style.strokeDashoffset = `${length}px`;
-    path.style.strokeWidth = '0.4%';
+    path.style.strokeDasharray =
+      `${length + 5}px ${length + 5}px`;
+
+    path.style.strokeDashoffset =
+      `${length + 5}px`;
+
+    path.style.strokeWidth =
+      `${START_STROKE}%`;
+
     path.style.opacity = '1';
 
-    content.style.opacity = '0';
-    content.style.transform =
-      'translate(-50%, -50%) scale(.82) rotate(-2deg)';
+    logo.style.opacity = '0';
+    logo.style.transform =
+      'translate(-50%, -50%) scale(.9) rotate(-2deg)';
 
-    animate(
+    runAnimation(
       DRAW_IN_MS,
-      (rawProgress) => {
-        const p = easeInOut(rawProgress);
+      (raw) => {
+        const p = easeInOut(raw);
 
-        path.style.strokeDashoffset = `${
-          length * (1 - p)
-        }px`;
+        const dashOffset =
+          (length + 5) * (1 - p);
 
-        // This is intentionally percentage-based, like the reference.
-        // It lets the rounded stroke become a screen-covering "paint swipe".
-        const strokeWidth = 0.4 + 42 * p;
-        path.style.strokeWidth = `${strokeWidth}%`;
+        path.style.strokeDashoffset =
+          `${dashOffset}px`;
 
-        // Logo only appears after the scribble is already taking over.
-        const logoStart = 0.42;
-        const logoP = Math.max(
-          0,
-          Math.min(1, (rawProgress - logoStart) / 0.34)
+        const stroke =
+          START_STROKE +
+          (MAX_STROKE - START_STROKE) * p;
+
+        path.style.strokeWidth =
+          `${stroke}%`;
+
+        /*
+         * Logo appears only after the snake has already covered
+         * most of the center. Small and understated.
+         */
+        const logoP = clamp01(
+          (raw - 0.52) / 0.22
         );
 
         if (logoP > 0) {
-          const easedLogo = easeOut(logoP);
-          content.style.opacity = `${easedLogo}`;
+          const eased = easeOut(logoP);
+
+          logo.style.opacity = `${eased}`;
 
           const scale =
-            0.82 + (1.0 - 0.82) * easedLogo;
+            0.9 + 0.1 * eased;
 
-          const rotation =
-            -2 + 2 * easedLogo;
+          const rotate =
+            -2 + 2 * eased;
 
-          content.style.transform =
-            `translate(-50%, -50%) scale(${scale}) rotate(${rotation}deg)`;
+          logo.style.transform =
+            `translate(-50%, -50%) scale(${scale}) rotate(${rotate}deg)`;
         }
       },
       () => {
         path.style.strokeDashoffset = '0px';
-        path.style.strokeWidth = '42.4%';
+        path.style.strokeWidth =
+          `${MAX_STROKE}%`;
 
-        content.style.opacity = '1';
-        content.style.transform =
+        logo.style.opacity = '1';
+        logo.style.transform =
           'translate(-50%, -50%) scale(1) rotate(0deg)';
 
         setCovered(true);
@@ -134,20 +170,33 @@ export const LoadingSplash: React.FC<LoadingSplashProps> = ({
 
     return () => {
       mountedRef.current = false;
-      stopRaf();
+      cancelFrame();
     };
   }, []);
 
-  // Phase 2: once Firebase/auth is ready, pull the scribble out and reveal the app.
+  /*
+   * PHASE 2 — snake exits
+   *
+   * Do NOT fade the pink layer.
+   * The same stroke keeps moving forward past the end of the path.
+   * The tail narrows back to 8%, which produces the "snake sliding
+   * away toward the bottom corner" look.
+   *
+   * If auth/data is still loading, hold the covered frame until ready.
+   */
   useEffect(() => {
-    if (!ready || !covered || exitStartedRef.current) {
+    if (
+      !ready ||
+      !covered ||
+      exitStartedRef.current
+    ) {
       return;
     }
 
     const path = pathRef.current;
-    const content = contentRef.current;
+    const logo = logoRef.current;
 
-    if (!path || !content) {
+    if (!path || !logo) {
       onFinished();
       return;
     }
@@ -155,260 +204,276 @@ export const LoadingSplash: React.FC<LoadingSplashProps> = ({
     exitStartedRef.current = true;
 
     const length = path.getTotalLength();
+    const totalLength = length + 5;
 
-    animate(
+    runAnimation(
       DRAW_OUT_MS,
-      (rawProgress) => {
-        const p = easeInOut(rawProgress);
+      (raw) => {
+        const p = easeInOut(raw);
 
-        // Continue the same line forward rather than fading a rectangle.
-        path.style.strokeDashoffset = `${
-          -length * p
-        }px`;
+        /*
+         * Continue in the SAME direction.
+         * This is the crucial motion: 0 -> negative full path length.
+         */
+        path.style.strokeDashoffset =
+          `${-totalLength * p}px`;
 
-        // Thick paint swipe shrinks back into a thin hand-drawn line.
-        const strokeWidth =
-          42.4 - (42.4 - 0.4) * p;
+        const stroke =
+          MAX_STROKE -
+          (MAX_STROKE - START_STROKE) * p;
 
-        path.style.strokeWidth = `${Math.max(
-          0.4,
-          strokeWidth
-        )}%`;
+        path.style.strokeWidth =
+          `${stroke}%`;
 
-        // Keep the icon visible during the first half of the exit,
-        // then remove it while the scribble finishes clearing.
-        if (rawProgress < 0.42) {
-          content.style.opacity = '1';
+        /*
+         * Keep logo visible for roughly the first half of exit,
+         * then remove it while the tail slides toward bottom-right.
+         */
+        const hideP = clamp01(
+          (raw - 0.43) / 0.12
+        );
 
-          const wobble =
-            Math.sin(rawProgress * Math.PI * 5) * 1.2;
+        logo.style.opacity =
+          `${1 - hideP}`;
 
-          content.style.transform =
-            `translate(-50%, -50%) scale(1) rotate(${wobble}deg)`;
-        } else {
-          const hideP = Math.min(
-            1,
-            (rawProgress - 0.42) / 0.16
-          );
+        if (hideP < 1) {
+          const wiggle =
+            Math.sin(raw * Math.PI * 6) * 1.1;
 
-          content.style.opacity = `${1 - hideP}`;
+          const scale =
+            1 - 0.05 * hideP;
 
-          const scale = 1 - 0.06 * hideP;
-
-          content.style.transform =
-            `translate(-50%, -50%) scale(${scale})`;
+          logo.style.transform =
+            `translate(-50%, -50%) scale(${scale}) rotate(${wiggle}deg)`;
         }
       },
       () => {
-        path.style.strokeDashoffset = `${-length}px`;
-        path.style.strokeWidth = '0.4%';
-        content.style.opacity = '0';
+        path.style.strokeDashoffset =
+          `${-totalLength}px`;
+
+        path.style.strokeWidth =
+          `${START_STROKE}%`;
+
+        logo.style.opacity = '0';
 
         window.setTimeout(() => {
           if (mountedRef.current) {
             onFinished();
           }
-        }, 40);
+        }, 30);
       }
     );
   }, [ready, covered, onFinished]);
 
   return (
     <div
-      className="us-transition-v2"
+      className="us-snake-loader"
       role="status"
       aria-label="Đang mở Us"
     >
       <style>{`
-        .us-transition-v2 {
+        .us-snake-loader {
           position: fixed;
           inset: 0;
           z-index: 99999;
+
           overflow: hidden;
           pointer-events: auto;
-          background: transparent;
+
+          /*
+           * The page remains underneath.
+           * Only the snake itself paints over it.
+           */
+          background: #fff7f8;
+
           isolation: isolate;
           transform: translateZ(0);
           -webkit-transform: translateZ(0);
         }
 
         /*
-         * IMPORTANT:
-         * Truus-style transition needs an SVG much larger than the viewport.
-         * 200vw / 200vh prevents the giant rounded stroke from exposing
-         * rectangular SVG edges on iPhone.
+         * Reference geometry:
+         *   200vw × 200vh
+         *   positioned -50vw / -50vh
+         *   then scaled to 0.7 around the center
+         *
+         * Effective visual footprint ≈ 140vw × 140vh.
          */
-        .us-transition-v2__svg {
+        .us-snake-loader__svg {
           position: fixed;
+
           top: -50vh;
           left: -50vw;
+
           width: 200vw;
           height: 200vh;
+
           z-index: 1;
+
           overflow: visible;
           pointer-events: none;
+
           color: #fb7185;
+
+          transform: scale(.7);
+          transform-origin: 50% 50%;
+
+          will-change: transform;
         }
 
-        .us-transition-v2__path {
+        .us-snake-loader__path {
           fill: none;
+
           stroke: currentColor;
           stroke-linecap: round;
           stroke-linejoin: round;
+
           opacity: 0;
-          vector-effect: non-scaling-stroke;
-          will-change: stroke-dashoffset, stroke-width;
+
+          will-change:
+            stroke-dashoffset,
+            stroke-width;
         }
 
-        .us-transition-v2__content {
+        /*
+         * Intentionally SMALL relative to the phone screen.
+         * No subtitle — only icon + Us.
+         */
+        .us-snake-loader__logo {
           position: fixed;
+
           top: 50%;
           left: 50%;
-          z-index: 2;
+
+          z-index: 3;
 
           display: flex;
           flex-direction: column;
           align-items: center;
 
-          width: min(82vw, 340px);
-
           opacity: 0;
+
           transform:
             translate(-50%, -50%)
-            scale(.82)
+            scale(.9)
             rotate(-2deg);
 
           pointer-events: none;
-          will-change: opacity, transform;
+
+          will-change:
+            opacity,
+            transform;
         }
 
-        .us-transition-v2__icon-wrap {
-          position: relative;
-          width: 92px;
-          height: 92px;
-          margin-bottom: 14px;
-        }
-
-        .us-transition-v2__glow {
-          position: absolute;
-          inset: -22px;
-          border-radius: 40px;
-          background:
-            radial-gradient(
-              circle,
-              rgba(255,255,255,.5) 0%,
-              rgba(255,255,255,.18) 48%,
-              rgba(255,255,255,0) 72%
-            );
-          filter: blur(11px);
-        }
-
-        .us-transition-v2__icon {
-          position: relative;
+        .us-snake-loader__icon {
           display: block;
-          width: 92px;
-          height: 92px;
+
+          width: 62px;
+          height: 62px;
+
           object-fit: cover;
-          border-radius: 25px;
-          border: 1px solid rgba(255,255,255,.42);
+
+          border-radius: 18px;
+
+          border:
+            1px solid
+            rgba(255, 255, 255, .38);
 
           box-shadow:
-            0 16px 42px rgba(136,19,55,.18),
-            0 3px 10px rgba(136,19,55,.1);
+            0 10px 26px rgba(136, 19, 55, .14),
+            0 2px 7px rgba(136, 19, 55, .08);
         }
 
-        .us-transition-v2__title {
-          margin: 0;
+        .us-snake-loader__name {
+          margin: 8px 0 0;
+
           color: #172033;
-          font-size: 27px;
+
+          font-size: 21px;
           line-height: 1;
+
           font-weight: 850;
           letter-spacing: -.045em;
         }
 
-        .us-transition-v2__subtitle {
-          margin: 9px 0 0;
-          color: rgba(30,41,59,.68);
-          font-size: 12px;
-          line-height: 1.4;
-          font-weight: 650;
-          white-space: nowrap;
-        }
-
-        .us-transition-v2__heart {
-          display: inline-block;
-          margin-left: 3px;
-          color: #be123c;
-          animation:
-            us-transition-v2-heart
-            900ms ease-in-out infinite;
-        }
-
-        @keyframes us-transition-v2-heart {
-          0%, 100% {
-            transform: scale(1);
+        @media (min-width: 768px) {
+          .us-snake-loader__icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 20px;
           }
 
-          50% {
-            transform: scale(1.16);
+          .us-snake-loader__name {
+            margin-top: 10px;
+            font-size: 23px;
           }
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .us-transition-v2__heart {
-            animation: none;
+          .us-snake-loader__logo {
+            transform:
+              translate(-50%, -50%);
           }
         }
       `}</style>
 
       <svg
-        className="us-transition-v2__svg"
+        className="us-snake-loader__svg"
         viewBox="0 0 3222 3114"
         fill="none"
         preserveAspectRatio="none"
         aria-hidden="true"
       >
+        {/*
+         * One continuous custom snake path.
+         *
+         * Start: outside upper-left
+         * Body: snakes repeatedly across the viewport
+         * End: leaves through the lower-right corner
+         *
+         * The long final diagonal is important: during phase 2,
+         * the thick tail visibly slides DOWN and OUT instead of
+         * simply shrinking in place.
+         */}
         <path
           ref={pathRef}
-          className="us-transition-v2__path"
+          className="us-snake-loader__path"
           d="
-            M 120 420
-            C 410 120, 810 120, 610 610
-            C 430 1050, 90 1330, 350 1690
-            C 610 2050, 1060 1750, 900 1270
-            C 740 780, 1080 290, 1530 470
-            C 1990 650, 2130 1150, 1710 1460
-            C 1290 1770, 1230 2340, 1780 2500
-            C 2330 2660, 2520 2100, 3040 1760
-            C 3300 1590, 3370 1980, 3490 2230
+            M 180 390
+            C 430 150, 770 125, 985 245
+            C 1190 360, 1125 585, 880 790
+            C 625 1005, 310 1210, 205 1420
+            C 105 1625, 250 1710, 470 1540
+            C 720 1345, 995 1015, 1255 760
+            C 1515 505, 1780 315, 1945 375
+            C 2110 435, 1985 705, 1770 985
+            C 1545 1275, 1265 1580, 1080 1830
+            C 895 2075, 900 2200, 1060 2110
+            C 1270 1990, 1525 1670, 1775 1430
+            C 2035 1180, 2290 1010, 2435 1085
+            C 2590 1165, 2455 1430, 2260 1715
+            C 2070 1990, 1860 2260, 1845 2455
+            C 1830 2645, 2025 2570, 2250 2380
+            C 2485 2180, 2720 1970, 2925 1810
+            C 3080 1690, 3185 1760, 3265 1910
+            C 3350 2070, 3395 2320, 3485 2575
           "
         />
       </svg>
 
       <div
-        ref={contentRef}
-        className="us-transition-v2__content"
+        ref={logoRef}
+        className="us-snake-loader__logo"
       >
-        <div className="us-transition-v2__icon-wrap">
-          <div className="us-transition-v2__glow" />
+        <img
+          className="us-snake-loader__icon"
+          src="/icons/icon.png"
+          alt=""
+        />
 
-          <img
-            className="us-transition-v2__icon"
-            src="/icons/icon.png"
-            alt=""
-          />
-        </div>
-
-        <h1 className="us-transition-v2__title">
+        <div className="us-snake-loader__name">
           Us
-        </h1>
-
-        <p className="us-transition-v2__subtitle">
-          Không gian của hai đứa
-          <span className="us-transition-v2__heart">
-            ♥
-          </span>
-        </p>
+        </div>
       </div>
     </div>
   );
