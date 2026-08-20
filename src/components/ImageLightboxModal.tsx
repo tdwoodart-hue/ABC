@@ -31,6 +31,8 @@ import {
 
 import { isVideoUrl } from '../utils/mediaHelper';
 
+const SHOW_VIEWER_EXTRAS = false;
+
 interface ImageLightboxModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -564,52 +566,58 @@ export const ImageLightboxModal: React.FC<
                 )}
             </div>
 
-            <button
-              type="button"
-              onClick={handleClose}
-              className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-500 shadow-sm transition hover:bg-slate-100 hover:text-slate-800 active:scale-95"
-              aria-label="Đóng"
-            >
-              <X className="h-4.5 w-4.5" />
-            </button>
+            {SHOW_VIEWER_EXTRAS && (
+              <button
+                type="button"
+                onClick={handleClose}
+                className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-500 shadow-sm transition hover:bg-slate-100 hover:text-slate-800 active:scale-95"
+                aria-label="Đóng"
+              >
+                <X className="h-4.5 w-4.5" />
+              </button>
+            )}
           </div>
 
-          {/* Mobile/desktop row 2: compact actions */}
-          <div className="mt-3 flex items-center gap-2 pl-[50px] sm:pl-[52px]">
-            <button
-              type="button"
-              onClick={handleSetMain}
-              disabled={
-                settingMainImage
-              }
-              className={`flex h-9 items-center gap-1.5 rounded-2xl border px-3 text-xs font-bold shadow-sm transition active:scale-[0.98] ${
-                isCurrentMain
-                  ? 'border-amber-200 bg-amber-100 text-amber-900'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              <Star
-                className={`h-4 w-4 ${
+          {SHOW_VIEWER_EXTRAS && (
+            <>
+            {/* Mobile/desktop row 2: compact actions */}
+            <div className="mt-3 flex items-center gap-2 pl-[50px] sm:pl-[52px]">
+              <button
+                type="button"
+                onClick={handleSetMain}
+                disabled={
+                  settingMainImage
+                }
+                className={`flex h-9 items-center gap-1.5 rounded-2xl border px-3 text-xs font-bold shadow-sm transition active:scale-[0.98] ${
                   isCurrentMain
-                    ? 'fill-amber-500 text-amber-500'
-                    : 'text-amber-500'
+                    ? 'border-amber-200 bg-amber-100 text-amber-900'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                 }`}
-              />
-              <span>
-                Ảnh chính
-              </span>
-            </button>
-
-            <div className="flex h-9 items-center gap-1.5 rounded-2xl border border-rose-100 bg-rose-50 px-3 text-xs font-bold text-rose-600 shadow-sm">
-              <MessageSquare className="h-4 w-4 text-rose-500" />
-              <span>
-                Bình luận
-              </span>
-              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
-                {rawComments.length}
-              </span>
+              >
+                <Star
+                  className={`h-4 w-4 ${
+                    isCurrentMain
+                      ? 'fill-amber-500 text-amber-500'
+                      : 'text-amber-500'
+                  }`}
+                />
+                <span>
+                  Ảnh chính
+                </span>
+              </button>
+  
+              <div className="flex h-9 items-center gap-1.5 rounded-2xl border border-rose-100 bg-rose-50 px-3 text-xs font-bold text-rose-600 shadow-sm">
+                <MessageSquare className="h-4 w-4 text-rose-500" />
+                <span>
+                  Bình luận
+                </span>
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                  {rawComments.length}
+                </span>
+              </div>
             </div>
-          </div>
+            </>
+          )}
         </header>
 
         {/* =====================================================
@@ -751,7 +759,8 @@ export const ImageLightboxModal: React.FC<
                         </span>
                       )}
 
-                      {index ===
+                      {SHOW_VIEWER_EXTRAS &&
+                        index ===
                         currentMainIndex && (
                         <span className="absolute right-1 top-1 rounded-full bg-amber-400 p-0.5">
                           <Star className="h-2.5 w-2.5 fill-slate-900 text-slate-900" />

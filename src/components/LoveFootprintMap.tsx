@@ -96,8 +96,8 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
   const [selectedFootprint, setSelectedFootprint] = useState<MapFootprintItem | null>(null);
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<'all' | 'date' | 'travel' | 'cafe' | 'special'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showLoveTrail, setShowLoveTrail] = useState(true);
-  const [mapTheme, setMapTheme] = useState<'pastel' | 'satellite' | 'streets'>('pastel');
+  const [showLoveTrail, setShowLoveTrail] = useState(false);
+  const [mapTheme, setMapTheme] = useState<'pastel' | 'satellite' | 'streets'>('satellite');
   const [currentActivePhotoIndex, setCurrentActivePhotoIndex] = useState(0);
 
   // Unlocated Memories banner toggle
@@ -482,6 +482,35 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
     }
   }, [filteredFootprints, selectedFootprint, showLoveTrail]);
 
+  // Auto-fit all currently visible footprints whenever the map opens or filters/search change.
+  // Keep every photo pin centered in the visible map area without requiring manual zoom.
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || filteredFootprints.length === 0) return;
+
+    const timer = window.setTimeout(() => {
+      map.invalidateSize();
+
+      if (filteredFootprints.length === 1) {
+        const only = filteredFootprints[0];
+        map.setView([only.lat, only.lng], 15, { animate: true });
+        return;
+      }
+
+      const bounds = L.latLngBounds(
+        filteredFootprints.map((item) => [item.lat, item.lng] as [number, number])
+      );
+
+      map.fitBounds(bounds, {
+        padding: [60, 60],
+        maxZoom: 14,
+        animate: true,
+      });
+    }, 150);
+
+    return () => window.clearTimeout(timer);
+  }, [filteredFootprints]);
+
   // Quick pinpoint / correct location for an unlocated memory
   const handleSaveFixingLocation = async (data: SelectedLocationResult) => {
     if (!fixingJournal || !coupleId) return;
@@ -587,7 +616,7 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
       };
 
       const docRef = await addDoc(placesRef, placeData);
-      
+
       // Reset form
       setNewSpotTitle('');
       setNewSpotLocation('');
@@ -627,10 +656,10 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
 
   return (
     <div className="relative w-full rounded-3xl overflow-hidden border border-slate-200/90 shadow-xl bg-white flex flex-col h-[750px] sm:h-[820px]">
-      
+
       {/* 1. Header Toolbar */}
       <div className="p-3.5 sm:p-4 bg-white/95 backdrop-blur-md border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 z-10 shrink-0">
-        
+
         {/* Left: Title & Stats */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center font-bold shadow-2xs">
@@ -754,7 +783,7 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
 
       {/* 3. Category Filter Chips & Map Controls Ribbon */}
       <div className="px-3.5 py-2 bg-slate-50/90 border-b border-slate-100 flex items-center justify-between gap-2 overflow-x-auto z-10 shrink-0">
-        
+
         {/* Category Pills */}
         <div className="flex items-center gap-1.5 shrink-0">
           {[
@@ -853,7 +882,7 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
         {/* 5. Selected Footprint Details Slide-Up Card */}
         {selectedFootprint && (
           <div className="absolute bottom-3 right-3 left-3 sm:left-auto sm:w-96 max-h-[75vh] bg-white rounded-3xl border border-slate-200 shadow-2xl z-30 overflow-hidden flex flex-col animate-slideUp">
-            
+
             {/* Card Header with Category & Close */}
             <div className="p-3.5 bg-gradient-to-r from-rose-50/80 to-white border-b border-slate-100 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
@@ -878,7 +907,7 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
 
             {/* Scrollable Body */}
             <div className="p-4 space-y-3 overflow-y-auto flex-1 text-xs">
-              
+
               {/* Title & Location Name */}
               <div>
                 <h3 className="text-sm font-bold text-slate-900 leading-snug">
@@ -1030,7 +1059,7 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
           <div className="bg-white w-full max-w-lg rounded-3xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-            
+
             {/* Modal Header */}
             <div className="p-4 bg-white border-b border-slate-100 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
@@ -1057,7 +1086,7 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
 
             {/* Modal Form Content */}
             <form onSubmit={handleAddCustomSpotSubmit} className="p-4 space-y-3.5 overflow-y-auto flex-1 text-xs">
-              
+
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Tên địa điểm / Quán cafe / Khách sạn: *
