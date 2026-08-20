@@ -99,6 +99,35 @@ export const ImageLightboxModal: React.FC<
       'newest'
     );
 
+  const handleClose = () => {
+    /*
+     * /journal/6 represents this detail modal itself.
+     * Closing the modal must therefore return directly to /journal.
+     */
+    if (
+      typeof window !== 'undefined' &&
+      /^\/journal\/[1-9]\d*\/?$/.test(
+        window.location.pathname
+      )
+    ) {
+      window.history.replaceState(
+        null,
+        '',
+        '/journal'
+      );
+
+      /*
+       * replaceState does not emit popstate by itself.
+       * Dispatch it so JournalTab clears requestedPostNumber.
+       */
+      window.dispatchEvent(
+        new PopStateEvent('popstate')
+      );
+    }
+
+    onClose();
+  };
+
   const imageList = useMemo<string[]>(
     () => {
       if (!journal) return [];
@@ -271,7 +300,7 @@ export const ImageLightboxModal: React.FC<
       if (
         event.key === 'Escape'
       ) {
-        onClose();
+        handleClose();
       } else if (
         event.key ===
         'ArrowLeft'
@@ -300,7 +329,7 @@ export const ImageLightboxModal: React.FC<
     isOpen,
     currentIndex,
     imageList.length,
-    onClose,
+    handleClose,
   ]);
 
   if (
@@ -468,7 +497,7 @@ export const ImageLightboxModal: React.FC<
           <div className="flex items-start gap-2.5">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-700 shadow-sm transition hover:bg-slate-100 active:scale-95"
               aria-label="Quay lại"
             >
@@ -537,7 +566,7 @@ export const ImageLightboxModal: React.FC<
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-500 shadow-sm transition hover:bg-slate-100 hover:text-slate-800 active:scale-95"
               aria-label="Đóng"
             >

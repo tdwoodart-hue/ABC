@@ -2,6 +2,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -25,10 +26,7 @@ import { JournalFilters } from './journal/JournalFilters';
 import { JournalCard } from './journal/JournalCard';
 
 import {
-  ArrowLeft,
   BookOpen,
-  Link2,
-  Loader2,
   RotateCcw,
 } from 'lucide-react';
 
@@ -340,6 +338,9 @@ export const JournalTab:
     ] = useState<number | null>(
       () => getJournalPathPostNumber()
     );
+
+    const openedRouteRef =
+      useRef<string | null>(null);
 
     const [
       assigningPostNumbers,
@@ -665,23 +666,10 @@ export const JournalTab:
         requestedPostNumber,
       ]);
 
-    const numberingComplete =
-      useMemo(
-        () =>
-          journals.length === 0 ||
-          journals.every(
-            (journal) =>
-              Boolean(
-                getPostNumber(
-                  journal
-                )
-              )
-          ),
-        [journals]
-      );
-
     /*
-     * Keep /journal/:postNumber synced with the selected journal.
+     * Direct URL support:
+     * opening /journal/6 must open the REAL detail modal immediately,
+     * without rendering an intermediate JournalCard page.
      */
     useEffect(() => {
       if (
@@ -694,31 +682,29 @@ export const JournalTab:
 
       setJournalViewTab('feed');
 
-      const targetPath =
-        `/journal/${requestedPostNumber}`;
+      const routeKey =
+        `${routeJournal.id}:${requestedPostNumber}`;
 
       if (
-        window.location.pathname !==
-        targetPath
+        openedRouteRef.current ===
+        routeKey
       ) {
-        window.history.replaceState(
-          {
-            journalPost:
-              requestedPostNumber,
-          },
-          '',
-          targetPath
-        );
+        return;
       }
 
-      window.scrollTo({
-        top: 0,
-        behavior: 'auto',
-      });
+      openedRouteRef.current =
+        routeKey;
+
+      onOpenLightbox(
+        routeJournal,
+        routeJournal.mainImageIndex ??
+          0
+      );
     }, [
       requestedPostNumber,
       routeJournal,
       setJournalViewTab,
+      onOpenLightbox,
     ]);
 
     /*
@@ -729,9 +715,19 @@ export const JournalTab:
     useEffect(() => {
       const handlePopState =
         () => {
+          const nextPostNumber =
+            getJournalPathPostNumber();
+
           setRequestedPostNumber(
-            getJournalPathPostNumber()
+            nextPostNumber
           );
+
+          if (
+            nextPostNumber === null
+          ) {
+            openedRouteRef.current =
+              null;
+          }
 
           window.scrollTo({
             top: 0,
@@ -752,11 +748,11 @@ export const JournalTab:
       };
     }, []);
 
-    const navigateToPost =
+    const openPostDetail =
       useCallback(
         async (
           journal: JournalEntry,
-          pushHistory = true
+          imageIndex = 0
         ) => {
           try {
             const postNumber =
@@ -767,29 +763,28 @@ export const JournalTab:
             const targetPath =
               `/journal/${postNumber}`;
 
+            const routeKey =
+              `${journal.id}:${postNumber}`;
+
+            /*
+             * Mark before changing route so the direct-route effect
+             * does not open the same modal a second time.
+             */
+            openedRouteRef.current =
+              routeKey;
+
             if (
               window.location.pathname !==
               targetPath
             ) {
-              if (pushHistory) {
-                window.history.pushState(
-                  {
-                    journalPost:
-                      postNumber,
-                  },
-                  '',
-                  targetPath
-                );
-              } else {
-                window.history.replaceState(
-                  {
-                    journalPost:
-                      postNumber,
-                  },
-                  '',
-                  targetPath
-                );
-              }
+              window.history.pushState(
+                {
+                  journalPost:
+                    postNumber,
+                },
+                '',
+                targetPath
+              );
             }
 
             setRequestedPostNumber(
@@ -800,23 +795,23 @@ export const JournalTab:
               'feed'
             );
 
-            window.scrollTo({
-              top: 0,
-              behavior: 'smooth',
-            });
-
-            return postNumber;
+            /*
+             * ONE click = ONE detail layer.
+             */
+            onOpenLightbox(
+              journal,
+              imageIndex
+            );
           } catch (error) {
             console.error(
-              'Không thể mở URL bài viết:',
+              'Không thể mở bài viết:',
               error
             );
-
-            return null;
           }
         },
         [
           ensurePostNumber,
+          onOpenLightbox,
           setJournalViewTab,
         ]
       );
@@ -826,11 +821,13 @@ export const JournalTab:
         (
           journal: JournalEntry
         ) => {
-          void navigateToPost(
-            journal
+          void openPostDetail(
+            journal,
+            journal.mainImageIndex ??
+              0
           );
         },
-        [navigateToPost]
+        [openPostDetail]
       );
 
     const handleOpenPostMedia =
@@ -839,214 +836,13 @@ export const JournalTab:
           journal: JournalEntry,
           imageIndex = 0
         ) => {
-          const currentNumber =
-            getPostNumber(
-              journal
-            );
-
-          /*
-           * If already inside this post route, do not create
-           * another history entry just because a photo was opened.
-           */
-          if (
-            currentNumber &&
-            requestedPostNumber ===
-              currentNumber
-          ) {
-            onOpenLightbox(
-              journal,
-              imageIndex
-            );
-
-            return;
-          }
-
-          void navigateToPost(
-            journal
-          ).then(
-            (
-              postNumber
-            ) => {
-              if (
-                postNumber
-              ) {
-                onOpenLightbox(
-                  journal,
-                  imageIndex
-                );
-              }
-            }
+          void openPostDetail(
+            journal,
+            imageIndex
           );
         },
-        [
-          navigateToPost,
-          onOpenLightbox,
-          requestedPostNumber,
-        ]
+        [openPostDetail]
       );
-
-    const leaveSinglePost =
-      useCallback(() => {
-        setRequestedPostNumber(
-          null
-        );
-
-        setJournalViewTab('feed');
-
-        if (
-          window.location.pathname !==
-          '/journal'
-        ) {
-          window.history.replaceState(
-            null,
-            '',
-            '/journal'
-          );
-        }
-
-        window.scrollTo({
-          top: 0,
-          behavior: 'smooth',
-        });
-      }, [setJournalViewTab]);
-
-    /*
-     * SINGLE POST PAGE: /journal/1, /journal/2, /journal/3...
-     */
-    if (
-      requestedPostNumber !==
-      null
-    ) {
-      if (!routeJournal) {
-        const stillPreparing =
-          assigningPostNumbers ||
-          !numberingComplete;
-
-        return (
-          <section className="space-y-4">
-            <button
-              type="button"
-              onClick={
-                leaveSinglePost
-              }
-              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Nhật ký
-            </button>
-
-            <div className="rounded-3xl border border-slate-200/80 bg-white px-5 py-12 text-center shadow-sm">
-              {stillPreparing ? (
-                <>
-                  <Loader2 className="mx-auto h-7 w-7 animate-spin text-rose-500" />
-
-                  <h3 className="mt-3 text-sm font-bold text-slate-800">
-                    Đang mở bài /journal/
-                    {
-                      requestedPostNumber
-                    }
-                  </h3>
-                </>
-              ) : (
-                <>
-                  <Link2 className="mx-auto h-7 w-7 text-slate-300" />
-
-                  <h3 className="mt-3 text-sm font-bold text-slate-800">
-                    Không tìm thấy bài /journal/
-                    {
-                      requestedPostNumber
-                    }
-                  </h3>
-
-                  <p className="mt-1 text-xs text-slate-500">
-                    Bài có thể đã bị
-                    xóa hoặc đường dẫn
-                    không tồn tại.
-                  </p>
-                </>
-              )}
-            </div>
-          </section>
-        );
-      }
-
-      return (
-        <section className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={
-                leaveSinglePost
-              }
-              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Nhật ký
-            </button>
-
-            <div className="rounded-full border border-rose-100 bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600">
-              /
-              {
-                requestedPostNumber
-              }
-            </div>
-          </div>
-
-          <JournalCard
-            item={routeJournal}
-            userProfile={
-              userProfile
-            }
-            coupleData={
-              coupleData
-            }
-            selectedCompanionFilter={
-              selectedCompanionFilter
-            }
-            commentInput={
-              commentInputs[
-                routeJournal.id
-              ] || ''
-            }
-            onCompanionClick={(
-              companionId
-            ) =>
-              setSelectedCompanionFilter(
-                selectedCompanionFilter ===
-                  companionId
-                  ? null
-                  : companionId
-              )
-            }
-            onOpenPost={
-              handleOpenPost
-            }
-            onOpenLightbox={
-              handleOpenPostMedia
-            }
-            onStartEdit={
-              onStartEditJournal
-            }
-            onRequestDelete={
-              onRequestDeleteJournal
-            }
-            onApproveDelete={
-              onApproveDeleteJournal
-            }
-            onCancelDeleteRequest={
-              onCancelDeleteRequest
-            }
-            onCommentInputChange={
-              onCommentInputChange
-            }
-            onAddComment={
-              onAddComment
-            }
-            singlePostView
-          />
-        </section>
-      );
-    }
 
     return (
       <section
