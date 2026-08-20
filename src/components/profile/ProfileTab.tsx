@@ -1,6 +1,7 @@
 // PROFILE_TAB_IMPORTS_FIXED_V2
 import React from 'react';
 import {
+  Bell,
   Calendar,
   Cake,
   Camera,
@@ -20,6 +21,7 @@ import {
 
 import { Companion, CoupleData, UserProfile } from '../../types';
 import { formatDateVN } from '../../utils/formatDate';
+import { requestAndShowTestNotification } from '../../utils/notifications';
 
 interface ProfileTabProps {
   userProfile: UserProfile;
@@ -99,6 +101,28 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       'https://api.dicebear.com/7.x/micah/svg?seed=chucga_female&hair=donna,straight&eyes=eyes&mouth=smile'
     : coupleData?.user1Avatar ||
       'https://api.dicebear.com/7.x/micah/svg?seed=duong_male&hair=fonze&eyes=eyes&mouth=smile';
+
+  const [testingNotification, setTestingNotification] = React.useState(false);
+  const [notificationStatus, setNotificationStatus] = React.useState<string | null>(null);
+
+  const handleTestNotification = async () => {
+    if (testingNotification) return;
+
+    setTestingNotification(true);
+    setNotificationStatus(null);
+
+    try {
+      const result = await requestAndShowTestNotification();
+      setNotificationStatus(result.message);
+    } catch (error: any) {
+      console.error('Notification test failed:', error);
+      setNotificationStatus(
+        error?.message || 'Không thể thử thông báo trên thiết bị này.'
+      );
+    } finally {
+      setTestingNotification(false);
+    }
+  };
 
   return (
     <div className="space-y-4 pb-12 max-w-4xl mx-auto">
@@ -557,6 +581,35 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           >
             Quản lý
           </button>
+        </div>
+
+        <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-200/70 space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <Bell className="w-3.5 h-3.5 text-indigo-600" />
+                Thông báo như app
+              </p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Thử notification hệ thống trên điện thoại này.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleTestNotification}
+              disabled={testingNotification}
+              className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold cursor-pointer shrink-0 disabled:opacity-50"
+            >
+              {testingNotification ? 'Đang thử...' : 'Thử thông báo'}
+            </button>
+          </div>
+
+          {notificationStatus && (
+            <p className="text-[11px] text-indigo-800 bg-white/70 border border-indigo-100 rounded-lg px-2.5 py-2">
+              {notificationStatus}
+            </p>
+          )}
         </div>
       </div>
 
