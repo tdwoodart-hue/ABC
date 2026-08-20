@@ -23,6 +23,39 @@ body {
 #root {
   width: 100%;
   min-height: 100vh;
+  box-sizing: border-box;
+}
+
+/*
+ * IMPORTANT — iPhone Home Screen / PWA safe area
+ *
+ * The app uses viewport-fit=cover. In standalone mode iOS can therefore
+ * expose the area behind the status bar / Dynamic Island.
+ *
+ * Apply the top inset to the REAL app root instead of relying on unused
+ * helper classes. The extra 6px gives the header a little breathing room.
+ *
+ * This only applies when the website is launched as an installed app,
+ * so normal desktop/browser layout is not pushed down.
+ */
+@media (display-mode: standalone) {
+  #root {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 6px);
+  }
+}
+
+/*
+ * iOS Safari added support for the legacy standalone flag before
+ * display-mode media queries were fully reliable. This classless
+ * fallback is harmless: when there is no safe-area inset it contributes 0.
+ */
+@supports (padding-top: env(safe-area-inset-top)) {
+  @media (max-width: 767px) and (pointer: coarse) {
+    html {
+      --ios-safe-top: env(safe-area-inset-top, 0px);
+      --ios-safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+  }
 }
 
 /* Use the real dynamic viewport height on modern iPhone Safari/PWA. */
@@ -53,7 +86,7 @@ a,
   touch-action: manipulation;
 }
 
-/* Respect iPhone notch / Dynamic Island when content reaches screen edges. */
+/* Reusable helpers for modals / special full-screen views. */
 .ios-safe-top {
   padding-top: env(safe-area-inset-top, 0px);
 }
