@@ -1,4 +1,4 @@
-// LoadingSplash.tsx — TRUUS-PROPORTION VERSION
+// LoadingSplash.tsx — FIX_FROM_EXACT_UPLOADED_FILE_20260820
 // Replace: src/components/LoadingSplash.tsx
 import React, { useEffect, useRef, useState } from 'react';
 
@@ -36,6 +36,7 @@ export const LoadingSplash: React.FC<LoadingSplashProps> = ({
 }) => {
   const pathRef = useRef<SVGPathElement | null>(null);
   const logoRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   const animationFrameRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
@@ -203,6 +204,15 @@ export const LoadingSplash: React.FC<LoadingSplashProps> = ({
 
     exitStartedRef.current = true;
 
+    // FIX_FROM_UPLOADED_FILE_20260820:
+    // The root loader background (#fff7f8) used to stay on top of Home
+    // during the whole exit animation, which caused the blank pale screen.
+    // Keep the intro exactly the same, but reveal Home underneath
+    // the moment the snake starts sliding out.
+    if (containerRef.current) {
+      containerRef.current.style.background = 'transparent';
+    }
+
     const length = path.getTotalLength();
     const totalLength = length + 5;
 
@@ -267,6 +277,7 @@ export const LoadingSplash: React.FC<LoadingSplashProps> = ({
 
   return (
     <div
+      ref={containerRef}
       className="us-snake-loader"
       role="status"
       aria-label="Đang mở Us"
