@@ -14,7 +14,11 @@ export interface CameraLocationMetadata {
 interface CameraCaptureModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCapture: (imageDataUrl: string, locationData?: CameraLocationMetadata) => void;
+  onCapture: (
+    imageDataUrl: string,
+    autoLocation?: string,
+    locationData?: CameraLocationMetadata
+  ) => void;
 }
 
 export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
@@ -30,7 +34,7 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  
+
   // High-accuracy GPS metadata
   const [gpsMetadata, setGpsMetadata] = useState<CameraLocationMetadata | null>(null);
   const [locating, setLocating] = useState(false);
@@ -136,7 +140,7 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
 
     const video = videoRef.current;
     const canvas = canvasRef.current || document.createElement('canvas');
-    
+
     // Calculate optimal dimensions (max 960px to guarantee < 150KB size while maintaining sharp clarity)
     const MAX_DIMENSION = 960;
     let rawWidth = video.videoWidth || 1280;
@@ -185,7 +189,13 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
   // Confirm photo
   const handleConfirm = () => {
     if (!capturedImage) return;
-    onCapture(capturedImage, gpsMetadata || undefined);
+
+    // LightHomeScreen expects:
+    // arg 1 = image data URL
+    // arg 2 = optional legacy location string
+    // arg 3 = structured GPS metadata
+    // Passing metadata as arg 2 caused [object Object] to be saved as the address.
+    onCapture(capturedImage, undefined, gpsMetadata || undefined);
     onClose();
   };
 
@@ -197,7 +207,7 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
       className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 animate-fadeIn select-none"
     >
       <div className="bg-slate-900 w-full max-w-lg rounded-3xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[95vh] text-white">
-        
+
         {/* Header */}
         <div className="p-3.5 sm:p-4 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
