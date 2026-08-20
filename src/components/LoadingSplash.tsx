@@ -19,6 +19,16 @@ const DRAW_OUT_MS = 2700;
 const START_STROKE = 8;
 const MAX_STROKE = 35.5;
 
+const INTRO_THEMES = [
+  { accent: '#fb7185', background: '#fff7f8' }, // rose
+  { accent: '#8b5cf6', background: '#f8f5ff' }, // violet
+  { accent: '#38bdf8', background: '#f3fbff' }, // sky
+  { accent: '#34d399', background: '#f3fcf8' }, // mint
+  { accent: '#f59e0b', background: '#fffaf0' }, // amber
+  { accent: '#f472b6', background: '#fff5fb' }, // pink
+  { accent: '#6366f1', background: '#f5f6ff' }, // indigo
+] as const;
+
 const clamp01 = (value: number) =>
   Math.max(0, Math.min(1, value));
 
@@ -43,6 +53,11 @@ export const LoadingSplash: React.FC<LoadingSplashProps> = ({
   const exitStartedRef = useRef(false);
 
   const [covered, setCovered] = useState(false);
+
+  const introThemeRef = useRef(
+    INTRO_THEMES[Math.floor(Math.random() * INTRO_THEMES.length)]
+  );
+  const introTheme = introThemeRef.current;
 
   const cancelFrame = () => {
     if (animationFrameRef.current !== null) {
@@ -111,9 +126,9 @@ export const LoadingSplash: React.FC<LoadingSplashProps> = ({
 
     path.style.opacity = '1';
 
-    logo.style.opacity = '0';
+    logo.style.opacity = '1';
     logo.style.transform =
-      'translate(-50%, -50%) scale(.9) rotate(-2deg)';
+      'translate(-50%, -50%) scale(.96) rotate(-4deg)';
 
     runAnimation(
       DRAW_IN_MS,
@@ -134,27 +149,19 @@ export const LoadingSplash: React.FC<LoadingSplashProps> = ({
           `${stroke}%`;
 
         /*
-         * Logo appears only after the snake has already covered
-         * most of the center. Small and understated.
+         * Logo is visible from frame 1 and starts wiggling immediately.
+         * Keep the movement playful but subtle so it does not feel noisy.
          */
-        const logoP = clamp01(
-          (raw - 0.52) / 0.22
-        );
+        const introLogoP = easeOut(raw);
+        const wiggle =
+          Math.sin(raw * Math.PI * 10) * (3.2 - 1.2 * introLogoP);
 
-        if (logoP > 0) {
-          const eased = easeOut(logoP);
+        const logoScale =
+          0.96 + 0.07 * introLogoP;
 
-          logo.style.opacity = `${eased}`;
-
-          const scale =
-            0.9 + 0.1 * eased;
-
-          const rotate =
-            -2 + 2 * eased;
-
-          logo.style.transform =
-            `translate(-50%, -50%) scale(${scale}) rotate(${rotate}deg)`;
-        }
+        logo.style.opacity = '1';
+        logo.style.transform =
+          `translate(-50%, -50%) scale(${logoScale}) rotate(${wiggle}deg)`;
       },
       () => {
         path.style.strokeDashoffset = '0px';
@@ -163,7 +170,7 @@ export const LoadingSplash: React.FC<LoadingSplashProps> = ({
 
         logo.style.opacity = '1';
         logo.style.transform =
-          'translate(-50%, -50%) scale(1) rotate(0deg)';
+          'translate(-50%, -50%) scale(1.03) rotate(0deg)';
 
         setCovered(true);
       }
@@ -281,6 +288,7 @@ export const LoadingSplash: React.FC<LoadingSplashProps> = ({
       className="us-snake-loader"
       role="status"
       aria-label="Đang mở Us"
+      style={{ background: introTheme.background }}
     >
       <style>{`
         .us-snake-loader {
@@ -379,8 +387,8 @@ export const LoadingSplash: React.FC<LoadingSplashProps> = ({
         .us-snake-loader__icon {
           display: block;
 
-          width: 62px;
-          height: 62px;
+          width: 78px;
+          height: 78px;
 
           object-fit: cover;
 
@@ -400,7 +408,7 @@ export const LoadingSplash: React.FC<LoadingSplashProps> = ({
 
           color: #172033;
 
-          font-size: 21px;
+          font-size: 23px;
           line-height: 1;
 
           font-weight: 850;
@@ -409,14 +417,14 @@ export const LoadingSplash: React.FC<LoadingSplashProps> = ({
 
         @media (min-width: 768px) {
           .us-snake-loader__icon {
-            width: 72px;
-            height: 72px;
+            width: 90px;
+            height: 90px;
             border-radius: 20px;
           }
 
           .us-snake-loader__name {
             margin-top: 10px;
-            font-size: 23px;
+            font-size: 25px;
           }
         }
 
@@ -430,6 +438,7 @@ export const LoadingSplash: React.FC<LoadingSplashProps> = ({
 
       <svg
         className="us-snake-loader__svg"
+        style={{ color: introTheme.accent }}
         viewBox="0 0 3222 3114"
         fill="none"
         preserveAspectRatio="none"
