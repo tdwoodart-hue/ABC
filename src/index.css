@@ -1,6 +1,71 @@
 @import "tailwindcss";
 
-/* Leaflet Container & Layout Resets */
+/* =========================================================
+   iPhone / iOS web-app stability
+   ========================================================= */
+
+html {
+  width: 100%;
+  min-height: 100%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  background: #f8fafc;
+}
+
+body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  overflow-x: hidden;
+  background: #f8fafc;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Use the real dynamic viewport height on modern iPhone Safari/PWA. */
+@supports (min-height: 100dvh) {
+  #root {
+    min-height: 100dvh;
+  }
+}
+
+/*
+ * iOS Safari automatically zooms when an input's rendered font size is
+ * smaller than 16px. The project currently contains many text-xs inputs,
+ * so force form controls to 16px only on phone-sized touch screens.
+ * This does NOT enlarge normal labels/cards.
+ */
+@media (max-width: 767px) and (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Prevent double-tap zoom on buttons/links while keeping normal scrolling. */
+button,
+a,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+/* Respect iPhone notch / Dynamic Island when content reaches screen edges. */
+.ios-safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.ios-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* =========================================================
+   Existing Leaflet styles
+   ========================================================= */
+
 .leaflet-container {
   width: 100% !important;
   height: 100% !important;
@@ -17,7 +82,7 @@
   visibility: inherit !important;
 }
 
-.leaflet-top, 
+.leaflet-top,
 .leaflet-bottom {
   z-index: 20 !important;
 }

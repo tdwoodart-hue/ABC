@@ -1,19 +1,46 @@
 <!doctype html>
-<html lang="en">
+<html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
-    <meta name="description" content="An application built with Google AI Studio." />
-    <meta property="og:title" content="My Google AI Studio App" />
-    <meta property="og:description" content="An application built with Google AI Studio." />
+
+    <!-- iPhone / iOS standalone + stable viewport -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+
+    <!-- Launch from Home Screen without Safari browser chrome -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Us" />
+
+    <!-- iOS UI -->
+    <meta name="theme-color" content="#fff1f2" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <title>Us — Couple App</title>
+    <meta
+      name="description"
+      content="Không gian riêng lưu giữ những kỷ niệm của hai đứa."
+    />
+
+    <meta property="og:title" content="Us — Couple App" />
+    <meta
+      property="og:description"
+      content="Không gian riêng lưu giữ những kỷ niệm của hai đứa."
+    />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
   </head>
+
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
