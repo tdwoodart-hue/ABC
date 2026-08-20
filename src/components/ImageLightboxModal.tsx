@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { JournalEntry, UserProfile, ImageComment, CoupleData } from '../types';
 import { formatDateTimeVN, formatDateVN } from '../utils/formatDate';
+import { isVideoUrl } from '../utils/mediaHelper';
 import { checkIsAdmin } from '../lib/firebase';
 import {
   ArrowLeft,
@@ -20,7 +21,8 @@ import {
   Image as ImageIcon,
   ChevronDown,
   Camera,
-  Users
+  Users,
+  Play
 } from 'lucide-react';
 
 interface ImageLightboxModalProps {
@@ -296,14 +298,25 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
           </div>
         </header>
 
-        {/* Rounded Image Container (Tightly wraps photo with rounded-3xl and clean border, NO white letterboxing gaps) */}
+        {/* Rounded Image / Video Container */}
         <div className="relative w-full flex justify-center shrink-0">
-          <div className="relative max-w-full rounded-3xl overflow-hidden shadow-sm border border-slate-200/80 group">
-            <img
-              src={currentImageUrl}
-              alt={`Kỷ niệm ${currentIndex + 1}`}
-              className="max-h-[68vh] sm:max-h-[72vh] w-auto max-w-full object-contain rounded-3xl block"
-            />
+          <div className="relative max-w-full rounded-3xl overflow-hidden shadow-sm border border-slate-200/80 group bg-slate-900 flex items-center justify-center">
+            {isVideoUrl(currentImageUrl) ? (
+              <video
+                key={currentImageUrl}
+                src={currentImageUrl}
+                controls
+                playsInline
+                autoPlay
+                className="max-h-[68vh] sm:max-h-[72vh] w-auto max-w-full rounded-3xl block bg-black"
+              />
+            ) : (
+              <img
+                src={currentImageUrl}
+                alt={`Kỷ niệm ${currentIndex + 1}`}
+                className="max-h-[68vh] sm:max-h-[72vh] w-auto max-w-full object-contain rounded-3xl block"
+              />
+            )}
 
             {/* Left / Right Floating Navigation Buttons */}
             {imageList.length > 1 && (
@@ -311,8 +324,8 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                 <button
                   type="button"
                   onClick={handlePrev}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 hover:bg-black/65 text-white backdrop-blur-xs flex items-center justify-center transition cursor-pointer shadow-md"
-                  title="Ảnh trước"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 hover:bg-black/65 text-white backdrop-blur-xs flex items-center justify-center transition cursor-pointer shadow-md z-10"
+                  title="Ảnh / Video trước"
                 >
                   <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
@@ -320,42 +333,61 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 hover:bg-black/65 text-white backdrop-blur-xs flex items-center justify-center transition cursor-pointer shadow-md"
-                  title="Ảnh tiếp theo"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 hover:bg-black/65 text-white backdrop-blur-xs flex items-center justify-center transition cursor-pointer shadow-md z-10"
+                  title="Ảnh / Video tiếp theo"
                 >
                   <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
               </>
             )}
 
-            {/* Photo indicator (e.g. 1/3) if multiple photos */}
+            {/* Media indicator (e.g. 1/3) if multiple photos/videos */}
             {imageList.length > 1 && (
-              <div className="absolute bottom-3 right-3 bg-black/50 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-1 rounded-full">
+              <div className="absolute bottom-3 right-3 bg-black/50 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-1 rounded-full z-10">
                 {currentIndex + 1} / {imageList.length}
               </div>
             )}
           </div>
         </div>
 
-        {/* Thumbnail Selector Strip (if multiple photos) */}
+        {/* Thumbnail Selector Strip (if multiple photos/videos) */}
         {imageList.length > 1 && (
           <div className="flex items-center gap-2 overflow-x-auto py-2.5 px-1 mt-1">
             {imageList.map((img, idx) => {
               const isSelected = idx === currentIndex;
+              const isVid = isVideoUrl(img);
+              const customThumb = journal.videoThumbnails?.[img];
               return (
                 <button
                   key={idx}
                   type="button"
                   onClick={() => setCurrentIndex(idx)}
-                  className={`relative w-14 h-14 rounded-2xl overflow-hidden shrink-0 border-2 transition cursor-pointer ${
+                  className={`relative w-14 h-14 rounded-2xl overflow-hidden shrink-0 border-2 transition cursor-pointer bg-slate-900 ${
                     isSelected
                       ? 'border-rose-500 shadow-md ring-2 ring-rose-300 scale-105'
                       : 'border-white opacity-60 hover:opacity-100 hover:border-slate-300'
                   }`}
                 >
-                  <img src={img} alt={`Thumbnail ${idx}`} className="w-full h-full object-cover" />
+                  {isVid ? (
+                    customThumb ? (
+                      <img src={customThumb} alt={`Thumbnail ${idx}`} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-slate-800 flex items-center justify-center">
+                        <video src={img} className="w-full h-full object-cover opacity-70" preload="metadata" />
+                      </div>
+                    )
+                  ) : (
+                    <img src={img} alt={`Thumbnail ${idx}`} className="w-full h-full object-cover" />
+                  )}
+
+                  {isVid && (
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                      <Play className="w-3.5 h-3.5 text-white fill-white drop-shadow-sm" />
+                    </div>
+                  )}
+
                   {idx === currentMainIndex && (
-                    <div className="absolute top-1 right-1 bg-amber-400 p-0.5 rounded-full shadow-xs">
+                    <div className="absolute top-1 right-1 bg-amber-400 p-0.5 rounded-full shadow-xs z-10">
                       <Star className="w-2.5 h-2.5 fill-slate-900 text-slate-900" />
                     </div>
                   )}

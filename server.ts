@@ -1,13 +1,100 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
+import multer from "multer";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
+
+// Ensure uploads folder exists
+const uploadsDir = path.join(process.cwd(), "public", "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Multer disk storage configuration
+const storageConfig = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname || "") || (file.mimetype?.startsWith("video/") ? ".mp4" : ".jpg");
+    const cleanExt = ext.replace(/[^a-zA-Z0-9.]/g, "").slice(0, 10);
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `${uniqueSuffix}${cleanExt || ".bin"}`);
+  },
+});
+
+const upload = multer({
+  storage: storageConfig,
+  limits: {
+    fileSize: 500 * 1024 * 1024, // 500MB limit for high quality 4K video/long clips
+    files: 20,
+  },
+});
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json({ limit: "15mb" }));
+  app.use(express.json({ limit: "100mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "100mb" }));
+
+  // Serve static uploads with caching and partial content streaming for videos
+  app.use("/uploads", express.static(uploadsDir, {
+    maxAge: "7d",
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".mp4")) {
+        res.setHeader("Content-Type", "video/mp4");
+      } else if (filePath.endsWith(".webm")) {
+        res.setHeader("Content-Type", "video/webm");
+      } else if (filePath.endsWith(".mov")) {
+        res.setHeader("Content-Type", "video/quicktime");
+      }
+      res.setHeader("Accept-Ranges", "bytes");
+    }
+  }));
+
+  // File Upload API for Images and Videos
+  app.post("/api/upload", (req, res) => {
+    upload.array("files", 20)(req, res, (err: any) => {
+      if (err) {
+        console.error("Multer error during upload:", err);
+        return res.status(400).json({ error: err?.message || "Lỗi khi xử lý tệp tin tải lên." });
+      }
+
+      try {
+        const files = req.files as Express.Multer.File[];
+        if (!files || files.length === 0) {
+          return res.status(400).json({ error: "Không tìm thấy tệp để tải lên." });
+        }
+
+        const uploadedFiles = files.map((file) => {
+          const isVideo =
+            file.mimetype?.startsWith("video/") ||
+            [".mp4", ".mov", ".webm", ".m4v", ".avi", ".mkv", ".3gp"].some((ext) =>
+              (file.originalname || "").toLowerCase().endsWith(ext)
+            );
+
+          return {
+            originalName: file.originalname,
+            filename: file.filename,
+            url: `/uploads/${file.filename}`,
+            mimeType: file.mimetype,
+            size: file.size,
+            type: isVideo ? "video" : "image",
+          };
+        });
+
+        return res.json({
+          success: true,
+          files: uploadedFiles,
+        });
+      } catch (innerErr: any) {
+        console.error("Lỗi xử lý file upload:", innerErr);
+        return res.status(500).json({ error: innerErr?.message || "Lỗi lưu trữ tệp tin." });
+      }
+    });
+  });
 
   // Initialize Gemini lazily
   let aiClient: GoogleGenAI | null = null;

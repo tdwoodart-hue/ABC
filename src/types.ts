@@ -154,9 +154,10 @@ export interface JournalEntry {
   location?: string; // Tên địa điểm/Nơi đã đi
   locationAddress?: string; // Địa chỉ chi tiết từ reverse geocoding
   mood?: string;
-  imageUrl?: string; // Ảnh chính / Bìa
-  images?: string[]; // Tất cả ảnh đính kèm
-  mainImageIndex?: number; // Vị trí ảnh chính trong mảng images
+  imageUrl?: string; // Ảnh / Video chính / Bìa
+  images?: string[]; // Tất cả ảnh & video đính kèm
+  mainImageIndex?: number; // Vị trí media chính trong mảng images
+  videoThumbnails?: Record<string, string>; // Thumbnail tương ứng cho video
   expenses?: JournalExpense[];
   taggedPeople?: TaggedPerson[]; // Danh sách người hoặc thú cưng (con mèo, bạn bè...) xuất hiện
   musicUrl?: string; // Link bài hát gắn kèm (YouTube, Spotify, Soundcloud, Zing, MP3...)
