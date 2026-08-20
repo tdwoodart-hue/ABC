@@ -588,10 +588,10 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                 <Bell className="w-3.5 h-3.5 text-indigo-600" />
-                Thông báo như app
+                Thông báo từ người kia
               </p>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Thử notification hệ thống trên điện thoại này.
+                Bật thiết bị này để nhận nhật ký, bình luận và kỷ niệm mới từ người kia.
               </p>
             </div>
 
@@ -601,7 +601,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
               disabled={testingNotification}
               className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold cursor-pointer shrink-0 disabled:opacity-50"
             >
-              {testingNotification ? 'Đang thử...' : 'Thử thông báo'}
+              {testingNotification ? 'Đang bật...' : 'Bật & thử'}
             </button>
           </div>
 

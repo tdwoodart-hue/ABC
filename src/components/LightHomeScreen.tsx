@@ -30,6 +30,7 @@ import {
   syncDeviceToFirestore 
 } from '../utils/deviceHelper';
 import { formatDateVN, formatDateShortVN, formatDateTimeVN } from '../utils/formatDate';
+import { sendPartnerNotification } from '../utils/notifications';
 import { getDeviceHighAccuracyGPS, reverseGeocodeGPS, formatCoordinates } from '../utils/geolocation';
 import {
   isVideoUrl,
@@ -913,6 +914,14 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       await updateDoc(journalRef, {
         imageComments: [...currentComments, newComment]
       });
+      void sendPartnerNotification({
+        type: 'image_comment',
+        title: `💬 ${userProfile.displayName} vừa bình luận ảnh`,
+        body: newComment.content.slice(0, 180),
+        url: '/journal',
+        imageUrl,
+        tag: `image-comment-${journalId}-${newComment.id}`
+      });
     } catch (err) {
       console.error('Lỗi thêm bình luận cho ảnh:', err);
     }
@@ -979,6 +988,15 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       await updateDoc(coupleRef, {
         statusMessage: statusInput.trim()
       });
+      if (statusInput.trim()) {
+        void sendPartnerNotification({
+          type: 'status_note',
+          title: `💌 ${userProfile.displayName} vừa đổi lời nhắn`,
+          body: statusInput.trim().slice(0, 180),
+          url: '/',
+          tag: `status-${Date.now()}`
+        });
+      }
       setIsEditingNote(false);
     } catch (err) {
       console.error('Lỗi cập nhật ghi chú:', err);
@@ -1058,7 +1076,15 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         docData.musicTitle = journalMusicTitle.trim();
       }
 
-      await addDoc(journalsRef, docData);
+      const createdJournalRef = await addDoc(journalsRef, docData);
+      void sendPartnerNotification({
+        type: 'journal_new',
+        title: `📸 ${userProfile.displayName} vừa thêm nhật ký mới`,
+        body: journalTitle.trim().slice(0, 180),
+        url: '/journal',
+        imageUrl: journalImages.length > 0 ? journalImages[journalMainImageIndex] || journalImages[0] : undefined,
+        tag: `journal-${createdJournalRef.id}`
+      });
       setJournalTitle('');
       setJournalContent('');
       setJournalLocation('');
@@ -1107,6 +1133,13 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       const currentComments = target?.comments || [];
       await updateDoc(journalRef, {
         comments: [...currentComments, newComment]
+      });
+      void sendPartnerNotification({
+        type: 'journal_comment',
+        title: `💬 ${userProfile.displayName} vừa bình luận`,
+        body: newComment.content.slice(0, 180),
+        url: '/journal',
+        tag: `journal-comment-${journalId}-${newComment.id}`
       });
       setCommentInputs(prev => ({ ...prev, [journalId]: '' }));
     } catch (err) {
@@ -1426,7 +1459,15 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       };
       if (memoryImageUrl.trim()) memoryData.imageUrl = memoryImageUrl.trim();
 
-      await addDoc(memoriesRef, memoryData);
+      const createdMemoryRef = await addDoc(memoriesRef, memoryData);
+      void sendPartnerNotification({
+        type: 'memory_new',
+        title: `💖 ${userProfile.displayName} vừa thêm một kỷ niệm`,
+        body: memoryTitle.trim().slice(0, 180),
+        url: '/',
+        imageUrl: memoryImageUrl.trim() || undefined,
+        tag: `memory-${createdMemoryRef.id}`
+      });
       setMemoryTitle('');
       setMemoryImageUrl('');
       setShowAddMemory(false);
