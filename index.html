@@ -9,6 +9,39 @@
       content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
 
+    <!--
+      Journal post route bootstrap.
+
+      LightHomeScreen currently decides the active top-level tab from pathname.
+      Numeric routes such as /1 are real journal post URLs, but before React
+      mounts we temporarily expose /journal so the Journal tab is selected.
+
+      JournalTab reads the saved post number and restores /1 immediately after
+      the journal data is available.
+    -->
+    <script>
+      (() => {
+        const match = window.location.pathname.match(/^\/([1-9]\d*)\/?$/);
+
+        if (!match) return;
+
+        try {
+          window.sessionStorage.setItem(
+            'us_pending_journal_post_number',
+            match[1]
+          );
+        } catch {
+          // Session storage can be unavailable in some private modes.
+        }
+
+        window.history.replaceState(
+          { journalRouteBootstrap: true },
+          '',
+          '/journal'
+        );
+      })();
+    </script>
+
     <!-- Home Screen / PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -29,10 +62,8 @@
     <meta name="theme-color" content="#fff1f2" />
     <meta name="format-detection" content="telephone=no" />
 
-    <!-- Web App Manifest -->
     <link rel="manifest" href="/manifest.webmanifest" />
 
-    <!-- App Icon -->
     <link rel="apple-touch-icon" href="/icons/icon.png" />
     <link rel="icon" type="image/png" href="/icons/icon.png" />
 
@@ -43,7 +74,6 @@
       content="Không gian riêng lưu giữ những kỷ niệm của hai đứa."
     />
 
-    <!-- Social preview -->
     <meta property="og:title" content="Us — Couple App" />
     <meta
       property="og:description"
@@ -52,7 +82,6 @@
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
 
-    <!-- Leaflet -->
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
