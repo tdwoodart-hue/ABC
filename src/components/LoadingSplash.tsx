@@ -9,15 +9,15 @@ interface LoadingSplashProps {
 
 /*
  * Matched to the reference transition's actual proportions:
- * scale: 0.7
- * stroke: 8% -> 31%
+ * scale: 0.75
+ * stroke: 8% -> 34.5%
  * draw in: 2.2s
  * draw out: 2.7s
  */
 const DRAW_IN_MS = 2200;
 const DRAW_OUT_MS = 2700;
 const START_STROKE = 8;
-const MAX_STROKE = 31;
+const MAX_STROKE = 35.5;
 
 const clamp01 = (value: number) =>
   Math.max(0, Math.min(1, value));
@@ -87,7 +87,7 @@ export const LoadingSplash: React.FC<LoadingSplashProps> = ({
    * A relatively thin stroke travels along one long curved path.
    * While its head advances, the body grows from 8% to 31%.
    * The SVG itself is oversized but scaled to 0.7, matching the
-   * visual proportion of the reference instead of becoming a giant blob.
+   * visual proportion of the reference, with a tiny coverage boost for phone corners.
    */
   useEffect(() => {
     mountedRef.current = true;
@@ -295,9 +295,9 @@ export const LoadingSplash: React.FC<LoadingSplashProps> = ({
          * Reference geometry:
          *   200vw × 200vh
          *   positioned -50vw / -50vh
-         *   then scaled to 0.7 around the center
+         *   then scaled to 0.75 around the center
          *
-         * Effective visual footprint ≈ 140vw × 140vh.
+         * Effective visual footprint ≈ 150vw × 150vh.
          */
         .us-snake-loader__svg {
           position: fixed;
@@ -315,7 +315,7 @@ export const LoadingSplash: React.FC<LoadingSplashProps> = ({
 
           color: #fb7185;
 
-          transform: scale(.7);
+          transform: scale(.765);
           transform-origin: 50% 50%;
 
           will-change: transform;
