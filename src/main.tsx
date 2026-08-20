@@ -1,5 +1,6 @@
-import { StrictMode } from 'react';
+// main.tsx — NON-BLOCKING STARTUP
 import { createRoot } from 'react-dom/client';
+
 import {
   browserLocalPersistence,
   setPersistence,
@@ -7,25 +8,33 @@ import {
 
 import App from './App.tsx';
 import { auth } from './lib/firebase';
+
 import './index.css';
 
-async function bootstrapApp() {
-  /*
-   * Explicitly keep Firebase login on this device until the user signs out.
-   * This is especially important for iPhone Home Screen / standalone mode.
-   */
-  try {
-    await setPersistence(auth, browserLocalPersistence);
-  } catch (error) {
-    // Do not block the whole app if iOS temporarily refuses browser storage.
-    console.warn('Unable to enable persistent Firebase auth:', error);
-  }
-
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
+/*
+ * Do not make first paint wait for setPersistence().
+ *
+ * Firebase Web already supports local persistence;
+ * this call remains as an explicit guarantee for the
+ * iPhone Home Screen app, but it now runs in parallel.
+ */
+void setPersistence(
+  auth,
+  browserLocalPersistence
+).catch((error) => {
+  console.warn(
+    'Unable to enable persistent Firebase auth:',
+    error
   );
-}
+});
 
-void bootstrapApp();
+/*
+ * Intentionally no StrictMode here.
+ *
+ * In development/AI Studio, StrictMode can mount effects twice.
+ * This app opens several Firestore listeners and device-sync effects,
+ * so removing it makes preview/startup behavior much closer to production.
+ */
+createRoot(
+  document.getElementById('root')!
+).render(<App />);
