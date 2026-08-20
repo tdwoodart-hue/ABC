@@ -1,10 +1,13 @@
-// App.tsx — FAST START VERSION
+// App.tsx — WAIT FOR REAL HOME PAINT
+// IMPORTANT: LoadingSplash.tsx is NOT changed by this fix.
 import React, {
   Suspense,
   lazy,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -23,15 +26,6 @@ import type { UserProfile } from './types';
 import { AuthCard } from './components/AuthCard';
 import { LoadingSplash } from './components/LoadingSplash';
 
-/*
- * IMPORTANT:
- * LightHomeScreen is intentionally NOT statically imported.
- *
- * It pulls in Finance, Nutrition, Achievements, Admin, Maps,
- * Lightbox, Camera, Journal, etc. Splitting it into a lazy chunk
- * lets the splash render immediately while the heavy app code
- * downloads in parallel.
- */
 const loadLightHomeScreen = () =>
   import('./components/LightHomeScreen');
 
@@ -86,13 +80,8 @@ function makeInstantProfile(firebaseUser: any): UserProfile {
     displayName,
     photoURL: firebaseUser.photoURL || undefined,
     avatarUrl: firebaseUser.photoURL || undefined,
-
-    // This app already uses one fixed couple space.
-    // Do not wait for Firestore just to learn this value.
     coupleId: OUR_COUPLE_ID,
-
     createdAt: new Date().toISOString(),
-
     gender,
     roleTitle,
   };
@@ -103,73 +92,93 @@ function makeInstantProfile(firebaseUser: any): UserProfile {
   return instantProfile;
 }
 
+interface HomePaintGateProps {
+  userProfile: UserProfile;
+  onRefreshProfile: () => void;
+  onPainted: () => void;
+}
+
+/*
+ * This component is the important part of the fix.
+ *
+ * React does not commit this component while LazyLightHomeScreen
+ * is still suspended. Therefore this layout effect can only run
+ * after the heavy Home module has loaded AND React has committed it.
+ *
+ * Then we wait TWO requestAnimationFrame cycles:
+ *   frame 1 = let the committed DOM reach the browser
+ *   frame 2 = confirm at least one real paint opportunity happened
+ *
+ * Only after that do we tell the splash it is allowed to exit.
+ */
+const HomePaintGate: React.FC<HomePaintGateProps> = ({
+  userProfile,
+  onRefreshProfile,
+  onPainted,
+}) => {
+  const reportedRef = useRef(false);
+
+  useLayoutEffect(() => {
+    if (reportedRef.current) return;
+
+    let frame1 = 0;
+    let frame2 = 0;
+
+    frame1 = window.requestAnimationFrame(() => {
+      frame2 = window.requestAnimationFrame(() => {
+        reportedRef.current = true;
+        onPainted();
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame1);
+      window.cancelAnimationFrame(frame2);
+    };
+  }, [onPainted]);
+
+  return (
+    <LazyLightHomeScreen
+      userProfile={userProfile}
+      onRefreshProfile={onRefreshProfile}
+    />
+  );
+};
+
 export default function App() {
   const [currentUser, setCurrentUser] =
     useState<UserProfile | null>(null);
 
-  /*
-   * authResolved means Firebase Auth has told us whether
-   * somebody is signed in.
-   *
-   * It does NOT wait for syncUserProfile().
-   */
   const [authResolved, setAuthResolved] =
     useState(false);
 
   /*
-   * Heavy Home code is loaded during the splash.
-   * The splash will not reveal the page before this chunk is ready.
+   * This is different from "code downloaded".
+   * It becomes true only after Home has actually committed
+   * and had two browser paint opportunities.
    */
-  const [homeCodeReady, setHomeCodeReady] =
+  const [homePainted, setHomePainted] =
     useState(false);
 
   const [showSplash, setShowSplash] =
     useState(true);
 
   /*
-   * Preload the heavy Home module as soon as the app starts.
-   * This runs in parallel with Firebase Auth.
+   * Start downloading the heavy Home chunk immediately,
+   * while the existing intro is still running.
+   *
+   * No state from this preload is used to dismiss the splash.
+   * Downloaded !== painted.
    */
   useEffect(() => {
-    let alive = true;
-
-    loadLightHomeScreen()
-      .then(() => {
-        if (alive) {
-          setHomeCodeReady(true);
-        }
-      })
-      .catch((error) => {
-        console.error(
-          'Không thể tải giao diện chính:',
-          error
-        );
-
-        /*
-         * Avoid trapping the user behind the splash forever.
-         * Suspense will still handle the component import.
-         */
-        if (alive) {
-          setHomeCodeReady(true);
-        }
-      });
-
-    return () => {
-      alive = false;
-    };
+    void loadLightHomeScreen().catch((error) => {
+      console.error(
+        'Không thể preload giao diện chính:',
+        error
+      );
+    });
   }, []);
 
-  /*
-   * Auth state:
-   *
-   * BEFORE:
-   *   Auth -> wait Firestore user -> wait Firestore couple
-   *   -> maybe wait writes -> finally render app.
-   *
-   * NOW:
-   *   Auth -> immediately render with a safe local profile.
-   *   Firestore synchronization happens in the background.
-   */
   useEffect(() => {
     let alive = true;
 
@@ -180,18 +189,26 @@ export default function App() {
 
         if (!firebaseUser) {
           setCurrentUser(null);
+          setHomePainted(false);
           setAuthResolved(true);
           return;
         }
 
-        // Immediate profile: no Firestore round-trip.
         const instantProfile =
           makeInstantProfile(firebaseUser);
 
+        /*
+         * A fresh auth resolution means Home must prove that it has
+         * painted before the splash is allowed to leave.
+         */
+        setHomePainted(false);
         setCurrentUser(instantProfile);
         setAuthResolved(true);
 
-        // Background profile repair/sync.
+        /*
+         * Firestore profile sync remains background work.
+         * It must NOT control splash dismissal.
+         */
         void syncUserProfile(firebaseUser)
           .then((syncedProfile) => {
             if (alive) {
@@ -199,10 +216,6 @@ export default function App() {
             }
           })
           .catch((error) => {
-            /*
-             * Keep using instantProfile.
-             * A temporary Firestore problem should not block startup.
-             */
             console.warn(
               'Đồng bộ hồ sơ nền chưa hoàn tất:',
               error
@@ -222,10 +235,6 @@ export default function App() {
 
     if (!firebaseUser) return;
 
-    /*
-     * Do not put the whole app back into loading state.
-     * Refresh quietly in the background.
-     */
     void syncUserProfile(firebaseUser)
       .then((profile) => {
         setCurrentUser(profile);
@@ -238,29 +247,40 @@ export default function App() {
       });
   }, []);
 
+  const handleHomePainted = useCallback(() => {
+    setHomePainted(true);
+  }, []);
+
   const handleSplashFinished =
     useCallback(() => {
       setShowSplash(false);
     }, []);
 
   /*
-   * Logged-out users do not need the heavy Home chunk.
-   * Logged-in users wait only for:
-   *   1) Auth resolution
-   *   2) Home JavaScript chunk
+   * CRITICAL:
    *
-   * They no longer wait for profile Firestore reads/writes.
+   * OLD:
+   *   splashReady = authResolved && homeCodeReady
+   *
+   * NEW:
+   *   splashReady = authResolved && homePainted
+   *
+   * So the existing LoadingSplash keeps covering the screen
+   * until the actual Home UI is already painted underneath.
    */
   const splashReady = useMemo(() => {
     if (!authResolved) return false;
 
-    if (!currentUser) return true;
+    if (!currentUser) {
+      // Login screen is lightweight and already rendered below.
+      return true;
+    }
 
-    return homeCodeReady;
+    return homePainted;
   }, [
     authResolved,
     currentUser,
-    homeCodeReady,
+    homePainted,
   ]);
 
   return (
@@ -284,13 +304,21 @@ export default function App() {
         ) : (
           <Suspense
             fallback={
+              /*
+               * This remains behind the splash during startup.
+               * The splash is NOT allowed to leave while this
+               * fallback is what React is showing.
+               */
               <div className="min-h-screen bg-slate-50" />
             }
           >
-            <LazyLightHomeScreen
+            <HomePaintGate
               userProfile={currentUser}
               onRefreshProfile={
                 handleRefreshProfile
+              }
+              onPainted={
+                handleHomePainted
               }
             />
           </Suspense>
