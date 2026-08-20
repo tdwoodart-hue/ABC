@@ -18,6 +18,7 @@ import {
   isDuongAccount,
   onAuthStateChanged,
   OUR_COUPLE_ID,
+  signOut,
   syncUserProfile,
 } from './lib/firebase';
 
@@ -25,6 +26,21 @@ import type { UserProfile } from './types';
 
 import { AuthCard } from './components/AuthCard';
 import { LoadingSplash } from './components/LoadingSplash';
+
+/*
+ * Private app access whitelist.
+ * Keep this list in sync with firestore.rules.
+ */
+const ALLOWED_EMAILS = [
+  'tdwoodart@gmail.com',
+  'duong@gmail.com',
+  'chucga@gmail.com',
+] as const;
+
+const isAllowedEmail = (email?: string | null) => {
+  const normalized = (email || '').toLowerCase().trim();
+  return ALLOWED_EMAILS.some((allowed) => allowed === normalized);
+};
 
 const loadLightHomeScreen = () =>
   import('./components/LightHomeScreen');
@@ -194,6 +210,22 @@ export default function App() {
           return;
         }
 
+        // Security: reject an unknown/stale Firebase session before Home mounts.
+        if (!isAllowedEmail(firebaseUser.email)) {
+          setCurrentUser(null);
+          setHomePainted(false);
+          setAuthResolved(true);
+
+          void signOut(auth).catch((error) => {
+            console.warn(
+              'Không thể đăng xuất session không hợp lệ:',
+              error
+            );
+          });
+
+          return;
+        }
+
         const instantProfile =
           makeInstantProfile(firebaseUser);
 
@@ -234,6 +266,14 @@ export default function App() {
     const firebaseUser = auth.currentUser;
 
     if (!firebaseUser) return;
+
+    // Security: never sync an unauthorized restored session.
+    if (!isAllowedEmail(firebaseUser.email)) {
+      setCurrentUser(null);
+      setHomePainted(false);
+      void signOut(auth);
+      return;
+    }
 
     void syncUserProfile(firebaseUser)
       .then((profile) => {
