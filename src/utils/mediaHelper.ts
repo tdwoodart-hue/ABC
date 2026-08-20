@@ -193,13 +193,21 @@ export async function uploadMediaFile(file: File): Promise<UploadResult> {
     ? generateVideoThumbnail(file).catch(() => '')
     : Promise.resolve('');
 
-  // Prepare FormData for server upload
-  const formData = new FormData();
-  formData.append('files', file);
+  // Sanitize filename to avoid multipart header encoding issues with special characters (#, emojis, non-ascii)
+  const fileExt = (file.name.includes('.') ? file.name.substring(file.name.lastIndexOf('.')) : (isVideo ? '.mp4' : '.jpg')).toLowerCase();
+  const safeBaseName = file.name
+    .replace(/\.[^/.]+$/, '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9_-]/g, '_')
+    .substring(0, 50);
+  const safeFilename = `${safeBaseName || 'upload'}${fileExt}`;
 
-  let serverErrorMsg = '';
+  // Helper for single upload attempt
+  const attemptUpload = async (): Promise<UploadResult | null> => {
+    const formData = new FormData();
+    formData.append('files', file, safeFilename);
 
-  try {
     const [uploadResponse, videoThumbnail] = await Promise.all([
       fetch('/api/upload', {
         method: 'POST',
@@ -220,15 +228,33 @@ export async function uploadMediaFile(file: File): Promise<UploadResult> {
         };
       }
     } else {
+      let msg = '';
       try {
         const errJson = await uploadResponse.json();
-        serverErrorMsg = errJson?.error || `Mã lỗi HTTP ${uploadResponse.status}`;
+        msg = errJson?.error || `HTTP ${uploadResponse.status}`;
       } catch {
-        serverErrorMsg = await uploadResponse.text();
+        msg = await uploadResponse.text();
       }
+      throw new Error(msg || `HTTP ${uploadResponse.status}`);
     }
+    return null;
+  };
+
+  let serverErrorMsg = '';
+
+  try {
+    const result = await attemptUpload();
+    if (result) return result;
   } catch (err: any) {
-    serverErrorMsg = err?.message || 'Không thể kết nối đến máy chủ lưu trữ.';
+    serverErrorMsg = err?.message || '';
+    // Retry once on failure
+    try {
+      await new Promise(r => setTimeout(r, 600));
+      const retryResult = await attemptUpload();
+      if (retryResult) return retryResult;
+    } catch (retryErr: any) {
+      serverErrorMsg = retryErr?.message || serverErrorMsg || 'Không thể kết nối đến máy chủ lưu trữ.';
+    }
   }
 
   // Fallback for image: encode to Base64
