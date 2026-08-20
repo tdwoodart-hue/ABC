@@ -12,14 +12,21 @@
     <!-- Launch from Home Screen without Safari browser chrome -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
     <meta name="apple-mobile-web-app-title" content="Us" />
+
+    <!-- PWA / Home Screen -->
+    <link rel="manifest" href="/manifest.webmanifest" />
 
     <!-- iOS UI -->
     <meta name="theme-color" content="#fff1f2" />
     <meta name="format-detection" content="telephone=no" />
 
     <title>Us — Couple App</title>
+
     <meta
       name="description"
       content="Không gian riêng lưu giữ những kỷ niệm của hai đứa."
@@ -31,8 +38,10 @@
       content="Không gian riêng lưu giữ những kỷ niệm của hai đứa."
     />
     <meta property="og:type" content="website" />
+
     <meta name="twitter:card" content="summary_large_image" />
 
+    <!-- Leaflet -->
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -41,6 +50,7 @@
 
   <body>
     <div id="root"></div>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

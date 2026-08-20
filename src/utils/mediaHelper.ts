@@ -1,174 +1,365 @@
 /**
- * Media Helper: Handles image compression, video thumbnail generation,
- * format validation, and reliable file uploading for Journals and Memories.
+ * Media Helper
+ *
+ * Primary upload target: Firebase Storage.
+ * Fallbacks:
+ *   1. Existing /api/upload endpoint
+ *   2. Base64 only for images
+ *
+ * Why:
+ * The previous implementation depended on Express/Multer writing files into
+ * public/uploads. That can work locally, but deployed environments may not
+ * provide persistent writable disk or may reject large multipart requests.
+ * Images appeared to work because they had a Base64 fallback; videos did not.
  */
 
-export const SUPPORTED_IMAGE_FORMATS = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/jpg'];
-export const SUPPORTED_VIDEO_FORMATS = ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-m4v', 'video/ogg', 'video/x-matroska'];
+import { getApp, getApps, initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import {
+  getDownloadURL,
+  getStorage,
+  ref as storageRef,
+  uploadBytes,
+} from 'firebase/storage';
 
-export const ALL_SUPPORTED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.mp4', '.mov', '.webm', '.m4v', '.mkv', '.avi', '.3gp'];
+import firebaseConfig from '../../firebase-applet-config.json';
 
-/**
- * Checks if a given URL or data string is a video
- */
-export function isVideoUrl(url?: string | null): boolean {
-  if (!url) return false;
-  const clean = url.toLowerCase().split('?')[0];
-  
-  if (
-    clean.endsWith('.mp4') ||
-    clean.endsWith('.mov') ||
-    clean.endsWith('.webm') ||
-    clean.endsWith('.m4v') ||
-    clean.endsWith('.mkv') ||
-    clean.endsWith('.avi') ||
-    clean.endsWith('.3gp') ||
-    clean.endsWith('.ogg') ||
-    clean.endsWith('.ogv') ||
-    url.startsWith('data:video/') ||
-    url.includes('/video/') ||
-    (url.includes('.firebasestorage.app') && url.includes('video'))
-  ) {
-    return true;
-  }
-  return false;
+export const SUPPORTED_IMAGE_FORMATS = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/heic',
+  'image/heif',
+  'image/jpg',
+];
+
+export const SUPPORTED_VIDEO_FORMATS = [
+  'video/mp4',
+  'video/quicktime',
+  'video/webm',
+  'video/x-m4v',
+  'video/ogg',
+  'video/x-matroska',
+  'video/3gpp',
+  'video/avi',
+];
+
+export const ALL_SUPPORTED_EXTENSIONS = [
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  '.gif',
+  '.heic',
+  '.heif',
+  '.mp4',
+  '.mov',
+  '.webm',
+  '.m4v',
+  '.mkv',
+  '.avi',
+  '.3gp',
+  '.ogg',
+  '.ogv',
+];
+
+const VIDEO_EXTENSIONS = [
+  '.mp4',
+  '.mov',
+  '.webm',
+  '.m4v',
+  '.mkv',
+  '.avi',
+  '.3gp',
+  '.ogg',
+  '.ogv',
+];
+
+const IMAGE_EXTENSIONS = [
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  '.gif',
+  '.heic',
+  '.heif',
+];
+
+function getExtension(filename = ''): string {
+  const clean = filename.toLowerCase().split('?')[0];
+  const dotIndex = clean.lastIndexOf('.');
+  return dotIndex >= 0 ? clean.slice(dotIndex) : '';
+}
+
+function isVideoFile(file: File): boolean {
+  const extension = getExtension(file.name);
+  return (
+    file.type.startsWith('video/') ||
+    VIDEO_EXTENSIONS.includes(extension)
+  );
+}
+
+function isImageFile(file: File): boolean {
+  const extension = getExtension(file.name);
+  return (
+    file.type.startsWith('image/') ||
+    IMAGE_EXTENSIONS.includes(extension)
+  );
+}
+
+function sanitizeFilename(file: File, isVideo: boolean): string {
+  const extension =
+    getExtension(file.name) || (isVideo ? '.mp4' : '.jpg');
+
+  const safeBaseName = (file.name || 'upload')
+    .replace(/\.[^/.]+$/, '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9_-]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 60);
+
+  return `${safeBaseName || 'upload'}${extension}`;
+}
+
+function inferContentType(file: File, isVideo: boolean): string {
+  if (file.type) return file.type;
+
+  const extension = getExtension(file.name);
+
+  const mimeMap: Record<string, string> = {
+    '.mp4': 'video/mp4',
+    '.mov': 'video/quicktime',
+    '.m4v': 'video/x-m4v',
+    '.webm': 'video/webm',
+    '.ogg': 'video/ogg',
+    '.ogv': 'video/ogg',
+    '.3gp': 'video/3gpp',
+    '.mkv': 'video/x-matroska',
+    '.avi': 'video/avi',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.webp': 'image/webp',
+    '.gif': 'image/gif',
+    '.heic': 'image/heic',
+    '.heif': 'image/heif',
+  };
+
+  return (
+    mimeMap[extension] ||
+    (isVideo ? 'video/mp4' : 'image/jpeg')
+  );
+}
+
+function humanFileSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 MB';
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 /**
- * Generates a visual thumbnail from a video File or Video URL
+ * Checks if a given URL or data string is a video.
  */
-export function generateVideoThumbnail(fileOrUrl: File | string): Promise<string> {
+export function isVideoUrl(url?: string | null): boolean {
+  if (!url) return false;
+
+  const lower = url.toLowerCase();
+
+  if (lower.startsWith('data:video/')) return true;
+  if (lower.startsWith('blob:')) return false;
+
+  const clean = decodeURIComponent(lower.split('?')[0]);
+
+  return (
+    VIDEO_EXTENSIONS.some((ext) => clean.endsWith(ext)) ||
+    clean.includes('/video/') ||
+    clean.includes('video%2f')
+  );
+}
+
+/**
+ * Generates a thumbnail from a local video or video URL.
+ * Thumbnail failure NEVER blocks the actual video upload.
+ */
+export function generateVideoThumbnail(
+  fileOrUrl: File | string
+): Promise<string> {
   return new Promise((resolve) => {
+    let objectUrl = '';
+    let finished = false;
+
+    const finish = (value = '') => {
+      if (finished) return;
+      finished = true;
+
+      if (objectUrl) {
+        try {
+          URL.revokeObjectURL(objectUrl);
+        } catch {
+          // ignore
+        }
+      }
+
+      resolve(value);
+    };
+
     try {
-      const isFile = typeof fileOrUrl !== 'string';
       const video = document.createElement('video');
+      const isLocalFile = typeof fileOrUrl !== 'string';
+
       video.muted = true;
       video.playsInline = true;
       video.preload = 'metadata';
 
-      const videoUrl = isFile ? URL.createObjectURL(fileOrUrl) : fileOrUrl;
-      
-      // Only set crossOrigin for remote URLs, never for local blob/data URLs
-      if (!isFile && !videoUrl.startsWith('data:') && !videoUrl.startsWith('blob:')) {
-        video.crossOrigin = 'anonymous';
-      }
-
-      video.src = videoUrl;
-
-      let isDone = false;
-      const cleanUp = () => {
-        if (isDone) return;
-        isDone = true;
-        if (isFile) {
-          try {
-            URL.revokeObjectURL(videoUrl);
-          } catch {
-            // ignore
-          }
+      if (isLocalFile) {
+        objectUrl = URL.createObjectURL(fileOrUrl);
+        video.src = objectUrl;
+      } else {
+        if (
+          !fileOrUrl.startsWith('data:') &&
+          !fileOrUrl.startsWith('blob:')
+        ) {
+          video.crossOrigin = 'anonymous';
         }
-      };
+        video.src = fileOrUrl;
+      }
 
       const captureFrame = () => {
         try {
-          const canvas = document.createElement('canvas');
-          const maxDim = 480;
-          let w = video.videoWidth || 480;
-          let h = video.videoHeight || 320;
-
-          if (w > maxDim || h > maxDim) {
-            if (w > h) {
-              h = (h * maxDim) / w;
-              w = maxDim;
-            } else {
-              w = (w * maxDim) / h;
-              h = maxDim;
-            }
-          }
-
-          canvas.width = Math.max(1, Math.round(w));
-          canvas.height = Math.max(1, Math.round(h));
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const thumbUrl = canvas.toDataURL('image/jpeg', 0.8);
-            cleanUp();
-            resolve(thumbUrl);
+          if (!video.videoWidth || !video.videoHeight) {
+            finish('');
             return;
           }
-        } catch (err) {
-          console.warn('Canvas frame capture fallback:', err);
+
+          const canvas = document.createElement('canvas');
+          const maxDimension = 480;
+
+          let width = video.videoWidth;
+          let height = video.videoHeight;
+
+          const ratio = Math.min(
+            1,
+            maxDimension / Math.max(width, height)
+          );
+
+          width = Math.max(1, Math.round(width * ratio));
+          height = Math.max(1, Math.round(height * ratio));
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+
+          if (!ctx) {
+            finish('');
+            return;
+          }
+
+          ctx.drawImage(video, 0, 0, width, height);
+          finish(canvas.toDataURL('image/jpeg', 0.78));
+        } catch (error) {
+          console.warn('Video thumbnail capture failed:', error);
+          finish('');
         }
-        cleanUp();
-        resolve('');
       };
 
-      video.onloadeddata = () => {
+      video.onloadedmetadata = () => {
         try {
-          const targetTime = Math.min(0.5, Math.max(0.1, (video.duration || 1) / 5));
-          video.currentTime = targetTime;
+          const duration = Number.isFinite(video.duration)
+            ? video.duration
+            : 1;
+
+          video.currentTime = Math.min(
+            Math.max(duration * 0.08, 0.05),
+            0.8
+          );
         } catch {
           captureFrame();
         }
       };
 
-      video.onseeked = () => {
-        captureFrame();
+      video.onseeked = captureFrame;
+      video.onloadeddata = () => {
+        if (!Number.isFinite(video.duration) || video.duration <= 0) {
+          captureFrame();
+        }
       };
 
-      video.onerror = () => {
-        cleanUp();
-        resolve('');
-      };
+      video.onerror = () => finish('');
 
-      // Maximum 2.5s wait for thumbnail extraction
-      setTimeout(() => {
-        cleanUp();
-        resolve('');
-      }, 2500);
-    } catch (e) {
-      console.warn('Video thumbnail extraction error:', e);
-      resolve('');
+      // iPhone HEVC/MOV thumbnail extraction can be slow.
+      // Do not wait forever and never fail the upload because of this.
+      window.setTimeout(() => finish(''), 5000);
+
+      video.load();
+    } catch (error) {
+      console.warn('Video thumbnail extraction error:', error);
+      finish('');
     }
   });
 }
 
 /**
- * Compresses an image file to Base64 (used as instant preview and local fallback)
+ * Compresses an image file to Base64.
+ * This remains a last-resort fallback for images only.
  */
-export function compressImageToBase64(file: File, maxDim = 1200, quality = 0.8): Promise<string> {
+export function compressImageToBase64(
+  file: File,
+  maxDim = 1200,
+  quality = 0.8
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.readAsDataURL(file);
+
     reader.onload = (event) => {
       const img = new Image();
-      img.src = event.target?.result as string;
+
       img.onload = () => {
         const canvas = document.createElement('canvas');
+
         let width = img.width;
         let height = img.height;
 
-        if (width > height) {
-          if (width > maxDim) {
-            height *= maxDim / width;
-            width = maxDim;
-          }
-        } else {
-          if (height > maxDim) {
-            width *= maxDim / height;
-            height = maxDim;
-          }
+        if (width <= 0 || height <= 0) {
+          reject(new Error('Không thể đọc kích thước ảnh.'));
+          return;
         }
 
-        canvas.width = Math.round(width);
-        canvas.height = Math.round(height);
+        const ratio = Math.min(
+          1,
+          maxDim / Math.max(width, height)
+        );
+
+        width = Math.max(1, Math.round(width * ratio));
+        height = Math.max(1, Math.round(height * ratio));
+
+        canvas.width = width;
+        canvas.height = height;
+
         const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', quality);
-        resolve(dataUrl);
+
+        if (!ctx) {
+          reject(new Error('Không thể xử lý ảnh.'));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        resolve(canvas.toDataURL('image/jpeg', quality));
       };
-      img.onerror = (err) => reject(err);
+
+      img.onerror = () =>
+        reject(new Error('Không thể đọc file ảnh.'));
+
+      img.src = event.target?.result as string;
     };
-    reader.onerror = (err) => reject(err);
+
+    reader.onerror = () =>
+      reject(new Error('Không thể đọc file ảnh.'));
+
+    reader.readAsDataURL(file);
   });
 }
 
@@ -180,99 +371,238 @@ export interface UploadResult {
 }
 
 /**
- * Uploads a file (Image or Video) to the backend storage
+ * Upload directly to Firebase Storage.
+ *
+ * This avoids:
+ * - server body-size limits
+ * - ephemeral/local disk
+ * - /api/upload routing problems on deployed builds
  */
-export async function uploadMediaFile(file: File): Promise<UploadResult> {
-  const isVideo = file.type.startsWith('video/') ||
-    ['.mp4', '.mov', '.webm', '.m4v', '.mkv', '.avi', '.3gp', '.ogg'].some(ext =>
-      (file.name || '').toLowerCase().endsWith(ext)
-    );
+async function uploadToFirebaseStorage(
+  file: File,
+  isVideo: boolean
+): Promise<string> {
+  const app =
+    getApps().length > 0
+      ? getApp()
+      : initializeApp(firebaseConfig);
 
-  // Generate thumbnail for video in parallel
+  const storage = getStorage(
+    app,
+    `gs://${firebaseConfig.storageBucket}`
+  );
+
+  const auth = getAuth(app);
+  const userId = auth.currentUser?.uid || 'shared-couple';
+
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+
+  const safeFilename = sanitizeFilename(file, isVideo);
+  const randomPart =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 10)}`;
+
+  const objectPath = [
+    'couple-media',
+    userId,
+    `${year}-${month}`,
+    `${randomPart}-${safeFilename}`,
+  ].join('/');
+
+  const fileRef = storageRef(storage, objectPath);
+
+  await uploadBytes(fileRef, file, {
+    contentType: inferContentType(file, isVideo),
+    customMetadata: {
+      originalName: file.name || safeFilename,
+      uploadedBy: userId,
+      mediaType: isVideo ? 'video' : 'image',
+    },
+  });
+
+  return getDownloadURL(fileRef);
+}
+
+/**
+ * Existing backend upload, kept only as a fallback.
+ */
+async function uploadToServer(
+  file: File,
+  isVideo: boolean
+): Promise<string> {
+  const formData = new FormData();
+
+  formData.append(
+    'files',
+    file,
+    sanitizeFilename(file, isVideo)
+  );
+
+  const response = await fetch('/api/upload', {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let message = '';
+
+    try {
+      const json = await response.json();
+      message = json?.error || '';
+    } catch {
+      try {
+        message = await response.text();
+      } catch {
+        // ignore
+      }
+    }
+
+    throw new Error(
+      message || `Server upload HTTP ${response.status}`
+    );
+  }
+
+  const data = await response.json();
+
+  if (
+    !data?.success ||
+    !Array.isArray(data?.files) ||
+    !data.files[0]?.url
+  ) {
+    throw new Error('Máy chủ không trả về URL của file.');
+  }
+
+  return data.files[0].url as string;
+}
+
+/**
+ * Uploads an image or video.
+ *
+ * Firebase Storage is primary.
+ * Existing server is secondary.
+ * Images still have Base64 fallback.
+ */
+export async function uploadMediaFile(
+  file: File
+): Promise<UploadResult> {
+  if (!file) {
+    throw new Error('Không tìm thấy file để tải lên.');
+  }
+
+  const isVideo = isVideoFile(file);
+  const isImage = isImageFile(file);
+
+  if (!isVideo && !isImage) {
+    throw new Error(
+      `Định dạng "${getExtension(file.name) || file.type || 'không xác định'}" chưa được hỗ trợ.`
+    );
+  }
+
+  if (file.size <= 0) {
+    throw new Error('File đang trống hoặc không đọc được.');
+  }
+
+  /*
+   * A practical client-side guard.
+   * Firebase Storage itself supports large objects, but huge phone videos can
+   * make mobile browsers unstable. 500 MB matches the old server intention.
+   */
+  const MAX_FILE_SIZE = 500 * 1024 * 1024;
+
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error(
+      `File quá lớn (${humanFileSize(file.size)}). Giới hạn hiện tại là 500 MB.`
+    );
+  }
+
   const thumbnailPromise = isVideo
     ? generateVideoThumbnail(file).catch(() => '')
     : Promise.resolve('');
 
-  // Sanitize filename to avoid multipart header encoding issues with special characters (#, emojis, non-ascii)
-  const fileExt = (file.name.includes('.') ? file.name.substring(file.name.lastIndexOf('.')) : (isVideo ? '.mp4' : '.jpg')).toLowerCase();
-  const safeBaseName = file.name
-    .replace(/\.[^/.]+$/, '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9_-]/g, '_')
-    .substring(0, 50);
-  const safeFilename = `${safeBaseName || 'upload'}${fileExt}`;
+  let firebaseError = '';
+  let serverError = '';
 
-  // Helper for single upload attempt
-  const attemptUpload = async (): Promise<UploadResult | null> => {
-    const formData = new FormData();
-    formData.append('files', file, safeFilename);
-
-    const [uploadResponse, videoThumbnail] = await Promise.all([
-      fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      }),
+  // 1) Firebase Storage
+  try {
+    const [url, thumbnailUrl] = await Promise.all([
+      uploadToFirebaseStorage(file, isVideo),
       thumbnailPromise,
     ]);
 
-    if (uploadResponse.ok) {
-      const data = await uploadResponse.json();
-      if (data.success && data.files && data.files.length > 0) {
-        const uploaded = data.files[0];
-        return {
-          url: uploaded.url,
-          type: isVideo ? 'video' : 'image',
-          thumbnailUrl: videoThumbnail || undefined,
-          originalName: file.name,
-        };
-      }
-    } else {
-      let msg = '';
-      try {
-        const errJson = await uploadResponse.json();
-        msg = errJson?.error || `HTTP ${uploadResponse.status}`;
-      } catch {
-        msg = await uploadResponse.text();
-      }
-      throw new Error(msg || `HTTP ${uploadResponse.status}`);
-    }
-    return null;
-  };
+    return {
+      url,
+      type: isVideo ? 'video' : 'image',
+      thumbnailUrl: thumbnailUrl || undefined,
+      originalName: file.name,
+    };
+  } catch (error: any) {
+    firebaseError =
+      error?.code || error?.message || String(error || '');
 
-  let serverErrorMsg = '';
-
-  try {
-    const result = await attemptUpload();
-    if (result) return result;
-  } catch (err: any) {
-    serverErrorMsg = err?.message || '';
-    // Retry once on failure
-    try {
-      await new Promise(r => setTimeout(r, 600));
-      const retryResult = await attemptUpload();
-      if (retryResult) return retryResult;
-    } catch (retryErr: any) {
-      serverErrorMsg = retryErr?.message || serverErrorMsg || 'Không thể kết nối đến máy chủ lưu trữ.';
-    }
+    console.warn(
+      'Firebase Storage upload failed, trying server fallback:',
+      error
+    );
   }
 
-  // Fallback for image: encode to Base64
-  if (!isVideo) {
+  // 2) Existing Express /api/upload fallback
+  try {
+    const [url, thumbnailUrl] = await Promise.all([
+      uploadToServer(file, isVideo),
+      thumbnailPromise,
+    ]);
+
+    return {
+      url,
+      type: isVideo ? 'video' : 'image',
+      thumbnailUrl: thumbnailUrl || undefined,
+      originalName: file.name,
+    };
+  } catch (error: any) {
+    serverError =
+      error?.message || String(error || '');
+
+    console.warn('Server upload fallback failed:', error);
+  }
+
+  // 3) Image-only fallback
+  if (isImage) {
     try {
       const base64 = await compressImageToBase64(file);
+
       return {
         url: base64,
         type: 'image',
         originalName: file.name,
       };
     } catch {
-      // ignore
+      // fall through to final error
     }
   }
 
-  // If server upload failed for video, throw clear message
+  const details = [
+    firebaseError && `Firebase: ${firebaseError}`,
+    serverError && `Server: ${serverError}`,
+  ]
+    .filter(Boolean)
+    .join(' | ');
+
+  if (isVideo) {
+    throw new Error(
+      `Không thể tải video "${file.name}" (${humanFileSize(
+        file.size
+      )}). ${details || 'Không có nơi lưu trữ khả dụng.'}`
+    );
+  }
+
   throw new Error(
-    `Không thể tải video "${file.name}" lên máy chủ: ${serverErrorMsg || 'Vui lòng kiểm tra dung lượng hoặc định dạng.'}`
+    `Không thể tải file "${file.name}". ${
+      details || 'Vui lòng thử lại.'
+    }`
   );
 }

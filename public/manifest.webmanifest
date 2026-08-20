@@ -1,0 +1,13 @@
+{
+  "id": "/",
+  "name": "Us — Couple App",
+  "short_name": "Us",
+  "description": "Không gian riêng lưu giữ những kỷ niệm của hai đứa.",
+  "lang": "vi",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8fafc",
+  "theme_color": "#fff1f2"
+}
