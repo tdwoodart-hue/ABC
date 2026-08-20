@@ -12,10 +12,18 @@
     <!-- Home Screen / PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
+
+    <!--
+      IMPORTANT:
+      "default" keeps the app below the iPhone status bar.
+      Do NOT use "black-translucent" here because it allows
+      content to render underneath the clock / signal / battery area.
+    -->
     <meta
       name="apple-mobile-web-app-status-bar-style"
-      content="black-translucent"
+      content="default"
     />
+
     <meta name="apple-mobile-web-app-title" content="Us" />
     <meta name="application-name" content="Us" />
     <meta name="theme-color" content="#fff1f2" />
