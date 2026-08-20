@@ -17,8 +17,8 @@ service cloud.firestore {
         ];
     }
 
-    // This is a private couple app.
-    // Only the explicitly allowed accounts may read or write Firestore.
+    // Private couple app.
+    // Only these three authenticated accounts may access Firestore.
     match /{document=**} {
       allow read, write: if hasAllowedEmail();
     }
