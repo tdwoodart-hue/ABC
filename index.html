@@ -9,7 +9,7 @@
       content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
 
-    <!-- Launch from Home Screen without Safari browser chrome -->
+    <!-- Home Screen / PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta
@@ -17,13 +17,16 @@
       content="black-translucent"
     />
     <meta name="apple-mobile-web-app-title" content="Us" />
-
-    <!-- PWA / Home Screen -->
-    <link rel="manifest" href="/manifest.webmanifest" />
-
-    <!-- iOS UI -->
+    <meta name="application-name" content="Us" />
     <meta name="theme-color" content="#fff1f2" />
     <meta name="format-detection" content="telephone=no" />
+
+    <!-- Web App Manifest -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- App Icon -->
+    <link rel="apple-touch-icon" href="/icons/icon.png" />
+    <link rel="icon" type="image/png" href="/icons/icon.png" />
 
     <title>Us — Couple App</title>
 
@@ -32,13 +35,13 @@
       content="Không gian riêng lưu giữ những kỷ niệm của hai đứa."
     />
 
+    <!-- Social preview -->
     <meta property="og:title" content="Us — Couple App" />
     <meta
       property="og:description"
       content="Không gian riêng lưu giữ những kỷ niệm của hai đứa."
     />
     <meta property="og:type" content="website" />
-
     <meta name="twitter:card" content="summary_large_image" />
 
     <!-- Leaflet -->
@@ -50,7 +53,6 @@
 
   <body>
     <div id="root"></div>
-
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
