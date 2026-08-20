@@ -137,3 +137,97 @@ a,
   background-color: #fff1f2 !important;
   color: #e11d48 !important;
 }
+
+/* =========================================================
+   ImageLightboxModal — iPhone / mobile layout fix
+   ========================================================= */
+
+#image-viewer-page {
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  min-height: 100vh;
+}
+
+@supports (height: 100dvh) {
+  #image-viewer-page {
+    height: 100dvh;
+    min-height: 100dvh;
+  }
+}
+
+/* Toast stays below Dynamic Island / status bar. */
+#image-viewer-page > .fixed {
+  top: calc(env(safe-area-inset-top, 0px) + 12px) !important;
+}
+
+/* Comment box stays above iPhone Home Indicator. */
+#image-viewer-page form.sticky {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 12px) !important;
+}
+
+@media (max-width: 639px) {
+  /*
+   * Fallback spacing for iPhone/PWA.
+   * Even if safe-area reports 0 temporarily, header still won't hit status bar.
+   */
+  #image-viewer-page {
+    padding-top: max(env(safe-area-inset-top, 0px), 44px);
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 10px);
+  }
+
+  /*
+   * MOBILE HEADER:
+   * Row 1: back + title/date
+   * Row 2: main-photo + comments + close
+   */
+  #image-viewer-page header {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    margin-bottom: 12px !important;
+  }
+
+  #image-viewer-page header > div:first-child {
+    width: 100% !important;
+    flex: 0 0 100% !important;
+    min-width: 0 !important;
+  }
+
+  #image-viewer-page header > div:first-child > div:last-child {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+  }
+
+  #image-viewer-page header > div:last-child {
+    width: 100% !important;
+    flex: 0 0 100% !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+  }
+
+  #image-viewer-page header > div:last-child > button:first-child,
+  #image-viewer-page header > div:last-child > div:nth-child(2) {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+
+  #image-viewer-page header h2 {
+    max-width: calc(100vw - 90px);
+  }
+
+  #image-viewer-page form.sticky {
+    bottom: max(
+      calc(env(safe-area-inset-bottom, 0px) + 10px),
+      14px
+    ) !important;
+  }
+
+  #image-viewer-page .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+}
