@@ -26,7 +26,11 @@ import {
 } from '../utils/deviceHelper';
 import { formatDateVN, formatDateShortVN, formatDateTimeVN } from '../utils/formatDate';
 import { getDeviceHighAccuracyGPS, reverseGeocodeGPS, formatCoordinates } from '../utils/geolocation';
-import { isVideoUrl, uploadMediaFile, compressImageToBase64 } from '../utils/mediaHelper';
+import {
+  isVideoUrl,
+  uploadMediaFilesConcurrently,
+  uploadDataUrlToFirebaseStorage
+} from '../utils/mediaHelper';
 import { 
   db, 
   doc, 
@@ -563,25 +567,33 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   };
 
   const handleJournalFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
     setJournalImageLoading(true);
+
     try {
-      const newImages: string[] = [];
-      const newThumbs: Record<string, string> = { ...journalVideoThumbnails };
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const res = await uploadMediaFile(file);
-        newImages.push(res.url);
-        if (res.thumbnailUrl) {
-          newThumbs[res.url] = res.thumbnailUrl;
+      const results = await uploadMediaFilesConcurrently(files, 3);
+
+      const newImages = results.map(result => result.url);
+      const newThumbs: Record<string, string> = {
+        ...journalVideoThumbnails
+      };
+
+      results.forEach(result => {
+        if (result.thumbnailUrl) {
+          newThumbs[result.url] = result.thumbnailUrl;
         }
-      }
+      });
+
       setJournalImages(prev => [...prev, ...newImages]);
       setJournalVideoThumbnails(newThumbs);
     } catch (err: any) {
-      console.error('Lỗi đọc file ảnh/video nhật ký:', err);
-      alert('Không thể tải tệp lên: ' + (err?.message || 'Vui lòng thử lại với ảnh hoặc video khác.'));
+      console.error('Lỗi upload ảnh/video nhật ký lên Firebase Storage:', err);
+      alert(
+        'Không thể tải tệp lên Firebase Storage: ' +
+        (err?.message || 'Vui lòng kiểm tra Firebase Storage Rules hoặc kết nối mạng.')
+      );
     } finally {
       setJournalImageLoading(false);
       e.target.value = '';
@@ -593,45 +605,87 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   };
 
   // Camera Live Capture & Automatic GPS Location Tagging (High-Accuracy metadata)
-  const handleCameraCaptured = (dataUrl: string, autoLocation?: string, meta?: CameraLocationMetadata) => {
-    if (cameraModalTarget === 'journal_create') {
-      setJournalImages(prev => [...prev, dataUrl]);
-      if (meta) {
-        setJournalLat(meta.lat);
-        setJournalLng(meta.lng);
-        setJournalAccuracy(meta.accuracy ?? null);
-        setJournalLocationTimestamp(meta.locationTimestamp ?? null);
-        if (meta.locationName || meta.address) {
-          setJournalLocation(meta.locationName || meta.address || '');
-          setJournalLocationAddress(meta.address || meta.locationName || '');
+  const handleCameraCaptured = async (
+    dataUrl: string,
+    autoLocation?: string,
+    meta?: CameraLocationMetadata
+  ) => {
+    const target = cameraModalTarget;
+
+    if (target === 'journal_create') {
+      setJournalImageLoading(true);
+    } else if (target === 'journal_edit') {
+      setEditImageLoading(true);
+    } else {
+      setMemoryImageLoading(true);
+    }
+
+    try {
+      const uploadedUrl = await uploadDataUrlToFirebaseStorage(
+        dataUrl,
+        `camera-${Date.now()}.jpg`
+      );
+
+      if (target === 'journal_create') {
+        setJournalImages(prev => [...prev, uploadedUrl]);
+
+        if (meta) {
+          setJournalLat(meta.lat);
+          setJournalLng(meta.lng);
+          setJournalAccuracy(meta.accuracy ?? null);
+          setJournalLocationTimestamp(meta.locationTimestamp ?? null);
+
+          if (meta.locationName || meta.address) {
+            setJournalLocation(meta.locationName || meta.address || '');
+            setJournalLocationAddress(meta.address || meta.locationName || '');
+          }
+        } else if (autoLocation && !journalLocation) {
+          setJournalLocation(autoLocation);
+          setJournalLocationAddress(autoLocation);
         }
-      } else if (autoLocation && !journalLocation) {
-        setJournalLocation(autoLocation);
-        setJournalLocationAddress(autoLocation);
-      }
-      setGpsToast(meta ? `Đã chụp ảnh & ghi nhận GPS chính xác (±${meta.accuracy ? meta.accuracy.toFixed(0) : 0}m)` : (autoLocation ? `Đã chụp ảnh & tự động lưu vị trí: ${autoLocation}` : 'Đã chụp ảnh kỷ niệm thành công!'));
-      setTimeout(() => setGpsToast(null), 4000);
-    } else if (cameraModalTarget === 'journal_edit') {
-      setEditImages(prev => [...prev, dataUrl]);
-      if (meta) {
-        setEditLat(meta.lat);
-        setEditLng(meta.lng);
-        setEditAccuracy(meta.accuracy ?? null);
-        setEditLocationTimestamp(meta.locationTimestamp ?? null);
-        if (meta.locationName || meta.address) {
-          setEditLocation(meta.locationName || meta.address || '');
-          setEditLocationAddress(meta.address || meta.locationName || '');
+
+        setGpsToast(
+          meta
+            ? `Đã upload ảnh & ghi nhận GPS chính xác (±${meta.accuracy ? meta.accuracy.toFixed(0) : 0}m)`
+            : autoLocation
+              ? `Đã upload ảnh & lưu vị trí: ${autoLocation}`
+              : 'Đã upload ảnh Camera lên Firebase Storage!'
+        );
+      } else if (target === 'journal_edit') {
+        setEditImages(prev => [...prev, uploadedUrl]);
+
+        if (meta) {
+          setEditLat(meta.lat);
+          setEditLng(meta.lng);
+          setEditAccuracy(meta.accuracy ?? null);
+          setEditLocationTimestamp(meta.locationTimestamp ?? null);
+
+          if (meta.locationName || meta.address) {
+            setEditLocation(meta.locationName || meta.address || '');
+            setEditLocationAddress(meta.address || meta.locationName || '');
+          }
+        } else if (autoLocation && !editLocation) {
+          setEditLocation(autoLocation);
+          setEditLocationAddress(autoLocation);
         }
-      } else if (autoLocation && !editLocation) {
-        setEditLocation(autoLocation);
-        setEditLocationAddress(autoLocation);
+
+        setGpsToast('Đã upload ảnh Camera & lưu metadata GPS thành công!');
+      } else {
+        setMemoryImageUrl(uploadedUrl);
+        setGpsToast('Đã upload ảnh kỷ niệm lên Firebase Storage!');
       }
-      setGpsToast('Đã chụp ảnh & lưu metadata GPS thành công!');
+
       setTimeout(() => setGpsToast(null), 4000);
-    } else if (cameraModalTarget === 'memory') {
-      setMemoryImageUrl(dataUrl);
-      setGpsToast('Đã chụp ảnh kỷ niệm thành công!');
-      setTimeout(() => setGpsToast(null), 4000);
+    } catch (err: any) {
+      console.error('Lỗi upload ảnh Camera lên Firebase Storage:', err);
+      alert(
+        'Không thể upload ảnh Camera: ' +
+        (err?.message || 'Vui lòng kiểm tra Firebase Storage Rules.')
+      );
+    } finally {
+      setJournalImageLoading(false);
+      setEditImageLoading(false);
+      setMemoryImageLoading(false);
     }
   };
 
@@ -688,14 +742,21 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const handleMemoryFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     setMemoryImageLoading(true);
+
     try {
-      const base64 = await compressAndConvertToBase64(file);
-      setMemoryImageUrl(base64);
-    } catch (err) {
-      console.error('Lỗi đọc file ảnh kỷ niệm:', err);
+      const [result] = await uploadMediaFilesConcurrently([file], 1);
+      setMemoryImageUrl(result.url);
+    } catch (err: any) {
+      console.error('Lỗi upload ảnh kỷ niệm lên Firebase Storage:', err);
+      alert(
+        'Không thể upload ảnh kỷ niệm: ' +
+        (err?.message || 'Vui lòng kiểm tra Firebase Storage Rules.')
+      );
     } finally {
       setMemoryImageLoading(false);
+      e.target.value = '';
     }
   };
 
@@ -1247,25 +1308,33 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   };
 
   const handleEditJournalFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
     setEditImageLoading(true);
+
     try {
-      const newImages: string[] = [];
-      const newThumbs: Record<string, string> = { ...editVideoThumbnails };
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const res = await uploadMediaFile(file);
-        newImages.push(res.url);
-        if (res.thumbnailUrl) {
-          newThumbs[res.url] = res.thumbnailUrl;
+      const results = await uploadMediaFilesConcurrently(files, 3);
+
+      const newImages = results.map(result => result.url);
+      const newThumbs: Record<string, string> = {
+        ...editVideoThumbnails
+      };
+
+      results.forEach(result => {
+        if (result.thumbnailUrl) {
+          newThumbs[result.url] = result.thumbnailUrl;
         }
-      }
+      });
+
       setEditImages(prev => [...prev, ...newImages]);
       setEditVideoThumbnails(newThumbs);
     } catch (err: any) {
-      console.error('Lỗi đọc file ảnh/video khi sửa:', err);
-      alert('Không thể tải tệp lên: ' + (err?.message || 'Vui lòng kiểm tra lại.'));
+      console.error('Lỗi upload ảnh/video khi sửa lên Firebase Storage:', err);
+      alert(
+        'Không thể tải tệp lên Firebase Storage: ' +
+        (err?.message || 'Vui lòng kiểm tra Firebase Storage Rules hoặc kết nối mạng.')
+      );
     } finally {
       setEditImageLoading(false);
       e.target.value = '';
@@ -2768,4 +2837,3 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     </div>
   );
 };
-
