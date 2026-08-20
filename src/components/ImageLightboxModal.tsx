@@ -1,29 +1,35 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { JournalEntry, UserProfile, ImageComment, CoupleData } from '../types';
-import { formatDateTimeVN, formatDateVN } from '../utils/formatDate';
-import { isVideoUrl } from '../utils/mediaHelper';
-import { checkIsAdmin } from '../lib/firebase';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
-  X,
+  Calendar,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Star,
-  MessageSquare,
-  Send,
-  Trash2,
-  Calendar,
-  MapPin,
-  Sparkles,
   Heart,
-  MoreVertical,
-  Reply,
   Image as ImageIcon,
-  ChevronDown,
-  Camera,
+  MessageSquare,
+  Play,
+  Reply,
+  Send,
+  Sparkles,
+  Star,
   Users,
-  Play
+  X,
 } from 'lucide-react';
+
+import type {
+  CoupleData,
+  ImageComment,
+  JournalEntry,
+  UserProfile,
+} from '../types';
+
+import {
+  formatDateTimeVN,
+  formatDateVN,
+} from '../utils/formatDate';
+
+import { isVideoUrl } from '../utils/mediaHelper';
 
 interface ImageLightboxModalProps {
   isOpen: boolean;
@@ -33,12 +39,33 @@ interface ImageLightboxModalProps {
   currentUser: UserProfile;
   coupleId: string;
   coupleData?: CoupleData | null;
-  onSetMainImage: (journalId: string, imageIndex: number) => Promise<void>;
-  onAddImageComment: (journalId: string, imageIndex: number, imageUrl: string, content: string) => Promise<void>;
-  onDeleteImageComment: (journalId: string, commentId: string) => Promise<void>;
+  onSetMainImage: (
+    journalId: string,
+    imageIndex: number
+  ) => Promise<void>;
+  onAddImageComment: (
+    journalId: string,
+    imageIndex: number,
+    imageUrl: string,
+    content: string
+  ) => Promise<void>;
+  onDeleteImageComment: (
+    journalId: string,
+    commentId: string
+  ) => Promise<void>;
 }
 
-export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
+/*
+ * Mobile layout goals:
+ * - Never overlap iPhone status bar / Dynamic Island.
+ * - Row 1: Back + title/meta + Close.
+ * - Row 2: Main-image action + comment count.
+ * - Media is capped on mobile so comments remain discoverable.
+ * - Comment composer stays above the Home Indicator.
+ */
+export const ImageLightboxModal: React.FC<
+  ImageLightboxModalProps
+> = ({
   isOpen,
   onClose,
   journal,
@@ -47,503 +74,891 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
   coupleData,
   onSetMainImage,
   onAddImageComment,
-  onDeleteImageComment,
 }) => {
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
-  const [commentText, setCommentText] = useState('');
-  const [submittingComment, setSubmittingComment] = useState(false);
-  const [settingMainImage, setSettingMainImage] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
-  const [activeMenuCommentId, setActiveMenuCommentId] = useState<string | null>(null);
-  const [deleteCommentTarget, setDeleteCommentTarget] = useState<ImageComment | null>(null);
-  const [deletingComment, setDeletingComment] = useState(false);
+  const [currentIndex, setCurrentIndex] =
+    useState(initialIndex);
 
-  const imageList: string[] = useMemo(() => {
-    if (!journal) return [];
-    if (journal.images && journal.images.length > 0) {
-      return journal.images;
-    }
-    if (journal.imageUrl) {
-      return [journal.imageUrl];
-    }
-    return [];
-  }, [journal]);
+  const [commentText, setCommentText] =
+    useState('');
 
-  const currentMainIndex = journal?.mainImageIndex ?? 0;
-  const isCurrentMain = currentIndex === currentMainIndex;
+  const [
+    submittingComment,
+    setSubmittingComment,
+  ] = useState(false);
 
-  // Sync index on open
-  useEffect(() => {
-    if (isOpen) {
-      const validIndex = Math.min(Math.max(0, initialIndex), Math.max(0, imageList.length - 1));
-      setCurrentIndex(validIndex);
-      setCommentText('');
-      setActiveMenuCommentId(null);
-    }
-  }, [isOpen, initialIndex, imageList.length]);
+  const [
+    settingMainImage,
+    setSettingMainImage,
+  ] = useState(false);
 
-  // Keyboard navigation (Arrow keys, Esc)
-  useEffect(() => {
-    if (!isOpen) return;
+  const [toastMessage, setToastMessage] =
+    useState<string | null>(null);
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      } else if (e.key === 'ArrowLeft') {
-        handlePrev();
-      } else if (e.key === 'ArrowRight') {
-        handleNext();
+  const [sortOrder, setSortOrder] =
+    useState<'newest' | 'oldest'>(
+      'newest'
+    );
+
+  const imageList = useMemo<string[]>(
+    () => {
+      if (!journal) return [];
+
+      if (
+        journal.images &&
+        journal.images.length > 0
+      ) {
+        return journal.images;
       }
-    };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, currentIndex, imageList.length]);
+      if (journal.imageUrl) {
+        return [journal.imageUrl];
+      }
 
-  if (!isOpen || !journal || imageList.length === 0) return null;
-
-  const currentImageUrl = imageList[currentIndex] || '';
-
-  // Filter image-specific comments
-  const rawComments: ImageComment[] = (journal.imageComments || []).filter(
-    (c) => c.imageIndex === currentIndex || (c.imageUrl && c.imageUrl === currentImageUrl)
+      return [];
+    },
+    [journal]
   );
 
-  const sortedComments = [...rawComments].sort((a, b) => {
-    const timeA = typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : ((a.createdAt as any)?.toMillis?.() || 0);
-    const timeB = typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : ((b.createdAt as any)?.toMillis?.() || 0);
-    return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
-  });
+  const currentMainIndex =
+    journal?.mainImageIndex ?? 0;
 
-  const handlePrev = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1);
-    } else {
-      setCurrentIndex(imageList.length - 1);
-    }
-    setActiveMenuCommentId(null);
-  };
+  const isCurrentMain =
+    currentIndex === currentMainIndex;
 
-  const handleNext = () => {
-    if (currentIndex < imageList.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-    } else {
-      setCurrentIndex(0);
-    }
-    setActiveMenuCommentId(null);
-  };
+  const currentImageUrl =
+    imageList[currentIndex] || '';
 
-  const handleSetMain = async () => {
-    if (settingMainImage || isCurrentMain) return;
-    setSettingMainImage(true);
-    try {
-      await onSetMainImage(journal.id, currentIndex);
-      showToast('Đã chọn bức ảnh này làm ảnh chính! ⭐');
-    } catch (err) {
-      console.error('Lỗi đặt ảnh chính:', err);
-    } finally {
-      setSettingMainImage(false);
-    }
-  };
+  const rawComments = useMemo<
+    ImageComment[]
+  >(() => {
+    if (!journal) return [];
 
-  const handleSendComment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!commentText.trim() || submittingComment) return;
+    return (
+      journal.imageComments || []
+    ).filter(
+      (comment) =>
+        comment.imageIndex ===
+          currentIndex ||
+        Boolean(
+          comment.imageUrl &&
+            comment.imageUrl ===
+              currentImageUrl
+        )
+    );
+  }, [
+    journal,
+    currentIndex,
+    currentImageUrl,
+  ]);
 
-    setSubmittingComment(true);
-    try {
-      await onAddImageComment(journal.id, currentIndex, currentImageUrl, commentText.trim());
-      setCommentText('');
-      showToast('Đã gửi bình luận cho bức ảnh 💕');
-    } catch (err) {
-      console.error('Lỗi thêm bình luận ảnh:', err);
-    } finally {
-      setSubmittingComment(false);
-    }
-  };
+  const sortedComments = useMemo(
+    () =>
+      [...rawComments].sort(
+        (a, b) => {
+          const getTime = (
+            value: unknown
+          ) => {
+            if (
+              typeof value === 'string'
+            ) {
+              return new Date(
+                value
+              ).getTime();
+            }
 
-  const handleConfirmDeleteComment = async () => {
-    if (!deleteCommentTarget || !journal) return;
-    setDeletingComment(true);
-    try {
-      await onDeleteImageComment(journal.id, deleteCommentTarget.id);
-      showToast('Đã xóa bình luận ảnh thành công!');
-      setDeleteCommentTarget(null);
-    } catch (err) {
-      console.error('Lỗi xóa bình luận ảnh:', err);
-      showToast('Lỗi khi xóa bình luận: ' + String(err));
-    } finally {
-      setDeletingComment(false);
-    }
-  };
+            const maybeTimestamp =
+              value as {
+                toMillis?: () => number;
+              } | null;
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => {
+            return (
+              maybeTimestamp?.toMillis?.() ||
+              0
+            );
+          };
+
+          const timeA = getTime(
+            a.createdAt
+          );
+
+          const timeB = getTime(
+            b.createdAt
+          );
+
+          return sortOrder ===
+            'newest'
+            ? timeB - timeA
+            : timeA - timeB;
+        }
+      ),
+    [rawComments, sortOrder]
+  );
+
+  const showToast = (
+    message: string
+  ) => {
+    setToastMessage(message);
+
+    window.setTimeout(() => {
       setToastMessage(null);
     }, 2500);
   };
 
-  // Resolve user avatars & names
-  const isU1 = (coupleData?.user1Id === currentUser.uid) || (coupleData?.user1Uid === currentUser.uid) || (currentUser.email?.toLowerCase().includes('duong'));
-  const s1Uid = coupleData?.user1Id || coupleData?.user1Uid || (isU1 ? currentUser.uid : '');
-  const s1Name = coupleData?.user1Name || (isU1 ? currentUser.displayName : 'Dương');
-  const s1Avatar = coupleData?.user1Avatar || (isU1 ? currentUser.avatarUrl : null) || 'https://api.dicebear.com/7.x/micah/svg?seed=duong_male';
-  const s2Uid = coupleData?.user2Id || coupleData?.user2Uid || (!isU1 ? currentUser.uid : '');
-  const s2Name = coupleData?.user2Name || (!isU1 ? currentUser.displayName : 'Chúc Gà');
-  const s2Avatar = coupleData?.user2Avatar || (!isU1 ? currentUser.avatarUrl : null) || 'https://api.dicebear.com/7.x/micah/svg?seed=chucga_female';
+  const handlePrev = () => {
+    if (imageList.length <= 1) return;
+
+    setCurrentIndex((prev) =>
+      prev > 0
+        ? prev - 1
+        : imageList.length - 1
+    );
+  };
+
+  const handleNext = () => {
+    if (imageList.length <= 1) return;
+
+    setCurrentIndex((prev) =>
+      prev <
+      imageList.length - 1
+        ? prev + 1
+        : 0
+    );
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const validIndex = Math.min(
+      Math.max(
+        0,
+        initialIndex
+      ),
+      Math.max(
+        0,
+        imageList.length - 1
+      )
+    );
+
+    setCurrentIndex(validIndex);
+    setCommentText('');
+  }, [
+    isOpen,
+    initialIndex,
+    imageList.length,
+  ]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const previousOverflow =
+      document.body.style.overflow;
+
+    document.body.style.overflow =
+      'hidden';
+
+    return () => {
+      document.body.style.overflow =
+        previousOverflow;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (
+      event: KeyboardEvent
+    ) => {
+      if (
+        event.key === 'Escape'
+      ) {
+        onClose();
+      } else if (
+        event.key ===
+        'ArrowLeft'
+      ) {
+        handlePrev();
+      } else if (
+        event.key ===
+        'ArrowRight'
+      ) {
+        handleNext();
+      }
+    };
+
+    window.addEventListener(
+      'keydown',
+      handleKeyDown
+    );
+
+    return () => {
+      window.removeEventListener(
+        'keydown',
+        handleKeyDown
+      );
+    };
+  }, [
+    isOpen,
+    currentIndex,
+    imageList.length,
+    onClose,
+  ]);
+
+  if (
+    !isOpen ||
+    !journal ||
+    imageList.length === 0
+  ) {
+    return null;
+  }
+
+  const handleSetMain =
+    async () => {
+      if (
+        settingMainImage ||
+        isCurrentMain
+      ) {
+        return;
+      }
+
+      setSettingMainImage(true);
+
+      try {
+        await onSetMainImage(
+          journal.id,
+          currentIndex
+        );
+
+        showToast(
+          'Đã chọn bức ảnh này làm ảnh chính! ⭐'
+        );
+      } catch (error) {
+        console.error(
+          'Lỗi đặt ảnh chính:',
+          error
+        );
+      } finally {
+        setSettingMainImage(false);
+      }
+    };
+
+  const handleSendComment =
+    async (
+      event: React.FormEvent
+    ) => {
+      event.preventDefault();
+
+      const content =
+        commentText.trim();
+
+      if (
+        !content ||
+        submittingComment
+      ) {
+        return;
+      }
+
+      setSubmittingComment(true);
+
+      try {
+        await onAddImageComment(
+          journal.id,
+          currentIndex,
+          currentImageUrl,
+          content
+        );
+
+        setCommentText('');
+
+        showToast(
+          'Đã gửi bình luận cho bức ảnh 💕'
+        );
+      } catch (error) {
+        console.error(
+          'Lỗi thêm bình luận ảnh:',
+          error
+        );
+      } finally {
+        setSubmittingComment(false);
+      }
+    };
+
+  const isUser1 =
+    coupleData?.user1Id ===
+      currentUser.uid ||
+    coupleData?.user1Uid ===
+      currentUser.uid ||
+    Boolean(
+      currentUser.email
+        ?.toLowerCase()
+        .includes('duong')
+    );
+
+  const user1Uid =
+    coupleData?.user1Id ||
+    coupleData?.user1Uid ||
+    (isUser1
+      ? currentUser.uid
+      : '');
+
+  const user1Name =
+    coupleData?.user1Name ||
+    (isUser1
+      ? currentUser.displayName
+      : 'Dương');
+
+  const user1Avatar =
+    coupleData?.user1Avatar ||
+    (isUser1
+      ? currentUser.avatarUrl
+      : null) ||
+    'https://api.dicebear.com/7.x/micah/svg?seed=duong_male';
+
+  const user2Uid =
+    coupleData?.user2Id ||
+    coupleData?.user2Uid ||
+    (!isUser1
+      ? currentUser.uid
+      : '');
+
+  const user2Name =
+    coupleData?.user2Name ||
+    (!isUser1
+      ? currentUser.displayName
+      : 'Chúc Gà');
+
+  const user2Avatar =
+    coupleData?.user2Avatar ||
+    (!isUser1
+      ? currentUser.avatarUrl
+      : null) ||
+    'https://api.dicebear.com/7.x/micah/svg?seed=chucga_female';
 
   return (
-    <div 
+    <div
       id="image-viewer-page"
-      className="fixed inset-0 z-50 bg-[#F4F6F9] overflow-y-auto select-none"
+      className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-[#F4F6F9] text-slate-900"
+      style={{
+        paddingTop:
+          'max(env(safe-area-inset-top, 0px), 12px)',
+        paddingBottom:
+          'max(env(safe-area-inset-bottom, 0px), 8px)',
+      }}
     >
-      {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-60 px-4 py-2.5 bg-slate-900 text-white text-xs font-bold rounded-2xl shadow-xl flex items-center gap-2 animate-bounce">
-          <Sparkles className="w-4 h-4 text-amber-400" />
-          <span>{toastMessage}</span>
+        <div
+          className="fixed left-1/2 z-[70] flex -translate-x-1/2 items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white shadow-xl"
+          style={{
+            top:
+              'max(calc(env(safe-area-inset-top, 0px) + 12px), 22px)',
+          }}
+        >
+          <Sparkles className="h-4 w-4 text-amber-400" />
+          <span>
+            {toastMessage}
+          </span>
         </div>
       )}
 
-      {/* Main Centered Container */}
-      <div className="max-w-2xl mx-auto min-h-screen px-3 sm:px-4 py-3 sm:py-6 flex flex-col">
-        
-        {/* Top Header Bar */}
-        <header className="flex items-center justify-between gap-2 mb-3 sm:mb-4 shrink-0">
-          {/* Left: Back Button + Title + Date */}
-          <div className="flex items-center gap-2.5 min-w-0">
+      <div className="mx-auto flex min-h-[100dvh] w-full max-w-2xl flex-col px-3 pb-3 sm:px-4 sm:pb-6">
+        {/* =====================================================
+            HEADER
+            Mobile row 1: Back + title/meta + Close
+            ===================================================== */}
+        <header className="shrink-0">
+          <div className="flex items-start gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="w-10 h-10 rounded-full bg-white hover:bg-slate-100 text-slate-700 shadow-2xs border border-slate-200/80 flex items-center justify-center transition cursor-pointer shrink-0"
-              title="Quay lại"
+              className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-700 shadow-sm transition hover:bg-slate-100 active:scale-95"
+              aria-label="Quay lại"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="h-5 w-5" />
             </button>
 
-            <div className="min-w-0">
-              <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate leading-tight">
-                {journal.title || 'Chi tiết ảnh kỷ niệm'}
+            <div className="min-w-0 flex-1 pt-0.5">
+              <h2 className="truncate text-[18px] font-extrabold leading-tight text-slate-950 sm:text-xl">
+                {journal.title ||
+                  'Chi tiết ảnh kỷ niệm'}
               </h2>
-              <div className="flex items-center gap-1 text-xs text-slate-500 font-medium mt-0.5">
-                <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                <span>{formatDateVN(journal.date)}</span>
+
+              <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-slate-500">
+                <span className="flex shrink-0 items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                  {formatDateVN(
+                    journal.date
+                  )}
+                </span>
+
                 {journal.location && (
                   <>
-                    <span className="text-slate-300">•</span>
-                    <span className="truncate max-w-[150px] sm:max-w-xs">{journal.location}</span>
+                    <span className="text-slate-300">
+                      •
+                    </span>
+                    <span className="max-w-[190px] truncate sm:max-w-sm">
+                      {journal.location}
+                    </span>
                   </>
                 )}
               </div>
-              {journal.taggedPeople && journal.taggedPeople.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1 mt-1">
-                  <span className="text-[10px] text-slate-400 font-medium flex items-center gap-0.5">
-                    <Users className="w-3 h-3 text-rose-500" />
-                    Cùng:
-                  </span>
-                  {journal.taggedPeople.map((p, idx) => (
-                    <span
-                      key={idx}
-                      className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-rose-50 border border-rose-100 text-rose-700"
-                    >
-                      <span>{p.emoji || '👤'}</span>
-                      <span>{p.name}</span>
+
+              {journal.taggedPeople &&
+                journal.taggedPeople
+                  .length > 0 && (
+                  <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1">
+                    <span className="flex items-center gap-1 text-[11px] font-medium text-slate-400">
+                      <Users className="h-3.5 w-3.5 text-rose-500" />
+                      Cùng:
                     </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* Right: Actions */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Main Photo Badge/Button */}
-            <button
-              type="button"
-              onClick={handleSetMain}
-              disabled={settingMainImage}
-              className={`flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-2xl text-xs font-bold transition cursor-pointer shadow-2xs ${
-                isCurrentMain
-                  ? 'bg-amber-100 text-amber-900 border border-amber-200'
-                  : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200'
-              }`}
-              title={isCurrentMain ? 'Đây là ảnh chính' : 'Bấm để đặt làm ảnh chính'}
-            >
-              <Star className={`w-3.5 h-3.5 ${isCurrentMain ? 'fill-amber-500 text-amber-500' : 'text-amber-500'}`} />
-              <span className="whitespace-nowrap">Ảnh chính</span>
-            </button>
-
-            {/* Comments Counter Pill */}
-            <div 
-              className="flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-2xl text-xs font-bold bg-rose-50 text-rose-600 border border-rose-100 shadow-2xs"
-            >
-              <MessageSquare className="w-3.5 h-3.5 text-rose-500" />
-              <span className="whitespace-nowrap">Bình luận</span>
-              <span className="w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] flex items-center justify-center font-bold">
-                {rawComments.length}
-              </span>
+                    {journal.taggedPeople.map(
+                      (
+                        person,
+                        index
+                      ) => (
+                        <span
+                          key={`${person.name}-${index}`}
+                          className="inline-flex max-w-[140px] items-center gap-1 rounded-full border border-rose-100 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700"
+                        >
+                          <span>
+                            {person.emoji ||
+                              '👤'}
+                          </span>
+                          <span className="truncate">
+                            {
+                              person.name
+                            }
+                          </span>
+                        </span>
+                      )
+                    )}
+                  </div>
+                )}
             </div>
 
-            {/* Close / More Button */}
             <button
               type="button"
               onClick={onClose}
-              className="w-9 h-9 rounded-full bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 shadow-2xs border border-slate-200/80 flex items-center justify-center transition cursor-pointer shrink-0"
-              title="Đóng"
+              className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-500 shadow-sm transition hover:bg-slate-100 hover:text-slate-800 active:scale-95"
+              aria-label="Đóng"
             >
-              <X className="w-4 h-4" />
+              <X className="h-4.5 w-4.5" />
             </button>
+          </div>
+
+          {/* Mobile/desktop row 2: compact actions */}
+          <div className="mt-3 flex items-center gap-2 pl-[50px] sm:pl-[52px]">
+            <button
+              type="button"
+              onClick={handleSetMain}
+              disabled={
+                settingMainImage
+              }
+              className={`flex h-9 items-center gap-1.5 rounded-2xl border px-3 text-xs font-bold shadow-sm transition active:scale-[0.98] ${
+                isCurrentMain
+                  ? 'border-amber-200 bg-amber-100 text-amber-900'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <Star
+                className={`h-4 w-4 ${
+                  isCurrentMain
+                    ? 'fill-amber-500 text-amber-500'
+                    : 'text-amber-500'
+                }`}
+              />
+              <span>
+                Ảnh chính
+              </span>
+            </button>
+
+            <div className="flex h-9 items-center gap-1.5 rounded-2xl border border-rose-100 bg-rose-50 px-3 text-xs font-bold text-rose-600 shadow-sm">
+              <MessageSquare className="h-4 w-4 text-rose-500" />
+              <span>
+                Bình luận
+              </span>
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                {rawComments.length}
+              </span>
+            </div>
           </div>
         </header>
 
-        {/* Rounded Image / Video Container */}
-        <div className="relative w-full flex justify-center shrink-0">
-          <div className="relative max-w-full rounded-3xl overflow-hidden shadow-sm border border-slate-200/80 group bg-slate-900 flex items-center justify-center">
-            {isVideoUrl(currentImageUrl) ? (
+        {/* =====================================================
+            MEDIA
+            Important: mobile max height is intentionally smaller
+            so the comments section remains visible/discoverable.
+            ===================================================== */}
+        <section className="mt-3 shrink-0 sm:mt-4">
+          <div className="relative flex w-full items-center justify-center overflow-hidden rounded-[24px] border border-slate-200/80 bg-slate-900 shadow-sm sm:rounded-3xl">
+            {isVideoUrl(
+              currentImageUrl
+            ) ? (
               <video
-                key={currentImageUrl}
-                src={currentImageUrl}
+                key={
+                  currentImageUrl
+                }
+                src={
+                  currentImageUrl
+                }
                 controls
                 playsInline
-                autoPlay
-                className="max-h-[68vh] sm:max-h-[72vh] w-auto max-w-full rounded-3xl block bg-black"
+                className="block max-h-[56dvh] w-full object-contain sm:max-h-[70vh]"
               />
             ) : (
               <img
-                src={currentImageUrl}
-                alt={`Kỷ niệm ${currentIndex + 1}`}
-                className="max-h-[68vh] sm:max-h-[72vh] w-auto max-w-full object-contain rounded-3xl block"
+                src={
+                  currentImageUrl
+                }
+                alt={`Kỷ niệm ${
+                  currentIndex + 1
+                }`}
+                className="block max-h-[56dvh] w-full object-contain sm:max-h-[70vh]"
               />
             )}
 
-            {/* Left / Right Floating Navigation Buttons */}
-            {imageList.length > 1 && (
+            {imageList.length >
+              1 && (
               <>
                 <button
                   type="button"
-                  onClick={handlePrev}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 hover:bg-black/65 text-white backdrop-blur-xs flex items-center justify-center transition cursor-pointer shadow-md z-10"
-                  title="Ảnh / Video trước"
+                  onClick={
+                    handlePrev
+                  }
+                  className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white shadow-md backdrop-blur-sm transition hover:bg-black/65 active:scale-95"
+                  aria-label="Ảnh trước"
                 >
-                  <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+                  <ChevronLeft className="h-6 w-6" />
                 </button>
 
                 <button
                   type="button"
-                  onClick={handleNext}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 hover:bg-black/65 text-white backdrop-blur-xs flex items-center justify-center transition cursor-pointer shadow-md z-10"
-                  title="Ảnh / Video tiếp theo"
+                  onClick={
+                    handleNext
+                  }
+                  className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white shadow-md backdrop-blur-sm transition hover:bg-black/65 active:scale-95"
+                  aria-label="Ảnh tiếp theo"
                 >
-                  <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
+                  <ChevronRight className="h-6 w-6" />
                 </button>
+
+                <div className="absolute bottom-3 right-3 z-10 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm">
+                  {currentIndex + 1}{' '}
+                  /{' '}
+                  {imageList.length}
+                </div>
               </>
             )}
-
-            {/* Media indicator (e.g. 1/3) if multiple photos/videos */}
-            {imageList.length > 1 && (
-              <div className="absolute bottom-3 right-3 bg-black/50 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-1 rounded-full z-10">
-                {currentIndex + 1} / {imageList.length}
-              </div>
-            )}
           </div>
-        </div>
 
-        {/* Thumbnail Selector Strip (if multiple photos/videos) */}
-        {imageList.length > 1 && (
-          <div className="flex items-center gap-2 overflow-x-auto py-2.5 px-1 mt-1">
-            {imageList.map((img, idx) => {
-              const isSelected = idx === currentIndex;
-              const isVid = isVideoUrl(img);
-              const customThumb = journal.videoThumbnails?.[img];
-              return (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setCurrentIndex(idx)}
-                  className={`relative w-14 h-14 rounded-2xl overflow-hidden shrink-0 border-2 transition cursor-pointer bg-slate-900 ${
-                    isSelected
-                      ? 'border-rose-500 shadow-md ring-2 ring-rose-300 scale-105'
-                      : 'border-white opacity-60 hover:opacity-100 hover:border-slate-300'
-                  }`}
-                >
-                  {isVid ? (
-                    customThumb ? (
-                      <img src={customThumb} alt={`Thumbnail ${idx}`} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-slate-800 flex items-center justify-center">
-                        <video src={img} className="w-full h-full object-cover opacity-70" preload="metadata" />
-                      </div>
-                    )
-                  ) : (
-                    <img src={img} alt={`Thumbnail ${idx}`} className="w-full h-full object-cover" />
-                  )}
+          {imageList.length >
+            1 && (
+            <div className="mt-2 flex gap-2 overflow-x-auto px-0.5 py-1.5 [-webkit-overflow-scrolling:touch]">
+              {imageList.map(
+                (
+                  mediaUrl,
+                  index
+                ) => {
+                  const isSelected =
+                    index ===
+                    currentIndex;
 
-                  {isVid && (
-                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                      <Play className="w-3.5 h-3.5 text-white fill-white drop-shadow-sm" />
-                    </div>
-                  )}
+                  const isVideo =
+                    isVideoUrl(
+                      mediaUrl
+                    );
 
-                  {idx === currentMainIndex && (
-                    <div className="absolute top-1 right-1 bg-amber-400 p-0.5 rounded-full shadow-xs z-10">
-                      <Star className="w-2.5 h-2.5 fill-slate-900 text-slate-900" />
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
+                  const customThumbnail =
+                    journal
+                      .videoThumbnails?.[
+                      mediaUrl
+                    ];
 
-        {/* Comments Section */}
-        <div className="mt-4 sm:mt-5 flex-1 flex flex-col">
-          {/* Comments Header Bar */}
-          <div className="flex items-center justify-between mb-3 px-1">
+                  return (
+                    <button
+                      key={`${mediaUrl}-${index}`}
+                      type="button"
+                      onClick={() =>
+                        setCurrentIndex(
+                          index
+                        )
+                      }
+                      className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border-2 bg-slate-900 transition ${
+                        isSelected
+                          ? 'scale-105 border-rose-500 ring-2 ring-rose-200'
+                          : 'border-transparent opacity-65 hover:opacity-100'
+                      }`}
+                    >
+                      {isVideo ? (
+                        customThumbnail ? (
+                          <img
+                            src={
+                              customThumbnail
+                            }
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <video
+                            src={
+                              mediaUrl
+                            }
+                            preload="metadata"
+                            className="h-full w-full object-cover opacity-75"
+                          />
+                        )
+                      ) : (
+                        <img
+                          src={
+                            mediaUrl
+                          }
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      )}
+
+                      {isVideo && (
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/25">
+                          <Play className="h-4 w-4 fill-white text-white" />
+                        </span>
+                      )}
+
+                      {index ===
+                        currentMainIndex && (
+                        <span className="absolute right-1 top-1 rounded-full bg-amber-400 p-0.5">
+                          <Star className="h-2.5 w-2.5 fill-slate-900 text-slate-900" />
+                        </span>
+                      )}
+                    </button>
+                  );
+                }
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* =====================================================
+            COMMENTS
+            ===================================================== */}
+        <section className="mt-4 flex flex-1 flex-col sm:mt-5">
+          <div className="mb-3 flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center">
-                <MessageSquare className="w-4 h-4" />
-              </div>
-              <h3 className="text-sm font-bold text-slate-900">
-                Bình luận ({rawComments.length})
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-50 text-rose-500">
+                <MessageSquare className="h-4 w-4" />
+              </span>
+
+              <h3 className="text-sm font-extrabold text-slate-900">
+                Bình luận (
+                {
+                  rawComments.length
+                }
+                )
               </h3>
             </div>
 
-            {/* Sort order toggle */}
             <button
               type="button"
-              onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
-              className="flex items-center gap-1 text-xs font-semibold text-slate-600 bg-white border border-slate-200/80 px-2.5 py-1 rounded-xl shadow-2xs hover:bg-slate-50 transition cursor-pointer"
+              onClick={() =>
+                setSortOrder(
+                  (prev) =>
+                    prev ===
+                    'newest'
+                      ? 'oldest'
+                      : 'newest'
+                )
+              }
+              className="flex h-8 items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 shadow-sm"
             >
-              <span>{sortOrder === 'newest' ? 'Mới nhất' : 'Cũ nhất'}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              <span>
+                {sortOrder ===
+                'newest'
+                  ? 'Mới nhất'
+                  : 'Cũ nhất'}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
             </button>
           </div>
 
-          {/* Comments List Cards */}
-          <div className="space-y-2.5 flex-1">
-            {sortedComments.length === 0 ? (
-              <div className="p-8 bg-white rounded-3xl border border-slate-200/60 text-center space-y-2">
-                <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-400 flex items-center justify-center mx-auto">
-                  <Heart className="w-6 h-6 fill-rose-100" />
+          <div className="space-y-2.5 pb-2">
+            {sortedComments.length ===
+            0 ? (
+              <div className="rounded-3xl border border-slate-200/60 bg-white px-6 py-8 text-center shadow-sm">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-400">
+                  <Heart className="h-6 w-6 fill-rose-100" />
                 </div>
-                <p className="text-xs font-bold text-slate-700">Chưa có bình luận cho ảnh này</p>
-                <p className="text-[11px] text-slate-400">
-                  Hãy gửi lời nhắn hoặc cảm xúc của bạn về khoảnh khắc này ở khung bên dưới nhé!
+
+                <p className="mt-3 text-sm font-bold text-slate-800">
+                  Chưa có bình luận
+                  cho ảnh này
+                </p>
+
+                <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-slate-400">
+                  Hãy gửi lời nhắn
+                  hoặc cảm xúc của
+                  bạn về khoảnh khắc
+                  này.
                 </p>
               </div>
             ) : (
-              sortedComments.map((comment) => {
-                let cName = comment.authorName;
-                let cAvatar = `https://api.dicebear.com/7.x/micah/svg?seed=${comment.authorUid || 'user'}`;
-                let isMe = comment.authorUid === currentUser.uid;
+              sortedComments.map(
+                (comment) => {
+                  let authorName =
+                    comment.authorName;
 
-                if (comment.authorUid === currentUser.uid) {
-                  cName = currentUser.displayName || (isU1 ? s1Name : s2Name);
-                  cAvatar = currentUser.avatarUrl || (isU1 ? s1Avatar : s2Avatar);
-                  isMe = true;
-                } else if (comment.authorUid === s1Uid) {
-                  cName = s1Name;
-                  cAvatar = s1Avatar;
-                  isMe = isU1;
-                } else if (comment.authorUid === s2Uid) {
-                  cName = s2Name;
-                  cAvatar = s2Avatar;
-                  isMe = !isU1;
-                } else if (comment.authorName?.toLowerCase().includes('dương') || comment.authorName?.toLowerCase().includes('duong')) {
-                  cName = s1Name;
-                  cAvatar = s1Avatar;
-                  isMe = isU1;
-                } else if (comment.authorName?.toLowerCase().includes('chúc') || comment.authorName?.toLowerCase().includes('chuc')) {
-                  cName = s2Name;
-                  cAvatar = s2Avatar;
-                  isMe = !isU1;
-                }
+                  let avatarUrl =
+                    `https://api.dicebear.com/7.x/micah/svg?seed=${
+                      comment.authorUid ||
+                      'user'
+                    }`;
 
-                const isMenuOpen = activeMenuCommentId === comment.id;
+                  if (
+                    comment.authorUid ===
+                    currentUser.uid
+                  ) {
+                    authorName =
+                      currentUser.displayName ||
+                      (isUser1
+                        ? user1Name
+                        : user2Name);
 
-                return (
-                  <div
-                    key={comment.id}
-                    className="p-3.5 sm:p-4 bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-2xs space-y-2 relative"
-                  >
-                    <div className="flex items-center justify-between">
-                      {/* Avatar + Author + Badge + Timestamp */}
-                      <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
-                        <div className="w-8 h-8 rounded-full overflow-hidden bg-rose-50 border border-slate-100 shrink-0">
+                    avatarUrl =
+                      currentUser.avatarUrl ||
+                      (isUser1
+                        ? user1Avatar
+                        : user2Avatar);
+                  } else if (
+                    comment.authorUid ===
+                    user1Uid
+                  ) {
+                    authorName =
+                      user1Name;
+
+                    avatarUrl =
+                      user1Avatar;
+                  } else if (
+                    comment.authorUid ===
+                    user2Uid
+                  ) {
+                    authorName =
+                      user2Name;
+
+                    avatarUrl =
+                      user2Avatar;
+                  }
+
+                  return (
+                    <article
+                      key={
+                        comment.id
+                      }
+                      className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm sm:rounded-3xl sm:p-4"
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-slate-100 bg-rose-50">
                           <img
-                            src={cAvatar}
-                            alt={cName}
-                            className="w-full h-full object-cover"
+                            src={
+                              avatarUrl
+                            }
+                            alt={
+                              authorName
+                            }
+                            className="h-full w-full object-cover"
                           />
                         </div>
-                        <span className="text-xs sm:text-sm font-bold text-slate-900">
-                          {cName}
-                        </span>
-                        {isMe && (
-                          <span className="text-[10px] px-2 py-0.5 bg-rose-50 text-rose-600 rounded-full font-bold">
-                            Bạn
-                          </span>
-                        )}
-                        <span className="text-[11px] text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full font-medium">
-                          {formatDateTimeVN(comment.createdAt)}
-                        </span>
-                      </div>
 
-                      {/* Reply Icon */}
-                      <div className="flex items-center gap-1 relative">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span className="text-sm font-bold text-slate-900">
+                              {
+                                authorName
+                              }
+                            </span>
+
+                            <span className="text-[11px] font-medium text-slate-400">
+                              {formatDateTimeVN(
+                                comment.createdAt
+                              )}
+                            </span>
+                          </div>
+
+                          <p className="mt-1.5 whitespace-pre-line break-words text-sm leading-relaxed text-slate-700">
+                            {
+                              comment.content
+                            }
+                          </p>
+                        </div>
+
                         <button
                           type="button"
-                          onClick={() => {
-                            setCommentText(`@${cName}: `);
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full transition cursor-pointer"
-                          title="Trả lời"
+                          onClick={() =>
+                            setCommentText(
+                              `@${authorName}: `
+                            )
+                          }
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
+                          aria-label={`Trả lời ${authorName}`}
                         >
-                          <Reply className="w-4 h-4" />
+                          <Reply className="h-4 w-4" />
                         </button>
                       </div>
-                    </div>
-
-                    {/* Comment Content */}
-                    <p className="text-xs sm:text-sm text-slate-700 leading-relaxed break-words whitespace-pre-line pl-1">
-                      {comment.content}
-                    </p>
-                  </div>
-                );
-              })
+                    </article>
+                  );
+                }
+              )
             )}
           </div>
 
-          {/* Bottom Comment Input Bar */}
-          <form
-            onSubmit={handleSendComment}
-            className="sticky bottom-3 mt-4 p-2 bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-md flex items-center gap-2"
+          {/* Composer is the last normal-flow item and only sticks when needed.
+              This avoids covering the comments header/content. */}
+          <div
+            className="sticky bottom-0 z-30 mt-4 bg-gradient-to-t from-[#F4F6F9] via-[#F4F6F9] via-80% to-transparent pt-3"
+            style={{
+              paddingBottom:
+                'max(env(safe-area-inset-bottom, 0px), 8px)',
+            }}
           >
-            <input
-              type="text"
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              placeholder="Viết bình luận cho bức ảnh này..."
-              className="flex-1 px-3 py-2 bg-transparent text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none"
-            />
-
-            <div className="p-2 text-slate-400 hover:text-slate-600 transition cursor-pointer shrink-0">
-              <ImageIcon className="w-5 h-5" />
-            </div>
-
-            <button
-              type="submit"
-              disabled={!commentText.trim() || submittingComment}
-              className="w-10 h-10 rounded-2xl bg-rose-500 hover:bg-rose-600 active:scale-95 text-white flex items-center justify-center transition cursor-pointer shadow-md shadow-rose-500/25 disabled:opacity-40 disabled:pointer-events-none shrink-0"
-              title="Gửi bình luận"
+            <form
+              onSubmit={
+                handleSendComment
+              }
+              className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-lg sm:rounded-3xl"
             >
-              <Send className="w-4 h-4" />
-            </button>
-          </form>
-        </div>
+              <input
+                type="text"
+                value={commentText}
+                onChange={(
+                  event
+                ) =>
+                  setCommentText(
+                    event.target
+                      .value
+                  )
+                }
+                placeholder="Viết bình luận cho bức ảnh này..."
+                className="min-w-0 flex-1 bg-transparent px-2.5 py-2 text-base text-slate-800 outline-none placeholder:text-slate-400 sm:text-sm"
+              />
 
+              <button
+                type="button"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
+                aria-label="Thêm ảnh"
+              >
+                <ImageIcon className="h-5 w-5" />
+              </button>
+
+              <button
+                type="submit"
+                disabled={
+                  !commentText.trim() ||
+                  submittingComment
+                }
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-500 text-white shadow-md shadow-rose-500/20 transition hover:bg-rose-600 active:scale-95 disabled:pointer-events-none disabled:opacity-40"
+                aria-label="Gửi bình luận"
+              >
+                <Send className="h-4.5 w-4.5" />
+              </button>
+            </form>
+          </div>
+        </section>
       </div>
     </div>
   );
