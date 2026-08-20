@@ -1,66 +1,139 @@
-<!doctype html>
-<html lang="vi">
-  <head>
-    <meta charset="UTF-8" />
+@import "tailwindcss";
 
-    <!-- iPhone / iOS standalone + stable viewport -->
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
-    />
+/* =========================================================
+   iPhone / iOS web-app stability
+   ========================================================= */
 
-    <!-- Home Screen / PWA -->
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="mobile-web-app-capable" content="yes" />
+html {
+  width: 100%;
+  min-height: 100%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  background: #f8fafc;
+}
 
-    <!--
-      IMPORTANT:
-      "default" keeps the app below the iPhone status bar.
-      Do NOT use "black-translucent" here because it allows
-      content to render underneath the clock / signal / battery area.
-    -->
-    <meta
-      name="apple-mobile-web-app-status-bar-style"
-      content="default"
-    />
+body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  overflow-x: hidden;
+  background: #f8fafc;
+}
 
-    <meta name="apple-mobile-web-app-title" content="Us" />
-    <meta name="application-name" content="Us" />
-    <meta name="theme-color" content="#fff1f2" />
-    <meta name="format-detection" content="telephone=no" />
+#root {
+  width: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
 
-    <!-- Web App Manifest -->
-    <link rel="manifest" href="/manifest.webmanifest" />
+/*
+ * IMPORTANT — iPhone Home Screen / PWA safe area
+ *
+ * The app uses viewport-fit=cover. In standalone mode iOS can therefore
+ * expose the area behind the status bar / Dynamic Island.
+ *
+ * Apply the top inset to the REAL app root instead of relying on unused
+ * helper classes. The extra 6px gives the header a little breathing room.
+ *
+ * This only applies when the website is launched as an installed app,
+ * so normal desktop/browser layout is not pushed down.
+ */
+@media (display-mode: standalone) {
+  #root {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 6px);
+  }
+}
 
-    <!-- App Icon -->
-    <link rel="apple-touch-icon" href="/icons/icon.png" />
-    <link rel="icon" type="image/png" href="/icons/icon.png" />
+/*
+ * iOS Safari added support for the legacy standalone flag before
+ * display-mode media queries were fully reliable. This classless
+ * fallback is harmless: when there is no safe-area inset it contributes 0.
+ */
+@supports (padding-top: env(safe-area-inset-top)) {
+  @media (max-width: 767px) and (pointer: coarse) {
+    html {
+      --ios-safe-top: env(safe-area-inset-top, 0px);
+      --ios-safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+  }
+}
 
-    <title>Us — Couple App</title>
+/* Use the real dynamic viewport height on modern iPhone Safari/PWA. */
+@supports (min-height: 100dvh) {
+  #root {
+    min-height: 100dvh;
+  }
+}
 
-    <meta
-      name="description"
-      content="Không gian riêng lưu giữ những kỷ niệm của hai đứa."
-    />
+/*
+ * iOS Safari automatically zooms when an input's rendered font size is
+ * smaller than 16px. The project currently contains many text-xs inputs,
+ * so force form controls to 16px only on phone-sized touch screens.
+ * This does NOT enlarge normal labels/cards.
+ */
+@media (max-width: 767px) and (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
 
-    <!-- Social preview -->
-    <meta property="og:title" content="Us — Couple App" />
-    <meta
-      property="og:description"
-      content="Không gian riêng lưu giữ những kỷ niệm của hai đứa."
-    />
-    <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary_large_image" />
+/* Prevent double-tap zoom on buttons/links while keeping normal scrolling. */
+button,
+a,
+[role="button"] {
+  touch-action: manipulation;
+}
 
-    <!-- Leaflet -->
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    />
-  </head>
+/* Reusable helpers for modals / special full-screen views. */
+.ios-safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
 
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+.ios-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* =========================================================
+   Existing Leaflet styles
+   ========================================================= */
+
+.leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 1 !important;
+  font-family: inherit !important;
+  background: #f8fafc !important;
+}
+
+.leaflet-pane {
+  z-index: 1 !important;
+}
+
+.leaflet-tile {
+  visibility: inherit !important;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 20 !important;
+}
+
+.leaflet-control-zoom {
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+.leaflet-control-zoom a {
+  background-color: #ffffff !important;
+  color: #334155 !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background-color: #fff1f2 !important;
+  color: #e11d48 !important;
+}
