@@ -1,705 +1,139 @@
-/**
- * Media Helper
+@import "tailwindcss";
+
+/* =========================================================
+   iPhone / iOS web-app stability
+   ========================================================= */
+
+html {
+  width: 100%;
+  min-height: 100%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  background: #f8fafc;
+}
+
+body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  overflow-x: hidden;
+  background: #f8fafc;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+/*
+ * IMPORTANT — iPhone Home Screen / PWA safe area
  *
- * Primary upload target: Firebase Storage.
- * Fallbacks:
- *   1. Existing /api/upload endpoint
- *   2. Base64 only for images
+ * The app uses viewport-fit=cover. In standalone mode iOS can therefore
+ * expose the area behind the status bar / Dynamic Island.
  *
- * Why:
- * The previous implementation depended on Express/Multer writing files into
- * public/uploads. That can work locally, but deployed environments may not
- * provide persistent writable disk or may reject large multipart requests.
- * Images appeared to work because they had a Base64 fallback; videos did not.
- */
-
-import { getApp, getApps, initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import {
-  getDownloadURL,
-  getStorage,
-  ref as storageRef,
-  uploadBytes,
-} from 'firebase/storage';
-
-import firebaseConfig from '../../firebase-applet-config.json';
-
-export const SUPPORTED_IMAGE_FORMATS = [
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-  'image/heic',
-  'image/heif',
-  'image/jpg',
-];
-
-export const SUPPORTED_VIDEO_FORMATS = [
-  'video/mp4',
-  'video/quicktime',
-  'video/webm',
-  'video/x-m4v',
-  'video/ogg',
-  'video/x-matroska',
-  'video/3gpp',
-  'video/avi',
-];
-
-export const ALL_SUPPORTED_EXTENSIONS = [
-  '.jpg',
-  '.jpeg',
-  '.png',
-  '.webp',
-  '.gif',
-  '.heic',
-  '.heif',
-  '.mp4',
-  '.mov',
-  '.webm',
-  '.m4v',
-  '.mkv',
-  '.avi',
-  '.3gp',
-  '.ogg',
-  '.ogv',
-];
-
-const VIDEO_EXTENSIONS = [
-  '.mp4',
-  '.mov',
-  '.webm',
-  '.m4v',
-  '.mkv',
-  '.avi',
-  '.3gp',
-  '.ogg',
-  '.ogv',
-];
-
-const IMAGE_EXTENSIONS = [
-  '.jpg',
-  '.jpeg',
-  '.png',
-  '.webp',
-  '.gif',
-  '.heic',
-  '.heif',
-];
-
-function getExtension(filename = ''): string {
-  const clean = filename.toLowerCase().split('?')[0];
-  const dotIndex = clean.lastIndexOf('.');
-  return dotIndex >= 0 ? clean.slice(dotIndex) : '';
-}
-
-function isVideoFile(file: File): boolean {
-  const extension = getExtension(file.name);
-  return (
-    file.type.startsWith('video/') ||
-    VIDEO_EXTENSIONS.includes(extension)
-  );
-}
-
-function isImageFile(file: File): boolean {
-  const extension = getExtension(file.name);
-  return (
-    file.type.startsWith('image/') ||
-    IMAGE_EXTENSIONS.includes(extension)
-  );
-}
-
-function sanitizeFilename(file: File, isVideo: boolean): string {
-  const extension =
-    getExtension(file.name) || (isVideo ? '.mp4' : '.jpg');
-
-  const safeBaseName = (file.name || 'upload')
-    .replace(/\.[^/.]+$/, '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9_-]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 60);
-
-  return `${safeBaseName || 'upload'}${extension}`;
-}
-
-function inferContentType(file: File, isVideo: boolean): string {
-  if (file.type) return file.type;
-
-  const extension = getExtension(file.name);
-
-  const mimeMap: Record<string, string> = {
-    '.mp4': 'video/mp4',
-    '.mov': 'video/quicktime',
-    '.m4v': 'video/x-m4v',
-    '.webm': 'video/webm',
-    '.ogg': 'video/ogg',
-    '.ogv': 'video/ogg',
-    '.3gp': 'video/3gpp',
-    '.mkv': 'video/x-matroska',
-    '.avi': 'video/avi',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.png': 'image/png',
-    '.webp': 'image/webp',
-    '.gif': 'image/gif',
-    '.heic': 'image/heic',
-    '.heif': 'image/heif',
-  };
-
-  return (
-    mimeMap[extension] ||
-    (isVideo ? 'video/mp4' : 'image/jpeg')
-  );
-}
-
-function humanFileSize(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return '0 MB';
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-/**
- * Checks if a given URL or data string is a video.
- */
-export function isVideoUrl(url?: string | null): boolean {
-  if (!url) return false;
-
-  const lower = url.toLowerCase();
-
-  if (lower.startsWith('data:video/')) return true;
-  if (lower.startsWith('blob:')) return false;
-
-  const clean = decodeURIComponent(lower.split('?')[0]);
-
-  return (
-    VIDEO_EXTENSIONS.some((ext) => clean.endsWith(ext)) ||
-    clean.includes('/video/') ||
-    clean.includes('video%2f')
-  );
-}
-
-/**
- * Generates a thumbnail from a local video or video URL.
- * Thumbnail failure NEVER blocks the actual video upload.
- */
-export function generateVideoThumbnail(
-  fileOrUrl: File | string
-): Promise<string> {
-  return new Promise((resolve) => {
-    let objectUrl = '';
-    let finished = false;
-
-    const finish = (value = '') => {
-      if (finished) return;
-      finished = true;
-
-      if (objectUrl) {
-        try {
-          URL.revokeObjectURL(objectUrl);
-        } catch {
-          // ignore
-        }
-      }
-
-      resolve(value);
-    };
-
-    try {
-      const video = document.createElement('video');
-      const isLocalFile = typeof fileOrUrl !== 'string';
-
-      video.muted = true;
-      video.playsInline = true;
-      video.preload = 'metadata';
-
-      if (isLocalFile) {
-        objectUrl = URL.createObjectURL(fileOrUrl);
-        video.src = objectUrl;
-      } else {
-        if (
-          !fileOrUrl.startsWith('data:') &&
-          !fileOrUrl.startsWith('blob:')
-        ) {
-          video.crossOrigin = 'anonymous';
-        }
-        video.src = fileOrUrl;
-      }
-
-      const captureFrame = () => {
-        try {
-          if (!video.videoWidth || !video.videoHeight) {
-            finish('');
-            return;
-          }
-
-          const canvas = document.createElement('canvas');
-          const maxDimension = 480;
-
-          let width = video.videoWidth;
-          let height = video.videoHeight;
-
-          const ratio = Math.min(
-            1,
-            maxDimension / Math.max(width, height)
-          );
-
-          width = Math.max(1, Math.round(width * ratio));
-          height = Math.max(1, Math.round(height * ratio));
-
-          canvas.width = width;
-          canvas.height = height;
-
-          const ctx = canvas.getContext('2d');
-
-          if (!ctx) {
-            finish('');
-            return;
-          }
-
-          ctx.drawImage(video, 0, 0, width, height);
-          finish(canvas.toDataURL('image/jpeg', 0.78));
-        } catch (error) {
-          console.warn('Video thumbnail capture failed:', error);
-          finish('');
-        }
-      };
-
-      video.onloadedmetadata = () => {
-        try {
-          const duration = Number.isFinite(video.duration)
-            ? video.duration
-            : 1;
-
-          video.currentTime = Math.min(
-            Math.max(duration * 0.08, 0.05),
-            0.8
-          );
-        } catch {
-          captureFrame();
-        }
-      };
-
-      video.onseeked = captureFrame;
-      video.onloadeddata = () => {
-        if (!Number.isFinite(video.duration) || video.duration <= 0) {
-          captureFrame();
-        }
-      };
-
-      video.onerror = () => finish('');
-
-      // iPhone HEVC/MOV thumbnail extraction can be slow.
-      // Do not wait forever and never fail the upload because of this.
-      window.setTimeout(() => finish(''), 5000);
-
-      video.load();
-    } catch (error) {
-      console.warn('Video thumbnail extraction error:', error);
-      finish('');
-    }
-  });
-}
-
-/**
- * Compresses an image file to Base64.
- * This remains a last-resort fallback for images only.
- */
-export function compressImageToBase64(
-  file: File,
-  maxDim = 1200,
-  quality = 0.8
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = (event) => {
-      const img = new Image();
-
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-
-        let width = img.width;
-        let height = img.height;
-
-        if (width <= 0 || height <= 0) {
-          reject(new Error('Không thể đọc kích thước ảnh.'));
-          return;
-        }
-
-        const ratio = Math.min(
-          1,
-          maxDim / Math.max(width, height)
-        );
-
-        width = Math.max(1, Math.round(width * ratio));
-        height = Math.max(1, Math.round(height * ratio));
-
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext('2d');
-
-        if (!ctx) {
-          reject(new Error('Không thể xử lý ảnh.'));
-          return;
-        }
-
-        ctx.drawImage(img, 0, 0, width, height);
-
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-
-      img.onerror = () =>
-        reject(new Error('Không thể đọc file ảnh.'));
-
-      img.src = event.target?.result as string;
-    };
-
-    reader.onerror = () =>
-      reject(new Error('Không thể đọc file ảnh.'));
-
-    reader.readAsDataURL(file);
-  });
-}
-
-export interface UploadResult {
-  url: string;
-  type: 'image' | 'video';
-  thumbnailUrl?: string;
-  originalName: string;
-}
-
-/**
- * Upload directly to Firebase Storage.
+ * Apply the top inset to the REAL app root instead of relying on unused
+ * helper classes. The extra 6px gives the header a little breathing room.
  *
- * This avoids:
- * - server body-size limits
- * - ephemeral/local disk
- * - /api/upload routing problems on deployed builds
+ * This only applies when the website is launched as an installed app,
+ * so normal desktop/browser layout is not pushed down.
  */
-async function uploadToFirebaseStorage(
-  file: File,
-  isVideo: boolean
-): Promise<string> {
-  const app =
-    getApps().length > 0
-      ? getApp()
-      : initializeApp(firebaseConfig);
-
-  const storage = getStorage(
-    app,
-    `gs://${firebaseConfig.storageBucket}`
-  );
-
-  const auth = getAuth(app);
-  const userId = auth.currentUser?.uid || 'shared-couple';
-
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-
-  const safeFilename = sanitizeFilename(file, isVideo);
-  const randomPart =
-    typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2, 10)}`;
-
-  const objectPath = [
-    'couple-media',
-    userId,
-    `${year}-${month}`,
-    `${randomPart}-${safeFilename}`,
-  ].join('/');
-
-  const fileRef = storageRef(storage, objectPath);
-
-  await uploadBytes(fileRef, file, {
-    contentType: inferContentType(file, isVideo),
-    customMetadata: {
-      originalName: file.name || safeFilename,
-      uploadedBy: userId,
-      mediaType: isVideo ? 'video' : 'image',
-    },
-  });
-
-  return getDownloadURL(fileRef);
+@media (display-mode: standalone) {
+  #root {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 6px);
+  }
 }
 
-/**
- * Existing backend upload, kept only as a fallback.
+/*
+ * iOS Safari added support for the legacy standalone flag before
+ * display-mode media queries were fully reliable. This classless
+ * fallback is harmless: when there is no safe-area inset it contributes 0.
  */
-async function uploadToServer(
-  file: File,
-  isVideo: boolean
-): Promise<string> {
-  const formData = new FormData();
-
-  formData.append(
-    'files',
-    file,
-    sanitizeFilename(file, isVideo)
-  );
-
-  const response = await fetch('/api/upload', {
-    method: 'POST',
-    body: formData,
-  });
-
-  if (!response.ok) {
-    let message = '';
-
-    try {
-      const json = await response.json();
-      message = json?.error || '';
-    } catch {
-      try {
-        message = await response.text();
-      } catch {
-        // ignore
-      }
-    }
-
-    throw new Error(
-      message || `Server upload HTTP ${response.status}`
-    );
-  }
-
-  const data = await response.json();
-
-  if (
-    !data?.success ||
-    !Array.isArray(data?.files) ||
-    !data.files[0]?.url
-  ) {
-    throw new Error('Máy chủ không trả về URL của file.');
-  }
-
-  return data.files[0].url as string;
-}
-
-/**
- * Uploads an image or video.
- *
- * Firebase Storage is primary.
- * Existing server is secondary.
- * Images still have Base64 fallback.
- */
-export async function uploadMediaFile(
-  file: File
-): Promise<UploadResult> {
-  if (!file) {
-    throw new Error('Không tìm thấy file để tải lên.');
-  }
-
-  const isVideo = isVideoFile(file);
-  const isImage = isImageFile(file);
-
-  if (!isVideo && !isImage) {
-    throw new Error(
-      `Định dạng "${getExtension(file.name) || file.type || 'không xác định'}" chưa được hỗ trợ.`
-    );
-  }
-
-  if (file.size <= 0) {
-    throw new Error('File đang trống hoặc không đọc được.');
-  }
-
-  /*
-   * A practical client-side guard.
-   * Firebase Storage itself supports large objects, but huge phone videos can
-   * make mobile browsers unstable. 500 MB matches the old server intention.
-   */
-  const MAX_FILE_SIZE = 500 * 1024 * 1024;
-
-  if (file.size > MAX_FILE_SIZE) {
-    throw new Error(
-      `File quá lớn (${humanFileSize(file.size)}). Giới hạn hiện tại là 500 MB.`
-    );
-  }
-
-  const thumbnailPromise = isVideo
-    ? generateVideoThumbnail(file).catch(() => '')
-    : Promise.resolve('');
-
-  let firebaseError = '';
-  let serverError = '';
-
-  // 1) Firebase Storage
-  try {
-    const [url, thumbnailUrl] = await Promise.all([
-      uploadToFirebaseStorage(file, isVideo),
-      thumbnailPromise,
-    ]);
-
-    return {
-      url,
-      type: isVideo ? 'video' : 'image',
-      thumbnailUrl: thumbnailUrl || undefined,
-      originalName: file.name,
-    };
-  } catch (error: any) {
-    firebaseError =
-      error?.code || error?.message || String(error || '');
-
-    console.warn(
-      'Firebase Storage upload failed, trying server fallback:',
-      error
-    );
-  }
-
-  // 2) Existing Express /api/upload fallback
-  try {
-    const [url, thumbnailUrl] = await Promise.all([
-      uploadToServer(file, isVideo),
-      thumbnailPromise,
-    ]);
-
-    return {
-      url,
-      type: isVideo ? 'video' : 'image',
-      thumbnailUrl: thumbnailUrl || undefined,
-      originalName: file.name,
-    };
-  } catch (error: any) {
-    serverError =
-      error?.message || String(error || '');
-
-    console.warn('Server upload fallback failed:', error);
-  }
-
-  // 3) Image-only fallback
-  if (isImage) {
-    try {
-      const base64 = await compressImageToBase64(file);
-
-      return {
-        url: base64,
-        type: 'image',
-        originalName: file.name,
-      };
-    } catch {
-      // fall through to final error
+@supports (padding-top: env(safe-area-inset-top)) {
+  @media (max-width: 767px) and (pointer: coarse) {
+    html {
+      --ios-safe-top: env(safe-area-inset-top, 0px);
+      --ios-safe-bottom: env(safe-area-inset-bottom, 0px);
     }
   }
-
-  const details = [
-    firebaseError && `Firebase: ${firebaseError}`,
-    serverError && `Server: ${serverError}`,
-  ]
-    .filter(Boolean)
-    .join(' | ');
-
-  if (isVideo) {
-    throw new Error(
-      `Không thể tải video "${file.name}" (${humanFileSize(
-        file.size
-      )}). ${details || 'Không có nơi lưu trữ khả dụng.'}`
-    );
-  }
-
-  throw new Error(
-    `Không thể tải file "${file.name}". ${
-      details || 'Vui lòng thử lại.'
-    }`
-  );
 }
 
-/**
- * Convert camera Base64/Data URL to Blob.
- */
-function dataUrlToBlobForStorage(dataUrl: string): Blob {
-  const match = dataUrl.match(/^data:([^;,]+)?(;base64)?,(.*)$/);
-
-  if (!match) {
-    throw new Error('Ảnh camera không hợp lệ.');
+/* Use the real dynamic viewport height on modern iPhone Safari/PWA. */
+@supports (min-height: 100dvh) {
+  #root {
+    min-height: 100dvh;
   }
-
-  const contentType = match[1] || 'image/jpeg';
-  const isBase64 = Boolean(match[2]);
-  const data = match[3] || '';
-
-  if (!isBase64) {
-    return new Blob([decodeURIComponent(data)], {
-      type: contentType,
-    });
-  }
-
-  const binary = atob(data);
-  const bytes = new Uint8Array(binary.length);
-
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-
-  return new Blob([bytes], {
-    type: contentType,
-  });
 }
 
-/**
- * Camera Base64 -> Firebase Storage -> Firebase download URL.
- * This is required by LightHomeScreen.tsx.
+/*
+ * iOS Safari automatically zooms when an input's rendered font size is
+ * smaller than 16px. The project currently contains many text-xs inputs,
+ * so force form controls to 16px only on phone-sized touch screens.
+ * This does NOT enlarge normal labels/cards.
  */
-export async function uploadDataUrlToFirebaseStorage(
-  dataUrl: string,
-  filename = `camera-${Date.now()}.jpg`
-): Promise<string> {
-  const blob = dataUrlToBlobForStorage(dataUrl);
-
-  const file = new File(
-    [blob],
-    filename,
-    {
-      type: blob.type || 'image/jpeg',
-      lastModified: Date.now(),
-    }
-  );
-
-  // Direct Firebase Storage upload.
-  return uploadToFirebaseStorage(file, false);
+@media (max-width: 767px) and (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }
 
-/**
- * Upload multiple media files concurrently while preserving selection order.
- * This is required by LightHomeScreen.tsx.
- */
-export async function uploadMediaFilesConcurrently(
-  files: File[],
-  concurrency = 3
-): Promise<UploadResult[]> {
-  if (!files || files.length === 0) {
-    return [];
-  }
+/* Prevent double-tap zoom on buttons/links while keeping normal scrolling. */
+button,
+a,
+[role="button"] {
+  touch-action: manipulation;
+}
 
-  const safeConcurrency = Math.max(
-    1,
-    Math.min(concurrency, files.length)
-  );
+/* Reusable helpers for modals / special full-screen views. */
+.ios-safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
 
-  const results = new Array<UploadResult>(files.length);
-  let nextIndex = 0;
+.ios-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
 
-  const worker = async () => {
-    while (true) {
-      const index = nextIndex++;
+/* =========================================================
+   Existing Leaflet styles
+   ========================================================= */
 
-      if (index >= files.length) {
-        return;
-      }
+.leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 1 !important;
+  font-family: inherit !important;
+  background: #f8fafc !important;
+}
 
-      results[index] = await uploadMediaFile(files[index]);
-    }
-  };
+.leaflet-pane {
+  z-index: 1 !important;
+}
 
-  await Promise.all(
-    Array.from(
-      { length: safeConcurrency },
-      () => worker()
-    )
-  );
+.leaflet-tile {
+  visibility: inherit !important;
+}
 
-  return results;
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 20 !important;
+}
+
+.leaflet-control-zoom {
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+.leaflet-control-zoom a {
+  background-color: #ffffff !important;
+  color: #334155 !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background-color: #fff1f2 !important;
+  color: #e11d48 !important;
 }
