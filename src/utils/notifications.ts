@@ -5,8 +5,10 @@ import {
   onMessage,
   onRegistered,
   register,
+  unregister,
 } from 'firebase/messaging';
 import { onAuthStateChanged } from 'firebase/auth';
+import { deleteInstallations, getInstallations } from 'firebase/installations';
 
 import firebaseConfig from '../../firebase-applet-config.json';
 import {
@@ -46,6 +48,10 @@ export interface PartnerNotificationPayload {
 }
 
 const PUSH_SW_PATH = '/us-notification-sw.js';
+
+const PUSH_FID_RESET_MIGRATION_KEY =
+  'us_push_fid_reset_2026_08_v1';
+
 
 let foregroundListenerStarted = false;
 let automaticPushBootstrapStarted = false;
@@ -156,6 +162,79 @@ async function getNotificationRegistration(): Promise<ServiceWorkerRegistration>
   return registration;
 }
 
+
+async function registerAndWaitForFreshFid(
+  messaging: ReturnType<typeof getMessaging>,
+  registration: ServiceWorkerRegistration,
+  vapidKey: string
+): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    let fid = '';
+    let registerFinished = false;
+    let settled = false;
+
+    const finishIfReady = () => {
+      if (
+        settled ||
+        !registerFinished ||
+        !fid
+      ) {
+        return;
+      }
+
+      settled = true;
+      window.clearTimeout(timeout);
+      unsubscribeRegistered();
+      resolve(fid);
+    };
+
+    const unsubscribeRegistered = onRegistered(
+      messaging,
+      (installationId) => {
+        fid = installationId || '';
+        finishIfReady();
+      }
+    );
+
+    const timeout = window.setTimeout(() => {
+      if (settled) return;
+
+      settled = true;
+      unsubscribeRegistered();
+      reject(
+        new Error(
+          'Timed out waiting for a confirmed Firebase Installation ID registration.'
+        )
+      );
+    }, 20000);
+
+    const options: {
+      serviceWorkerRegistration: ServiceWorkerRegistration;
+      vapidKey?: string;
+    } = {
+      serviceWorkerRegistration: registration,
+    };
+
+    if (vapidKey) {
+      options.vapidKey = vapidKey;
+    }
+
+    register(messaging, options)
+      .then(() => {
+        registerFinished = true;
+        finishIfReady();
+      })
+      .catch((error) => {
+        if (settled) return;
+
+        settled = true;
+        window.clearTimeout(timeout);
+        unsubscribeRegistered();
+        reject(error);
+      });
+  });
+}
+
 export async function enablePushNotifications(
   coupleId: string = OUR_COUPLE_ID
 ): Promise<NotificationTestResult> {
@@ -228,54 +307,19 @@ export async function enablePushNotifications(
     const vapidKey =
       (import.meta as any).env?.VITE_FIREBASE_VAPID_KEY?.trim?.() || '';
 
-    const registerOptions: {
-      serviceWorkerRegistration: ServiceWorkerRegistration;
-      vapidKey?: string;
-    } = {
-      serviceWorkerRegistration: registration,
-    };
-
-    if (vapidKey) {
-      registerOptions.vapidKey = vapidKey;
-    }
-
     /*
-     * Firebase 2026: use Firebase Installation ID (FID) instead of
-     * the deprecated legacy getToken() registration-token flow.
-     * onRegistered() fires after register() finishes and whenever
-     * Firebase refreshes the installation registration.
+     * Wait for BOTH:
+     * - register() to finish successfully
+     * - onRegistered() to return the confirmed FID
+     *
+     * This prevents saving a cached/stale FID before FCM registration
+     * has actually completed on Safari/iPhone.
      */
-    const fid = await new Promise<string>((resolve, reject) => {
-      let unsubscribeRegistered: (() => void) | undefined;
-
-      const timeout = window.setTimeout(() => {
-        unsubscribeRegistered?.();
-        reject(
-          new Error('Timed out waiting for Firebase Installation ID registration.')
-        );
-      }, 15000);
-
-      unsubscribeRegistered = onRegistered(
-        messaging,
-        (installationId) => {
-          window.clearTimeout(timeout);
-          unsubscribeRegistered?.();
-
-          if (!installationId) {
-            reject(new Error('Firebase returned an empty Installation ID.'));
-            return;
-          }
-
-          resolve(installationId);
-        }
-      );
-
-      register(messaging, registerOptions).catch((error) => {
-        window.clearTimeout(timeout);
-        unsubscribeRegistered?.();
-        reject(error);
-      });
-    });
+    const fid = await registerAndWaitForFreshFid(
+      messaging,
+      registration,
+      vapidKey
+    );
 
     const deviceId = getOrCreateDeviceId();
     const deviceName =
@@ -337,6 +381,73 @@ export async function enablePushNotifications(
   }
 }
 
+
+
+export async function resetPushRegistrationOnce(
+  coupleId: string = OUR_COUPLE_ID
+): Promise<NotificationTestResult> {
+  if (
+    typeof window === 'undefined' ||
+    !('Notification' in window) ||
+    Notification.permission !== 'granted'
+  ) {
+    return {
+      ok: false,
+      message: 'Chưa có quyền notification để reset FID.',
+      reason: 'permission-not-granted',
+    };
+  }
+
+  try {
+    const app = getFirebaseApp();
+    const messaging = getMessaging(app);
+
+    /*
+     * Remove the old FCM registration first.
+     * It is fine if it was already invalid/deleted server-side.
+     */
+    await unregister(messaging).catch((error) => {
+      console.warn(
+        'Old FCM registration could not be unregistered; continuing with FID reset:',
+        error
+      );
+    });
+
+    /*
+     * Delete the Firebase Installation itself so Firebase must create
+     * a completely new FID. This is a one-time migration after the
+     * old iPhone registration repeatedly returned INVALID_ARGUMENT.
+     */
+    await deleteInstallations(
+      getInstallations(app)
+    );
+
+    const result =
+      await enablePushNotifications(coupleId);
+
+    if (result.ok) {
+      window.localStorage.setItem(
+        PUSH_FID_RESET_MIGRATION_KEY,
+        'done'
+      );
+    }
+
+    return result;
+  } catch (error: any) {
+    console.error(
+      'One-time FID reset failed:',
+      error
+    );
+
+    return {
+      ok: false,
+      message:
+        error?.message ||
+        'Không thể tạo FID mới.',
+      reason: 'fid-reset-failed',
+    };
+  }
+}
 
 export async function ensurePushNotificationsSilently(
   coupleId: string = OUR_COUPLE_ID
@@ -537,10 +648,22 @@ if (
       return;
     }
 
-    void ensurePushNotificationsSilently().then((result) => {
+    const needsOneTimeFidReset =
+      window.localStorage.getItem(
+        PUSH_FID_RESET_MIGRATION_KEY
+      ) !== 'done';
+
+    const registrationTask =
+      needsOneTimeFidReset
+        ? resetPushRegistrationOnce()
+        : ensurePushNotificationsSilently();
+
+    void registrationTask.then((result) => {
       if (!result.ok) {
         console.warn(
-          'Automatic push registration did not complete:',
+          needsOneTimeFidReset
+            ? 'One-time FID reset did not complete:'
+            : 'Automatic push registration did not complete:',
           result
         );
       }
