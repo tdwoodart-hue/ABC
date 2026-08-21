@@ -176,6 +176,45 @@ export default async function handler(req: any, res: any) {
       });
     }
 
+    const db = getFirestore(app, DATABASE_ID);
+    const coupleRef = db
+      .collection('couples')
+      .doc(coupleId);
+
+    const coupleSnap = await coupleRef.get();
+
+    if (!coupleSnap.exists) {
+      return res.status(404).json({
+        error: 'Couple document not found',
+        coupleId,
+      });
+    }
+
+    const coupleData = coupleSnap.data() || {};
+
+    const user1Uid = String(
+      coupleData.user1Uid ||
+      coupleData.user1Id ||
+      ''
+    );
+
+    const user2Uid = String(
+      coupleData.user2Uid ||
+      coupleData.user2Id ||
+      ''
+    );
+
+    let partnerUid = '';
+
+    if (decoded.uid === user1Uid) {
+      partnerUid = user2Uid;
+    } else if (decoded.uid === user2Uid) {
+      partnerUid = user1Uid;
+    }
+
+    /*
+     * Fallback for older couple documents that may not have both UID slots yet.
+     */
     const targetEmails =
       senderEmail === 'chucga@gmail.com'
         ? new Set([
@@ -184,26 +223,38 @@ export default async function handler(req: any, res: any) {
           ])
         : new Set(['chucga@gmail.com']);
 
-    const db = getFirestore(app, DATABASE_ID);
-
-    const tokenSnapshot = await db
-      .collection('couples')
-      .doc(coupleId)
+    const tokenSnapshot = await coupleRef
       .collection('push_tokens')
       .get();
 
-    const recipientDocs = tokenSnapshot.docs.filter((docSnap) => {
+    const allTokenDocs = tokenSnapshot.docs.map((docSnap) => {
       const data = docSnap.data() || {};
-      const email =
-        String(data.email || '').toLowerCase();
 
-      return (
-        data.enabled !== false &&
-        data.token &&
-        data.uid !== decoded.uid &&
-        targetEmails.has(email)
-      );
+      return {
+        docSnap,
+        data,
+        uid: String(data.uid || ''),
+        email: String(data.email || '').toLowerCase(),
+      };
     });
+
+    const recipientDocs = allTokenDocs
+      .filter(({ data, uid, email }) => {
+        if (
+          data.enabled === false ||
+          !data.token ||
+          uid === decoded.uid
+        ) {
+          return false;
+        }
+
+        if (partnerUid) {
+          return uid === partnerUid;
+        }
+
+        return targetEmails.has(email);
+      })
+      .map(({ docSnap }) => docSnap);
 
     const tokens = recipientDocs
       .map((docSnap) => String(docSnap.data().token || ''))
@@ -215,8 +266,30 @@ export default async function handler(req: any, res: any) {
         sent: 0,
         message:
           'Partner has not registered a push token yet.',
+        coupleId,
+        senderUid: decoded.uid,
         senderEmail,
+        user1Uid,
+        user2Uid,
+        partnerUid,
         targetEmails: Array.from(targetEmails),
+        pushTokenDocuments: allTokenDocs.length,
+        registeredUids: Array.from(
+          new Set(
+            allTokenDocs
+              .filter(({ data }) => Boolean(data.token))
+              .map(({ uid }) => uid)
+              .filter(Boolean)
+          )
+        ),
+        registeredEmails: Array.from(
+          new Set(
+            allTokenDocs
+              .filter(({ data }) => Boolean(data.token))
+              .map(({ email }) => email)
+              .filter(Boolean)
+          )
+        ),
       });
     }
 
@@ -272,6 +345,8 @@ export default async function handler(req: any, res: any) {
       sent: response.successCount,
       failed: response.failureCount,
       removedInvalidTokens: invalidIndexes.length,
+      partnerUid,
+      matchedRecipientTokens: tokens.length,
     });
   } catch (error: any) {
     console.error('send-push API error:', error);
