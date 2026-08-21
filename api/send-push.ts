@@ -256,6 +256,17 @@ export default async function handler(req: any, res: any) {
       })
       .map(({ docSnap }) => docSnap);
 
+    const recipientMeta = recipientDocs.map((docSnap) => {
+      const data = docSnap.data() || {};
+
+      return {
+        uid: String(data.uid || ''),
+        email: String(data.email || '').toLowerCase(),
+        deviceName: String(data.deviceName || ''),
+        deviceId: String(data.deviceId || ''),
+      };
+    });
+
     const tokens = recipientDocs
       .map((docSnap) => String(docSnap.data().token || ''))
       .filter(Boolean);
@@ -321,18 +332,35 @@ export default async function handler(req: any, res: any) {
 
     const invalidIndexes: number[] = [];
 
-    response.responses.forEach((item, index) => {
-      if (item.success) return;
+    const failureDetails = response.responses
+      .map((item, index) => {
+        if (item.success) return null;
 
-      const code = String(item.error?.code || '');
+        const code = String(item.error?.code || '');
+        const message = String(item.error?.message || '');
 
-      if (
-        code.includes('registration-token-not-registered') ||
-        code.includes('invalid-registration-token')
-      ) {
-        invalidIndexes.push(index);
-      }
-    });
+        if (
+          code.includes('registration-token-not-registered') ||
+          code.includes('invalid-registration-token')
+        ) {
+          invalidIndexes.push(index);
+        }
+
+        return {
+          index,
+          code,
+          message,
+          recipient: recipientMeta[index] || null,
+        };
+      })
+      .filter(Boolean);
+
+    if (failureDetails.length > 0) {
+      console.error(
+        'FCM send failure details:',
+        JSON.stringify(failureDetails)
+      );
+    }
 
     await Promise.all(
       invalidIndexes.map((index) =>
@@ -347,6 +375,7 @@ export default async function handler(req: any, res: any) {
       removedInvalidTokens: invalidIndexes.length,
       partnerUid,
       matchedRecipientTokens: tokens.length,
+      failureDetails,
     });
   } catch (error: any) {
     console.error('send-push API error:', error);
