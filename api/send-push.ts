@@ -264,14 +264,21 @@ export default async function handler(req: any, res: any) {
         email: String(data.email || '').toLowerCase(),
         deviceName: String(data.deviceName || ''),
         deviceId: String(data.deviceId || ''),
+        hasFid: Boolean(data.fid),
+        hasLegacyToken: Boolean(data.token),
       };
     });
 
-    const tokens = recipientDocs
+    const fids = recipientDocs
+      .map((docSnap) => String(docSnap.data().fid || ''))
+      .filter(Boolean);
+
+    const legacyTokens = recipientDocs
+      .filter((docSnap) => !docSnap.data().fid)
       .map((docSnap) => String(docSnap.data().token || ''))
       .filter(Boolean);
 
-    if (tokens.length === 0) {
+    if (fids.length === 0 && legacyTokens.length === 0) {
       return res.status(200).json({
         ok: true,
         sent: 0,
@@ -296,21 +303,17 @@ export default async function handler(req: any, res: any) {
         registeredEmails: Array.from(
           new Set(
             allTokenDocs
-              .filter(({ data }) => Boolean(data.token))
+              .filter(({ data }) => Boolean(data.fid || data.token))
               .map(({ email }) => email)
               .filter(Boolean)
           )
         ),
+        registeredFids: allTokenDocs.filter(({ data }) => Boolean(data.fid)).length,
+        legacyTokens: allTokenDocs.filter(({ data }) => Boolean(data.token)).length,
       });
     }
 
-    /*
-     * iPhone PWA / Safari compatibility:
-     * Send the smallest valid FCM payload possible.
-     * The service worker builds the visible notification itself.
-     */
-    const response = await getMessaging(app).sendEachForMulticast({
-      tokens,
+    const basePayload = {
       data: {
         type,
         title,
@@ -321,6 +324,57 @@ export default async function handler(req: any, res: any) {
         senderEmail,
         ...(safeImageUrl ? { imageUrl: safeImageUrl } : {}),
       },
+    };
+
+    /*
+     * Firebase 2026 primary path: target Firebase Installation IDs (FIDs).
+     * Legacy registration tokens are used only as a fallback for a device
+     * that has not opened the upgraded app yet.
+     */
+    const fidResponse = fids.length > 0
+      ? await getMessaging(app).sendEachForMulticast({
+          fids,
+          ...basePayload,
+        } as any)
+      : { responses: [], successCount: 0, failureCount: 0 };
+
+    const legacyResponse = legacyTokens.length > 0
+      ? await getMessaging(app).sendEachForMulticast({
+          tokens: legacyTokens,
+          ...basePayload,
+        })
+      : { responses: [], successCount: 0, failureCount: 0 };
+
+    const response = {
+      responses: [
+        ...fidResponse.responses,
+        ...legacyResponse.responses,
+      ],
+      successCount:
+        fidResponse.successCount + legacyResponse.successCount,
+      failureCount:
+        fidResponse.failureCount + legacyResponse.failureCount,
+    };
+
+    const fidRecipientDocs = recipientDocs.filter(
+      (docSnap) => Boolean(docSnap.data().fid)
+    );
+    const legacyRecipientDocs = recipientDocs.filter(
+      (docSnap) => !docSnap.data().fid && Boolean(docSnap.data().token)
+    );
+    const orderedRecipientDocs = [
+      ...fidRecipientDocs,
+      ...legacyRecipientDocs,
+    ];
+    const orderedRecipientMeta = orderedRecipientDocs.map((docSnap) => {
+      const data = docSnap.data() || {};
+      return {
+        uid: String(data.uid || ''),
+        email: String(data.email || '').toLowerCase(),
+        deviceName: String(data.deviceName || ''),
+        deviceId: String(data.deviceId || ''),
+        mode: data.fid ? 'fid' : 'legacy-token',
+      };
     });
 
     const invalidIndexes: number[] = [];
@@ -333,8 +387,10 @@ export default async function handler(req: any, res: any) {
         const message = String(item.error?.message || '');
 
         if (
+          code.includes('installation-id-not-registered') ||
           code.includes('registration-token-not-registered') ||
-          code.includes('invalid-registration-token')
+          code.includes('invalid-registration-token') ||
+          code.includes('invalid-argument')
         ) {
           invalidIndexes.push(index);
         }
@@ -343,7 +399,7 @@ export default async function handler(req: any, res: any) {
           index,
           code,
           message,
-          recipient: recipientMeta[index] || null,
+          recipient: orderedRecipientMeta[index] || null,
         };
       })
       .filter(Boolean);
@@ -357,7 +413,7 @@ export default async function handler(req: any, res: any) {
 
     await Promise.all(
       invalidIndexes.map((index) =>
-        recipientDocs[index]?.ref.delete().catch(() => undefined)
+        orderedRecipientDocs[index]?.ref.delete().catch(() => undefined)
       )
     );
 
@@ -367,7 +423,8 @@ export default async function handler(req: any, res: any) {
       failed: response.failureCount,
       removedInvalidTokens: invalidIndexes.length,
       partnerUid,
-      matchedRecipientTokens: tokens.length,
+      matchedRecipientFids: fids.length,
+      matchedLegacyTokens: legacyTokens.length,
       failureDetails,
     });
   } catch (error: any) {

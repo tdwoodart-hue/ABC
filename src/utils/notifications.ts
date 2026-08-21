@@ -1,9 +1,10 @@
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import {
   getMessaging,
-  getToken,
   isSupported,
   onMessage,
+  onRegistered,
+  register,
 } from 'firebase/messaging';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -227,7 +228,7 @@ export async function enablePushNotifications(
     const vapidKey =
       (import.meta as any).env?.VITE_FIREBASE_VAPID_KEY?.trim?.() || '';
 
-    const tokenOptions: {
+    const registerOptions: {
       serviceWorkerRegistration: ServiceWorkerRegistration;
       vapidKey?: string;
     } = {
@@ -235,26 +236,53 @@ export async function enablePushNotifications(
     };
 
     if (vapidKey) {
-      tokenOptions.vapidKey = vapidKey;
+      registerOptions.vapidKey = vapidKey;
     }
 
-    const token = await getToken(messaging, tokenOptions);
+    /*
+     * Firebase 2026: use Firebase Installation ID (FID) instead of
+     * the deprecated legacy getToken() registration-token flow.
+     * onRegistered() fires after register() finishes and whenever
+     * Firebase refreshes the installation registration.
+     */
+    const fid = await new Promise<string>((resolve, reject) => {
+      let unsubscribeRegistered: (() => void) | undefined;
 
-    if (!token) {
-      return {
-        ok: false,
-        message:
-          'Đã cấp quyền nhưng Firebase chưa tạo được push token. Có thể cần Web Push VAPID key.',
-        reason: 'empty-fcm-token',
-      };
-    }
+      const timeout = window.setTimeout(() => {
+        unsubscribeRegistered?.();
+        reject(
+          new Error('Timed out waiting for Firebase Installation ID registration.')
+        );
+      }, 15000);
+
+      unsubscribeRegistered = onRegistered(
+        messaging,
+        (installationId) => {
+          window.clearTimeout(timeout);
+          unsubscribeRegistered?.();
+
+          if (!installationId) {
+            reject(new Error('Firebase returned an empty Installation ID.'));
+            return;
+          }
+
+          resolve(installationId);
+        }
+      );
+
+      register(messaging, registerOptions).catch((error) => {
+        window.clearTimeout(timeout);
+        unsubscribeRegistered?.();
+        reject(error);
+      });
+    });
 
     const deviceId = getOrCreateDeviceId();
     const deviceName =
       getStoredDeviceName() ||
       `${navigator.platform || 'Điện thoại'} · Us`;
 
-    const tokenDocId = `${user.uid}_${deviceId}`;
+    const registrationDocId = `${user.uid}_${deviceId}`;
 
     await setDoc(
       doc(
@@ -262,10 +290,14 @@ export async function enablePushNotifications(
         'couples',
         coupleId,
         'push_tokens',
-        tokenDocId
+        registrationDocId
       ),
       {
-        token,
+        fid,
+        // Clear the legacy token by replacing it with an empty value.
+        // Backend V8 ignores legacy token whenever a FID is present.
+        token: '',
+        registrationMode: 'fid',
         uid: user.uid,
         email: (user.email || '').toLowerCase(),
         deviceId,
@@ -281,7 +313,7 @@ export async function enablePushNotifications(
     return {
       ok: true,
       tokenRegistered: true,
-      message: 'Đã bật push notification cho thiết bị này.',
+      message: 'Đã đăng ký FID push cho thiết bị này.',
     };
   } catch (error: any) {
     console.error('Enable push notification failed:', error);
@@ -416,8 +448,8 @@ export async function requestAndShowTestNotification(): Promise<NotificationTest
     tokenRegistered: Boolean(remote?.ok && remote?.tokenRegistered),
     message:
       remote?.ok && remote.tokenRegistered
-        ? 'Thông báo thử thành công + thiết bị đã đăng ký nhận push thật.'
-        : 'Thông báo thử thành công. Push thật chưa đăng ký được token.',
+        ? 'Thông báo thử thành công + thiết bị đã đăng ký FID push thật.'
+        : 'Thông báo thử thành công. Push thật chưa đăng ký được FID.',
   };
 }
 
