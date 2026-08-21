@@ -304,29 +304,22 @@ export default async function handler(req: any, res: any) {
       });
     }
 
+    /*
+     * iPhone PWA / Safari compatibility:
+     * Send the smallest valid FCM payload possible.
+     * The service worker builds the visible notification itself.
+     */
     const response = await getMessaging(app).sendEachForMulticast({
       tokens,
-      notification: {
-        title,
-        body: messageBody,
-        ...(safeImageUrl ? { imageUrl: safeImageUrl } : {}),
-      },
       data: {
         type,
-        url,
+        title,
+        body: messageBody,
+        url: absoluteLink,
+        tag,
         senderUid: decoded.uid,
         senderEmail,
-      },
-      webpush: {
-        notification: {
-          icon: absoluteIcon,
-          badge: absoluteIcon,
-          tag,
-          renotify: true,
-        },
-        fcmOptions: {
-          link: absoluteLink,
-        },
+        ...(safeImageUrl ? { imageUrl: safeImageUrl } : {}),
       },
     });
 

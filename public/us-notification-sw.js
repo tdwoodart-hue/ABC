@@ -68,4 +68,34 @@ firebase.initializeApp({
   appId: '1:322165688030:web:1326472f21d3bd5393a44f',
 });
 
-firebase.messaging();
+const messaging = firebase.messaging();
+
+/*
+ * Background push for installed PWA.
+ * Server sends DATA-ONLY FCM messages; build the system notification here.
+ */
+messaging.onBackgroundMessage((payload) => {
+  const data = payload?.data || {};
+
+  const title =
+    data.title ||
+    'Us 💕';
+
+  const body =
+    data.body ||
+    'Bạn có thông báo mới.';
+
+  const targetUrl =
+    data.url ||
+    '/';
+
+  return self.registration.showNotification(title, {
+    body,
+    icon: '/icons/icon.png',
+    badge: '/icons/icon.png',
+    tag: data.tag || `us-${Date.now()}`,
+    data: {
+      url: targetUrl,
+    },
+  });
+});
