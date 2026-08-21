@@ -49,6 +49,59 @@ function cleanText(value: unknown, maxLength: number): string {
     .slice(0, maxLength);
 }
 
+
+function getPublicBaseUrl(req: any): string {
+  const configured =
+    String(process.env.APP_URL || '').trim();
+
+  if (configured) {
+    try {
+      const parsed = new URL(configured);
+
+      if (parsed.protocol === 'https:') {
+        return parsed.origin;
+      }
+    } catch {
+      // Fall back to the actual Vercel request host below.
+    }
+  }
+
+  const host =
+    String(
+      req.headers?.['x-forwarded-host'] ||
+      req.headers?.host ||
+      ''
+    ).trim();
+
+  if (!host) {
+    throw new Error(
+      'APP_URL is missing/invalid and request host could not be detected'
+    );
+  }
+
+  return `https://${host}`;
+}
+
+function toHttpsUrl(
+  value: string,
+  baseUrl: string
+): string | undefined {
+  if (!value) return undefined;
+
+  try {
+    const resolved =
+      new URL(value, `${baseUrl}/`);
+
+    if (resolved.protocol !== 'https:') {
+      return undefined;
+    }
+
+    return resolved.toString();
+  } catch {
+    return undefined;
+  }
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -97,6 +150,26 @@ export default async function handler(req: any, res: any) {
       cleanText(body.tag, 100) ||
       `us-${type}-${Date.now()}`;
 
+    const baseUrl = getPublicBaseUrl(req);
+
+    /*
+     * FCM WebpushFcmOptions.link requires a FULL HTTPS URL.
+     * Frontend sends routes such as "/journal"; resolve them here.
+     */
+    const absoluteLink =
+      toHttpsUrl(url, baseUrl) ||
+      `${baseUrl}/`;
+
+    const absoluteIcon =
+      `${baseUrl}/icons/icon.png`;
+
+    /*
+     * FCM notification images should be public HTTPS URLs.
+     * Do not pass data:image/... or base64 values.
+     */
+    const safeImageUrl =
+      toHttpsUrl(imageUrl, baseUrl);
+
     if (!title || !messageBody) {
       return res.status(400).json({
         error: 'title and body are required',
@@ -142,6 +215,8 @@ export default async function handler(req: any, res: any) {
         sent: 0,
         message:
           'Partner has not registered a push token yet.',
+        senderEmail,
+        targetEmails: Array.from(targetEmails),
       });
     }
 
@@ -150,7 +225,7 @@ export default async function handler(req: any, res: any) {
       notification: {
         title,
         body: messageBody,
-        ...(imageUrl ? { imageUrl } : {}),
+        ...(safeImageUrl ? { imageUrl: safeImageUrl } : {}),
       },
       data: {
         type,
@@ -160,13 +235,13 @@ export default async function handler(req: any, res: any) {
       },
       webpush: {
         notification: {
-          icon: '/icons/icon.png',
-          badge: '/icons/icon.png',
+          icon: absoluteIcon,
+          badge: absoluteIcon,
           tag,
           renotify: true,
         },
         fcmOptions: {
-          link: url,
+          link: absoluteLink,
         },
       },
     });

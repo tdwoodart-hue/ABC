@@ -104,6 +104,36 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
   const [testingNotification, setTestingNotification] = React.useState(false);
   const [notificationStatus, setNotificationStatus] = React.useState<string | null>(null);
+  const [notificationPermission, setNotificationPermission] = React.useState<
+    NotificationPermission | 'unsupported'
+  >(() => {
+    if (
+      typeof window === 'undefined' ||
+      !('Notification' in window)
+    ) {
+      return 'unsupported';
+    }
+
+    return Notification.permission;
+  });
+
+  React.useEffect(() => {
+    if (
+      typeof window === 'undefined' ||
+      !('Notification' in window)
+    ) {
+      setNotificationPermission('unsupported');
+      return;
+    }
+
+    setNotificationPermission(Notification.permission);
+
+    if (Notification.permission === 'granted') {
+      setNotificationStatus(
+        'Đã bật. Từ giờ Us sẽ tự đăng ký lại thông báo khi mở app.'
+      );
+    }
+  }, []);
 
   const handleTestNotification = async () => {
     if (testingNotification) return;
@@ -114,6 +144,13 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
     try {
       const result = await requestAndShowTestNotification();
       setNotificationStatus(result.message);
+
+      if (
+        typeof window !== 'undefined' &&
+        'Notification' in window
+      ) {
+        setNotificationPermission(Notification.permission);
+      }
     } catch (error: any) {
       console.error('Notification test failed:', error);
       setNotificationStatus(
@@ -591,7 +628,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                 Thông báo từ người kia
               </p>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Bật thiết bị này để nhận nhật ký, bình luận và kỷ niệm mới từ người kia.
+                Chỉ cần bật một lần. Sau đó Us tự duy trì push trên thiết bị này.
               </p>
             </div>
 
@@ -601,7 +638,11 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
               disabled={testingNotification}
               className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold cursor-pointer shrink-0 disabled:opacity-50"
             >
-              {testingNotification ? 'Đang bật...' : 'Bật & thử'}
+              {testingNotification
+                ? 'Đang kiểm tra...'
+                : notificationPermission === 'granted'
+                  ? 'Kiểm tra lại'
+                  : 'Bật & thử'}
             </button>
           </div>
 

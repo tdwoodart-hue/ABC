@@ -3,7 +3,9 @@ import {
   getMessaging,
   getToken,
   isSupported,
+  onMessage,
 } from 'firebase/messaging';
+import { onAuthStateChanged } from 'firebase/auth';
 
 import firebaseConfig from '../../firebase-applet-config.json';
 import {
@@ -43,6 +45,74 @@ export interface PartnerNotificationPayload {
 }
 
 const PUSH_SW_PATH = '/us-notification-sw.js';
+
+let foregroundListenerStarted = false;
+let automaticPushBootstrapStarted = false;
+
+async function showForegroundSystemNotification(
+  title: string,
+  body: string,
+  url: string = '/'
+): Promise<void> {
+  if (
+    typeof window === 'undefined' ||
+    !('Notification' in window) ||
+    Notification.permission !== 'granted'
+  ) {
+    return;
+  }
+
+  try {
+    const registration = await getNotificationRegistration();
+
+    await registration.showNotification(title || 'Us 💕', {
+      body,
+      icon: '/icons/icon.png',
+      badge: '/icons/icon.png',
+      tag: `us-foreground-${Date.now()}`,
+      data: { url },
+    });
+  } catch (error) {
+    console.warn('Unable to show foreground notification:', error);
+  }
+}
+
+async function startForegroundPushListener(): Promise<void> {
+  if (foregroundListenerStarted) return;
+
+  const supported = await isSupported().catch(() => false);
+  if (!supported) return;
+
+  try {
+    const messaging = getMessaging(getFirebaseApp());
+
+    onMessage(messaging, (payload) => {
+      const title =
+        payload.notification?.title ||
+        payload.data?.title ||
+        'Us 💕';
+
+      const body =
+        payload.notification?.body ||
+        payload.data?.body ||
+        'Bạn có thông báo mới.';
+
+      const url =
+        payload.data?.url || '/';
+
+      void showForegroundSystemNotification(
+        title,
+        body,
+        url
+      );
+    });
+
+    foregroundListenerStarted = true;
+  } catch (error) {
+    console.warn('Unable to start foreground FCM listener:', error);
+  }
+}
+
 
 function isIOS(): boolean {
   if (typeof navigator === 'undefined') return false;
@@ -235,6 +305,47 @@ export async function enablePushNotifications(
   }
 }
 
+
+export async function ensurePushNotificationsSilently(
+  coupleId: string = OUR_COUPLE_ID
+): Promise<NotificationTestResult> {
+  if (
+    typeof window === 'undefined' ||
+    !('Notification' in window)
+  ) {
+    return {
+      ok: false,
+      message: 'Notification API chưa sẵn sàng.',
+      reason: 'notification-unavailable',
+    };
+  }
+
+  /*
+   * IMPORTANT:
+   * Never trigger a permission prompt automatically.
+   * The user grants permission once from the explicit button.
+   * After that, every app launch silently refreshes/saves the FCM token.
+   */
+  if (Notification.permission !== 'granted') {
+    return {
+      ok: false,
+      message:
+        Notification.permission === 'denied'
+          ? 'Quyền thông báo đang bị tắt.'
+          : 'Chưa bật thông báo.',
+      reason: `permission-${Notification.permission}`,
+    };
+  }
+
+  const result = await enablePushNotifications(coupleId);
+
+  if (result.ok) {
+    await startForegroundPushListener();
+  }
+
+  return result;
+}
+
 export async function requestAndShowTestNotification(): Promise<NotificationTestResult> {
   if (typeof window === 'undefined') {
     return {
@@ -336,19 +447,71 @@ export async function sendPartnerNotification(
       }),
     });
 
+    const result = await response
+      .json()
+      .catch(() => null);
+
     if (!response.ok) {
-      const details = await response.text().catch(() => '');
       console.warn(
         'Partner push failed:',
         response.status,
-        details
+        result
       );
       return false;
     }
 
+    if (
+      result &&
+      typeof result.sent === 'number' &&
+      result.sent === 0
+    ) {
+      console.warn(
+        'Partner push was accepted but no partner token was available:',
+        result
+      );
+      return false;
+    }
+
+    console.info('Partner push result:', result);
     return true;
   } catch (error) {
     console.warn('Partner push error:', error);
     return false;
   }
+}
+
+/*
+ * Automatic push bootstrap.
+ *
+ * The permission prompt is NEVER shown here.
+ * If the user already granted notifications once, opening Us automatically:
+ * 1) refreshes/saves the current FCM token
+ * 2) starts the foreground notification listener
+ *
+ * This removes the need to press "Bật & thử" on every visit.
+ */
+if (
+  typeof window !== 'undefined' &&
+  !automaticPushBootstrapStarted
+) {
+  automaticPushBootstrapStarted = true;
+
+  onAuthStateChanged(auth, (user) => {
+    if (
+      !user ||
+      !('Notification' in window) ||
+      Notification.permission !== 'granted'
+    ) {
+      return;
+    }
+
+    void ensurePushNotificationsSilently().then((result) => {
+      if (!result.ok) {
+        console.warn(
+          'Automatic push registration did not complete:',
+          result
+        );
+      }
+    });
+  });
 }
