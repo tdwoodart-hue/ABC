@@ -242,7 +242,7 @@ export default async function handler(req: any, res: any) {
       .filter(({ data, uid, email }) => {
         if (
           data.enabled === false ||
-          !data.token ||
+          !(data.fid || data.token) ||
           uid === decoded.uid
         ) {
           return false;
@@ -283,7 +283,7 @@ export default async function handler(req: any, res: any) {
         ok: true,
         sent: 0,
         message:
-          'Partner has not registered a push token yet.',
+          'Partner has not registered a push destination yet.',
         coupleId,
         senderUid: decoded.uid,
         senderEmail,
@@ -295,7 +295,7 @@ export default async function handler(req: any, res: any) {
         registeredUids: Array.from(
           new Set(
             allTokenDocs
-              .filter(({ data }) => Boolean(data.token))
+              .filter(({ data }) => Boolean(data.fid || data.token))
               .map(({ uid }) => uid)
               .filter(Boolean)
           )
