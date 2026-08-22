@@ -705,7 +705,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   };
 
   const handleJournalFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+    const files: File[] = e.target.files ? Array.from(e.target.files) : [];
     if (files.length === 0) return;
 
     setJournalImageLoading(true);
@@ -1511,7 +1511,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   };
 
   const handleEditJournalFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+    const files: File[] = e.target.files ? Array.from(e.target.files) : [];
     if (files.length === 0) return;
 
     setEditImageLoading(true);
@@ -1746,7 +1746,20 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             userProfile={userProfile}
             coupleData={coupleData}
             wakeUpLogs={wakeUpLogs}
+            journals={journals}
             onNavigate={handleNavigateTab}
+            onOpenJournal={(journal) => {
+              handleNavigateTab('journal');
+
+              window.setTimeout(() => {
+                document
+                  .getElementById(`journal-card-${journal.id}`)
+                  ?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start',
+                  });
+              }, 80);
+            }}
           />
         )}
 

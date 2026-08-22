@@ -1,162 +1,48 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-
-import { runTransaction } from 'firebase/firestore';
-
+import React, { useCallback, useMemo } from 'react';
 import {
   UserProfile,
   CoupleData,
   Companion,
   JournalEntry,
 } from '../types';
-
-import { db, doc } from '../lib/firebase';
-
-import { JournalForm, JournalFormData } from './JournalForm';
-import { LoveFootprintMap } from './LoveFootprintMap';
-import { VisitedPlacesTracker } from './VisitedPlacesTracker';
-
 import { JournalHeader } from './journal/JournalHeader';
 import { JournalFilters } from './journal/JournalFilters';
+import { JournalForm, JournalFormData } from './JournalForm';
 import { JournalCard } from './journal/JournalCard';
+import { DailyJournalFeed } from './journal/DailyJournalFeed';
+import { LoveFootprintMap } from './LoveFootprintMap';
+import { VisitedPlacesTracker } from './VisitedPlacesTracker';
+import { BookOpen, Sparkles, Plus, RotateCcw } from 'lucide-react';
 
-import {
-  BookOpen,
-  RotateCcw,
-} from 'lucide-react';
-
-type RoutableJournal = JournalEntry & {
-  postNumber?: number;
-};
-
-function getPostNumber(
-  journal: JournalEntry
-): number | null {
-  const value = Number(
-    (journal as RoutableJournal)
-      .postNumber
-  );
-
-  return Number.isInteger(value) &&
-    value > 0
-    ? value
-    : null;
-}
-
-function getJournalPathPostNumber():
-  | number
-  | null {
-  if (
-    typeof window === 'undefined'
-  ) {
-    return null;
-  }
-
-  const match =
-    window.location.pathname.match(
-      /^\/journal\/([1-9]\d*)\/?$/
-    );
-
-  if (!match) return null;
-
-  const value = Number(match[1]);
-
-  return Number.isInteger(value) &&
-    value > 0
-    ? value
-    : null;
-}
-
-interface JournalTabProps {
+export interface JournalTabProps {
   userProfile: UserProfile;
   coupleData: CoupleData | null;
   journals: JournalEntry[];
   companions: Companion[];
-
-  journalViewTab:
-    | 'feed'
-    | 'love_map'
-    | 'places';
-
-  setJournalViewTab: (
-    tab:
-      | 'feed'
-      | 'love_map'
-      | 'places'
-  ) => void;
-
+  journalViewTab: 'feed' | 'love_map' | 'places';
+  setJournalViewTab: (tab: 'feed' | 'love_map' | 'places') => void;
   showAddJournal: boolean;
-  setShowAddJournal: (
-    show: boolean
-  ) => void;
-
+  setShowAddJournal: (show: boolean) => void;
   addingJournal: boolean;
   journalImageLoading: boolean;
   autoLocatingGPS: boolean;
-
   createFormData: JournalFormData;
-
-  onCreateFormChange: (
-    updated: Partial<JournalFormData>
-  ) => void;
-
-  onAddJournalSubmit: (
-    e: React.FormEvent
-  ) => void;
-
-  editingJournalId:
-    | string
-    | null;
-
+  onCreateFormChange: (updated: Partial<JournalFormData>) => void;
+  onAddJournalSubmit: (e: React.FormEvent) => void;
+  editingJournalId: string | null;
   savingEdit: boolean;
   editImageLoading: boolean;
   editFormData: JournalFormData;
-
-  onEditFormChange: (
-    updated: Partial<JournalFormData>
-  ) => void;
-
-  onSaveEditJournalSubmit: (
-    journalId: string,
-    e: React.FormEvent
-  ) => void;
-
+  onEditFormChange: (updated: Partial<JournalFormData>) => void;
+  onSaveEditJournalSubmit: (journalId: string, e: React.FormEvent) => void;
   onCancelEditJournal: () => void;
-
-  onStartEditJournal: (
-    item: JournalEntry
-  ) => void;
-
-  onRequestDeleteJournal: (
-    item: JournalEntry
-  ) => void;
-
-  onApproveDeleteJournal: (
-    journalId: string
-  ) => void;
-
-  onCancelDeleteRequest: (
-    journalId: string
-  ) => void;
-
-  onOpenLightbox: (
-    journal: JournalEntry,
-    imageIndex?: number
-  ) => void;
-
-  selectedCompanionFilter:
-    | string
-    | null;
-
-  setSelectedCompanionFilter: (
-    id: string | null
-  ) => void;
-
+  onStartEditJournal: (journal: JournalEntry) => void;
+  onRequestDeleteJournal: (journal: JournalEntry) => void;
+  onApproveDeleteJournal: (journalId: string) => void;
+  onCancelDeleteRequest: (journalId: string) => void;
+  onOpenLightbox: (journal: JournalEntry, imageIndex?: number) => void;
+  selectedCompanionFilter: string | null;
+  setSelectedCompanionFilter: (id: string | null) => void;
   journalDateFilterMode:
     | 'all'
     | 'this_month'
@@ -164,7 +50,6 @@ interface JournalTabProps {
     | 'this_year'
     | 'month'
     | 'custom';
-
   setJournalDateFilterMode: (
     mode:
       | 'all'
@@ -174,1050 +59,362 @@ interface JournalTabProps {
       | 'month'
       | 'custom'
   ) => void;
-
   journalFilterMonth: string;
-
-  setJournalFilterMonth: (
-    month: string
-  ) => void;
-
+  setJournalFilterMonth: (month: string) => void;
   journalFilterStartDate: string;
-
-  setJournalFilterStartDate: (
-    date: string
-  ) => void;
-
+  setJournalFilterStartDate: (date: string) => void;
   journalFilterEndDate: string;
-
-  setJournalFilterEndDate: (
-    date: string
-  ) => void;
-
+  setJournalFilterEndDate: (date: string) => void;
   isCustomDateOpen: boolean;
-
-  setIsCustomDateOpen: (
-    open: boolean
-  ) => void;
-
-  journalSortOrder:
-    | 'newest'
-    | 'oldest';
-
+  setIsCustomDateOpen: (open: boolean) => void;
+  journalSortOrder: 'newest' | 'oldest';
   setJournalSortOrder: (
     order:
       | 'newest'
       | 'oldest'
-      | ((
-          prev:
-            | 'newest'
-            | 'oldest'
-        ) =>
-          | 'newest'
-          | 'oldest')
+      | ((prev: 'newest' | 'oldest') => 'newest' | 'oldest')
   ) => void;
-
   journalSearch: string;
-
-  setJournalSearch: (
-    query: string
-  ) => void;
-
+  setJournalSearch: (query: string) => void;
   availableMonths: string[];
   filteredJournals: JournalEntry[];
-
-  commentInputs: Record<
-    string,
-    string
-  >;
-
-  onCommentInputChange: (
-    journalId: string,
-    value: string
-  ) => void;
-
-  onAddComment: (
-    journalId: string,
-    e: React.FormEvent
-  ) => void;
-
+  commentInputs: Record<string, string>;
+  onCommentInputChange: (journalId: string, value: string) => void;
+  onAddComment: (journalId: string, e: React.FormEvent) => void;
   onOpenCompanionManager: () => void;
-
   onOpenCreateMapPicker: () => void;
   onAutoDetectCreateGPS: () => void;
   onOpenCreateCamera: () => void;
-
-  onCreateFilesSelected: (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => void;
-
+  onCreateFilesSelected: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onOpenEditMapPicker: () => void;
   onAutoDetectEditGPS: () => void;
   onOpenEditCamera: () => void;
-
-  onEditFilesSelected: (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => void;
+  onEditFilesSelected: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
-export const JournalTab:
-  React.FC<JournalTabProps> = ({
-    userProfile,
-    coupleData,
-    journals,
-    companions,
-
-    journalViewTab,
-    setJournalViewTab,
-
-    showAddJournal,
-    setShowAddJournal,
-
-    addingJournal,
-    journalImageLoading,
-    autoLocatingGPS,
-
-    createFormData,
-    onCreateFormChange,
-    onAddJournalSubmit,
-
-    editingJournalId,
-    savingEdit,
-    editImageLoading,
-    editFormData,
-    onEditFormChange,
-    onSaveEditJournalSubmit,
-    onCancelEditJournal,
-    onStartEditJournal,
-
-    onRequestDeleteJournal,
-    onApproveDeleteJournal,
-    onCancelDeleteRequest,
-
-    onOpenLightbox,
-
-    selectedCompanionFilter,
-    setSelectedCompanionFilter,
-
-    journalDateFilterMode,
-    setJournalDateFilterMode,
-    journalFilterMonth,
-    setJournalFilterMonth,
-    journalFilterStartDate,
-    setJournalFilterStartDate,
-    journalFilterEndDate,
-    setJournalFilterEndDate,
-    isCustomDateOpen,
-    setIsCustomDateOpen,
-    journalSortOrder,
-    setJournalSortOrder,
-    journalSearch,
-    setJournalSearch,
-
-    availableMonths,
-    filteredJournals,
-
-    commentInputs,
-    onCommentInputChange,
-    onAddComment,
-
-    onOpenCompanionManager,
-
-    onOpenCreateMapPicker,
-    onAutoDetectCreateGPS,
-    onOpenCreateCamera,
-    onCreateFilesSelected,
-
-    onOpenEditMapPicker,
-    onAutoDetectEditGPS,
-    onOpenEditCamera,
-    onEditFilesSelected,
-  }) => {
-    const [
-      requestedPostNumber,
-      setRequestedPostNumber,
-    ] = useState<number | null>(
-      () => getJournalPathPostNumber()
-    );
-
-    const openedRouteRef =
-      useRef<string | null>(null);
-
-    const [
-      assigningPostNumbers,
-      setAssigningPostNumbers,
-    ] = useState(false);
-
-    const isAnyFilterActive =
-      journalDateFilterMode !==
-        'all' ||
-      Boolean(
-        journalSearch.trim()
-      ) ||
-      Boolean(
-        selectedCompanionFilter
-      ) ||
-      journalSortOrder !==
-        'newest';
-
-    const handleResetFilters =
-      useCallback(() => {
-        setJournalDateFilterMode(
-          'all'
-        );
-
-        setJournalFilterMonth('');
-        setJournalFilterStartDate(
-          ''
-        );
-        setJournalFilterEndDate('');
-        setIsCustomDateOpen(false);
-        setJournalSearch('');
-
-        setSelectedCompanionFilter(
-          null
-        );
-
-        setJournalSortOrder(
-          'newest'
-        );
-      }, [
-        setJournalDateFilterMode,
-        setJournalFilterMonth,
-        setJournalFilterStartDate,
-        setJournalFilterEndDate,
-        setIsCustomDateOpen,
-        setJournalSearch,
-        setSelectedCompanionFilter,
-        setJournalSortOrder,
-      ]);
-
-    const existingMaxPostNumber =
-      useMemo(() => {
-        return journals.reduce(
-          (max, journal) => {
-            const postNumber =
-              getPostNumber(
-                journal
-              );
-
-            return postNumber
-              ? Math.max(
-                  max,
-                  postNumber
-                )
-              : max;
-          },
-          0
-        );
-      }, [journals]);
-
-    /*
-     * Atomic route-number allocator.
-     *
-     * A shared Firestore counter prevents /5 from being assigned
-     * to two posts if both phones create/open posts at the same time.
-     */
-    const ensurePostNumber =
-      useCallback(
-        async (
-          journal: JournalEntry
-        ): Promise<number> => {
-          const current =
-            getPostNumber(
-              journal
-            );
-
-          if (current) {
-            return current;
-          }
-
-          if (
-            !userProfile.coupleId
-          ) {
-            throw new Error(
-              'Thiếu coupleId.'
-            );
-          }
-
-          const journalRef = doc(
-            db,
-            'couples',
-            userProfile.coupleId,
-            'journals',
-            journal.id
-          );
-
-          const routingRef = doc(
-            db,
-            'couples',
-            userProfile.coupleId,
-            'meta',
-            'journalRouting'
-          );
-
-          return runTransaction(
-            db,
-            async (
-              transaction
-            ) => {
-              const [
-                journalSnapshot,
-                routingSnapshot,
-              ] =
-                await Promise.all([
-                  transaction.get(
-                    journalRef
-                  ),
-                  transaction.get(
-                    routingRef
-                  ),
-                ]);
-
-              if (
-                !journalSnapshot.exists()
-              ) {
-                throw new Error(
-                  'Bài viết không còn tồn tại.'
-                );
-              }
-
-              const latestNumber =
-                Number(
-                  journalSnapshot.data()
-                    .postNumber
-                );
-
-              if (
-                Number.isInteger(
-                  latestNumber
-                ) &&
-                latestNumber > 0
-              ) {
-                return latestNumber;
-              }
-
-              const storedNext =
-                Number(
-                  routingSnapshot.exists()
-                    ? routingSnapshot.data()
-                        .nextPostNumber
-                    : 0
-                );
-
-              const nextPostNumber =
-                Math.max(
-                  Number.isInteger(
-                    storedNext
-                  ) &&
-                    storedNext > 0
-                    ? storedNext
-                    : 1,
-                  existingMaxPostNumber +
-                    1
-                );
-
-              transaction.update(
-                journalRef,
-                {
-                  postNumber:
-                    nextPostNumber,
-                }
-              );
-
-              transaction.set(
-                routingRef,
-                {
-                  nextPostNumber:
-                    nextPostNumber + 1,
-                  updatedAt:
-                    new Date().toISOString(),
-                },
-                {
-                  merge: true,
-                }
-              );
-
-              return nextPostNumber;
-            }
-          );
-        },
-        [
-          existingMaxPostNumber,
-          userProfile.coupleId,
-        ]
-      );
-
-    /*
-     * One-time migration for old posts.
-     *
-     * Old journals do not have postNumber. We assign their numbers
-     * from oldest-created to newest-created, then persist the number.
-     * After that sorting/filtering/deleting other posts cannot change it.
-     */
-    useEffect(() => {
-      if (
-        !userProfile.coupleId ||
-        journals.length === 0
-      ) {
-        return;
-      }
-
-      const unnumbered =
-        journals
-          .filter(
-            (journal) =>
-              !getPostNumber(
-                journal
-              )
-          )
-          .sort((a, b) => {
-            const timeA =
-              new Date(
-                a.createdAt || 0
-              ).getTime();
-
-            const timeB =
-              new Date(
-                b.createdAt || 0
-              ).getTime();
-
-            if (
-              timeA !== timeB
-            ) {
-              return (
-                timeA - timeB
-              );
-            }
-
-            return a.id.localeCompare(
-              b.id
-            );
-          });
-
-      if (
-        unnumbered.length === 0
-      ) {
-        setAssigningPostNumbers(
-          false
-        );
-        return;
-      }
-
-      let cancelled = false;
-
-      setAssigningPostNumbers(
-        true
-      );
-
-      void (async () => {
-        try {
-          for (const journal of unnumbered) {
-            if (cancelled) {
-              return;
-            }
-
-            await ensurePostNumber(
-              journal
-            );
-          }
-        } catch (error) {
-          console.error(
-            'Không thể gán URL cho bài nhật ký:',
-            error
-          );
-        } finally {
-          if (!cancelled) {
-            setAssigningPostNumbers(
-              false
-            );
-          }
-        }
-      })();
-
-      return () => {
-        cancelled = true;
-      };
-    }, [
-      journals,
-      userProfile.coupleId,
-      ensurePostNumber,
-    ]);
-
-    const routeJournal =
-      useMemo(() => {
-        if (
-          requestedPostNumber ===
-          null
-        ) {
-          return null;
-        }
-
-        return (
-          journals.find(
-            (journal) =>
-              getPostNumber(
-                journal
-              ) ===
-              requestedPostNumber
-          ) || null
-        );
-      }, [
-        journals,
-        requestedPostNumber,
-      ]);
-
-    /*
-     * Direct URL support:
-     * opening /journal/6 must open the REAL detail modal immediately,
-     * without rendering an intermediate JournalCard page.
-     */
-    useEffect(() => {
-      if (
-        requestedPostNumber ===
-          null ||
-        !routeJournal
-      ) {
-        return;
-      }
-
-      setJournalViewTab('feed');
-
-      const routeKey =
-        `${routeJournal.id}:${requestedPostNumber}`;
-
-      if (
-        openedRouteRef.current ===
-        routeKey
-      ) {
-        return;
-      }
-
-      openedRouteRef.current =
-        routeKey;
-
-      onOpenLightbox(
-        routeJournal,
-        routeJournal.mainImageIndex ??
-          0
-      );
-    }, [
-      requestedPostNumber,
-      routeJournal,
-      setJournalViewTab,
-      onOpenLightbox,
-    ]);
-
-    /*
-     * Browser back/forward:
-     * /journal   -> feed
-     * /journal/1 -> single post 1
-     */
-    useEffect(() => {
-      const handlePopState =
-        () => {
-          const nextPostNumber =
-            getJournalPathPostNumber();
-
-          setRequestedPostNumber(
-            nextPostNumber
-          );
-
-          if (
-            nextPostNumber === null
-          ) {
-            openedRouteRef.current =
-              null;
-          }
-
-          window.scrollTo({
-            top: 0,
-            behavior: 'auto',
-          });
-        };
-
-      window.addEventListener(
-        'popstate',
-        handlePopState
-      );
-
-      return () => {
-        window.removeEventListener(
-          'popstate',
-          handlePopState
-        );
-      };
-    }, []);
-
-    const openPostDetail =
-      useCallback(
-        async (
-          journal: JournalEntry,
-          imageIndex = 0
-        ) => {
-          try {
-            const postNumber =
-              await ensurePostNumber(
-                journal
-              );
-
-            const targetPath =
-              `/journal/${postNumber}`;
-
-            const routeKey =
-              `${journal.id}:${postNumber}`;
-
-            /*
-             * Mark before changing route so the direct-route effect
-             * does not open the same modal a second time.
-             */
-            openedRouteRef.current =
-              routeKey;
-
-            if (
-              window.location.pathname !==
-              targetPath
-            ) {
-              window.history.pushState(
-                {
-                  journalPost:
-                    postNumber,
-                },
-                '',
-                targetPath
-              );
-            }
-
-            setRequestedPostNumber(
-              postNumber
-            );
-
-            setJournalViewTab(
-              'feed'
-            );
-
-            /*
-             * ONE click = ONE detail layer.
-             */
-            onOpenLightbox(
-              journal,
-              imageIndex
-            );
-          } catch (error) {
-            console.error(
-              'Không thể mở bài viết:',
-              error
-            );
-          }
-        },
-        [
-          ensurePostNumber,
-          onOpenLightbox,
-          setJournalViewTab,
-        ]
-      );
-
-    const handleOpenPost =
-      useCallback(
-        (
-          journal: JournalEntry
-        ) => {
-          void openPostDetail(
-            journal,
-            journal.mainImageIndex ??
-              0
-          );
-        },
-        [openPostDetail]
-      );
-
-    const handleOpenPostMedia =
-      useCallback(
-        (
-          journal: JournalEntry,
-          imageIndex = 0
-        ) => {
-          void openPostDetail(
-            journal,
-            imageIndex
-          );
-        },
-        [openPostDetail]
-      );
-
+export const JournalTab: React.FC<JournalTabProps> = ({
+  userProfile,
+  coupleData,
+  journals,
+  companions,
+  journalViewTab,
+  setJournalViewTab,
+  showAddJournal,
+  setShowAddJournal,
+  addingJournal,
+  journalImageLoading,
+  autoLocatingGPS,
+  createFormData,
+  onCreateFormChange,
+  onAddJournalSubmit,
+  editingJournalId,
+  savingEdit,
+  editImageLoading,
+  editFormData,
+  onEditFormChange,
+  onSaveEditJournalSubmit,
+  onCancelEditJournal,
+  onStartEditJournal,
+  onRequestDeleteJournal,
+  onApproveDeleteJournal,
+  onCancelDeleteRequest,
+  onOpenLightbox,
+  selectedCompanionFilter,
+  setSelectedCompanionFilter,
+  journalDateFilterMode,
+  setJournalDateFilterMode,
+  journalFilterMonth,
+  setJournalFilterMonth,
+  journalFilterStartDate,
+  setJournalFilterStartDate,
+  journalFilterEndDate,
+  setJournalFilterEndDate,
+  isCustomDateOpen,
+  setIsCustomDateOpen,
+  journalSortOrder,
+  setJournalSortOrder,
+  journalSearch,
+  setJournalSearch,
+  availableMonths,
+  filteredJournals,
+  commentInputs,
+  onCommentInputChange,
+  onAddComment,
+  onOpenCompanionManager,
+  onOpenCreateMapPicker,
+  onAutoDetectCreateGPS,
+  onOpenCreateCamera,
+  onCreateFilesSelected,
+  onOpenEditMapPicker,
+  onAutoDetectEditGPS,
+  onOpenEditCamera,
+  onEditFilesSelected,
+}) => {
+  const isAnyFilterActive = useMemo(() => {
     return (
-      <section
-        id="journal-tab-container"
-        className="space-y-5 sm:space-y-6"
-      >
-        <JournalHeader
-          companions={companions}
-          showAddJournal={
-            showAddJournal
-          }
-          setShowAddJournal={
-            setShowAddJournal
-          }
-          onOpenCompanionManager={
-            onOpenCompanionManager
-          }
-        />
+      selectedCompanionFilter !== null ||
+      journalDateFilterMode !== 'all' ||
+      journalSearch.trim().length > 0 ||
+      journalSortOrder !== 'newest'
+    );
+  }, [
+    selectedCompanionFilter,
+    journalDateFilterMode,
+    journalSearch,
+    journalSortOrder,
+  ]);
 
-        <JournalFilters
-          journals={journals}
-          companions={companions}
-          journalViewTab={
-            journalViewTab
-          }
-          setJournalViewTab={
-            setJournalViewTab
-          }
-          selectedCompanionFilter={
-            selectedCompanionFilter
-          }
-          setSelectedCompanionFilter={
-            setSelectedCompanionFilter
-          }
-          journalDateFilterMode={
-            journalDateFilterMode
-          }
-          setJournalDateFilterMode={
-            setJournalDateFilterMode
-          }
-          journalFilterMonth={
-            journalFilterMonth
-          }
-          setJournalFilterMonth={
-            setJournalFilterMonth
-          }
-          journalFilterStartDate={
-            journalFilterStartDate
-          }
-          setJournalFilterStartDate={
-            setJournalFilterStartDate
-          }
-          journalFilterEndDate={
-            journalFilterEndDate
-          }
-          setJournalFilterEndDate={
-            setJournalFilterEndDate
-          }
-          isCustomDateOpen={
-            isCustomDateOpen
-          }
-          setIsCustomDateOpen={
-            setIsCustomDateOpen
-          }
-          journalSortOrder={
-            journalSortOrder
-          }
-          setJournalSortOrder={
-            setJournalSortOrder
-          }
-          journalSearch={
-            journalSearch
-          }
-          setJournalSearch={
-            setJournalSearch
-          }
-          availableMonths={
-            availableMonths
-          }
-          isAnyFilterActive={
-            isAnyFilterActive
-          }
-          onResetFilters={
-            handleResetFilters
-          }
-        />
+  const handleResetFilters = useCallback(() => {
+    setSelectedCompanionFilter(null);
+    setJournalDateFilterMode('all');
+    setJournalSearch('');
+    setJournalSortOrder('newest');
+    setIsCustomDateOpen(false);
+  }, [
+    setSelectedCompanionFilter,
+    setJournalDateFilterMode,
+    setJournalSearch,
+    setJournalSortOrder,
+    setIsCustomDateOpen,
+  ]);
 
-        {showAddJournal && (
+  const handleOpenPost = useCallback(
+    (journal: JournalEntry) => {
+      onOpenLightbox(journal, 0);
+    },
+    [onOpenLightbox]
+  );
+
+  const handleOpenPostMedia = useCallback(
+    (journal: JournalEntry, imageIndex = 0) => {
+      onOpenLightbox(journal, imageIndex);
+    },
+    [onOpenLightbox]
+  );
+
+  const renderJournalItem = useCallback(
+    (item: JournalEntry): React.ReactNode => {
+      if (editingJournalId === item.id) {
+        return (
+          <JournalForm
+            key={item.id}
+            mode="edit"
+            userProfile={userProfile}
+            coupleData={coupleData}
+            companions={companions}
+            formData={editFormData}
+            isAuthor={item.authorUid === userProfile.uid}
+            isLoading={savingEdit}
+            imageUploading={editImageLoading}
+            autoLocatingGPS={autoLocatingGPS}
+            onFormChange={onEditFormChange}
+            onSubmit={(event) =>
+              onSaveEditJournalSubmit(item.id, event)
+            }
+            onCancel={onCancelEditJournal}
+            onOpenMapPicker={onOpenEditMapPicker}
+            onAutoDetectGPS={onAutoDetectEditGPS}
+            onOpenCamera={onOpenEditCamera}
+            onFilesSelected={onEditFilesSelected}
+            onOpenCompanionManager={onOpenCompanionManager}
+          />
+        );
+      }
+
+      return (
+        <JournalCard
+          key={item.id}
+          item={item}
+          userProfile={userProfile}
+          coupleData={coupleData}
+          selectedCompanionFilter={selectedCompanionFilter}
+          commentInput={commentInputs[item.id] || ''}
+          onCompanionClick={(companionId) =>
+            setSelectedCompanionFilter(
+              selectedCompanionFilter === companionId
+                ? null
+                : companionId
+            )
+          }
+          onOpenPost={handleOpenPost}
+          onOpenLightbox={handleOpenPostMedia}
+          onStartEdit={onStartEditJournal}
+          onRequestDelete={onRequestDeleteJournal}
+          onApproveDelete={onApproveDeleteJournal}
+          onCancelDeleteRequest={onCancelDeleteRequest}
+          onCommentInputChange={onCommentInputChange}
+          onAddComment={onAddComment}
+        />
+      );
+    },
+    [
+      editingJournalId,
+      userProfile,
+      coupleData,
+      companions,
+      editFormData,
+      savingEdit,
+      editImageLoading,
+      autoLocatingGPS,
+      onEditFormChange,
+      onSaveEditJournalSubmit,
+      onCancelEditJournal,
+      onOpenEditMapPicker,
+      onAutoDetectEditGPS,
+      onOpenEditCamera,
+      onEditFilesSelected,
+      onOpenCompanionManager,
+      selectedCompanionFilter,
+      commentInputs,
+      setSelectedCompanionFilter,
+      handleOpenPost,
+      handleOpenPostMedia,
+      onStartEditJournal,
+      onRequestDeleteJournal,
+      onApproveDeleteJournal,
+      onCancelDeleteRequest,
+      onCommentInputChange,
+      onAddComment,
+    ]
+  );
+
+  const coupleId = coupleData?.id || userProfile.coupleId || '';
+
+  return (
+    <div className="space-y-6 pb-24">
+      {/* HEADER SECTION */}
+      <JournalHeader
+        companions={companions}
+        showAddJournal={showAddJournal}
+        setShowAddJournal={setShowAddJournal}
+        onOpenCompanionManager={onOpenCompanionManager}
+      />
+
+      {/* CREATE JOURNAL FORM */}
+      {showAddJournal && (
+        <div className="animate-in fade-in slide-in-from-top-4 duration-200">
           <JournalForm
             mode="create"
-            userProfile={
-              userProfile
-            }
-            coupleData={
-              coupleData
-            }
-            companions={
-              companions
-            }
-            formData={
-              createFormData
-            }
-            isAuthor
-            isLoading={
-              addingJournal
-            }
-            imageUploading={
-              journalImageLoading
-            }
-            autoLocatingGPS={
-              autoLocatingGPS
-            }
-            onFormChange={
-              onCreateFormChange
-            }
-            onSubmit={
-              onAddJournalSubmit
-            }
-            onCancel={() =>
-              setShowAddJournal(
-                false
-              )
-            }
-            onOpenMapPicker={
-              onOpenCreateMapPicker
-            }
-            onAutoDetectGPS={
-              onAutoDetectCreateGPS
-            }
-            onOpenCamera={
-              onOpenCreateCamera
-            }
-            onFilesSelected={
-              onCreateFilesSelected
-            }
-            onOpenCompanionManager={
-              onOpenCompanionManager
-            }
+            userProfile={userProfile}
+            coupleData={coupleData}
+            companions={companions}
+            formData={createFormData}
+            isAuthor={true}
+            isLoading={addingJournal}
+            imageUploading={journalImageLoading}
+            autoLocatingGPS={autoLocatingGPS}
+            onFormChange={onCreateFormChange}
+            onSubmit={onAddJournalSubmit}
+            onCancel={() => setShowAddJournal(false)}
+            onOpenMapPicker={onOpenCreateMapPicker}
+            onAutoDetectGPS={onAutoDetectCreateGPS}
+            onOpenCamera={onOpenCreateCamera}
+            onFilesSelected={onCreateFilesSelected}
+            onOpenCompanionManager={onOpenCompanionManager}
           />
-        )}
+        </div>
+      )}
 
-        {journalViewTab ===
-          'feed' && (
-          <>
-            {filteredJournals.length ===
-            0 ? (
-              <div className="rounded-3xl border border-slate-200/80 bg-white px-5 py-10 text-center shadow-xs">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
-                  <BookOpen className="h-6 w-6" />
-                </div>
+      {/* VIEW TABS & FILTERS */}
+      <JournalFilters
+        journals={journals}
+        companions={companions}
+        journalViewTab={journalViewTab}
+        setJournalViewTab={setJournalViewTab}
+        selectedCompanionFilter={selectedCompanionFilter}
+        setSelectedCompanionFilter={setSelectedCompanionFilter}
+        journalDateFilterMode={journalDateFilterMode}
+        setJournalDateFilterMode={setJournalDateFilterMode}
+        journalFilterMonth={journalFilterMonth}
+        setJournalFilterMonth={setJournalFilterMonth}
+        journalFilterStartDate={journalFilterStartDate}
+        setJournalFilterStartDate={setJournalFilterStartDate}
+        journalFilterEndDate={journalFilterEndDate}
+        setJournalFilterEndDate={setJournalFilterEndDate}
+        isCustomDateOpen={isCustomDateOpen}
+        setIsCustomDateOpen={setIsCustomDateOpen}
+        journalSortOrder={journalSortOrder}
+        setJournalSortOrder={setJournalSortOrder}
+        journalSearch={journalSearch}
+        setJournalSearch={setJournalSearch}
+        availableMonths={availableMonths}
+        isAnyFilterActive={isAnyFilterActive}
+        onResetFilters={handleResetFilters}
+      />
 
-                <h3 className="mt-3 text-sm font-bold text-slate-800">
-                  {journals.length ===
-                  0
-                    ? 'Chưa có kỷ niệm nào'
-                    : 'Không tìm thấy kỷ niệm phù hợp'}
-                </h3>
+      {/* TAB CONTENT: MAP VIEW */}
+      {journalViewTab === 'love_map' && (
+        <LoveFootprintMap
+          coupleId={coupleId}
+          userProfile={userProfile}
+          coupleData={coupleData}
+          journals={journals}
+          onOpenJournalLightbox={(journal, imageIndex) =>
+            onOpenLightbox(journal, imageIndex ?? 0)
+          }
+          onNavigateToJournal={() => setJournalViewTab('feed')}
+        />
+      )}
 
-                <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-slate-500">
-                  {journals.length ===
-                  0
-                    ? 'Bấm “Viết nhật ký” để lưu lại khoảnh khắc đầu tiên của hai bạn.'
-                    : 'Thử thay đổi từ khóa hoặc bộ lọc đang sử dụng.'}
-                </p>
+      {/* TAB CONTENT: PLACES / PROVINCES TRACKER */}
+      {journalViewTab === 'places' && (
+        <VisitedPlacesTracker
+          coupleId={coupleId}
+          userProfile={userProfile}
+          coupleData={coupleData}
+          journals={journals}
+          onOpenJournalLightbox={(journal, imageIndex) =>
+            onOpenLightbox(journal, imageIndex ?? 0)
+          }
+        />
+      )}
 
-                {journals.length >
-                  0 &&
-                  isAnyFilterActive && (
-                    <button
-                      type="button"
-                      onClick={
-                        handleResetFilters
-                      }
-                      className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-100"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      Xóa bộ lọc
-                    </button>
-                  )}
+      {/* TAB CONTENT: JOURNAL FEED WITH DAILY CAPSULES */}
+      {journalViewTab === 'feed' && (
+        <>
+          {filteredJournals.length === 0 ? (
+            <div className="rounded-3xl border border-slate-200/80 bg-white p-8 text-center shadow-xs sm:p-12">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
+                <BookOpen className="h-7 w-7" />
               </div>
-            ) : (
-              <div className="space-y-4">
-                {filteredJournals.map(
-                  (item) =>
-                    editingJournalId ===
-                    item.id ? (
-                      <JournalForm
-                        key={
-                          item.id
-                        }
-                        mode="edit"
-                        userProfile={
-                          userProfile
-                        }
-                        coupleData={
-                          coupleData
-                        }
-                        companions={
-                          companions
-                        }
-                        formData={
-                          editFormData
-                        }
-                        isAuthor={
-                          item.authorUid ===
-                          userProfile.uid
-                        }
-                        isLoading={
-                          savingEdit
-                        }
-                        imageUploading={
-                          editImageLoading
-                        }
-                        autoLocatingGPS={
-                          autoLocatingGPS
-                        }
-                        onFormChange={
-                          onEditFormChange
-                        }
-                        onSubmit={(
-                          event
-                        ) =>
-                          onSaveEditJournalSubmit(
-                            item.id,
-                            event
-                          )
-                        }
-                        onCancel={
-                          onCancelEditJournal
-                        }
-                        onOpenMapPicker={
-                          onOpenEditMapPicker
-                        }
-                        onAutoDetectGPS={
-                          onAutoDetectEditGPS
-                        }
-                        onOpenCamera={
-                          onOpenEditCamera
-                        }
-                        onFilesSelected={
-                          onEditFilesSelected
-                        }
-                        onOpenCompanionManager={
-                          onOpenCompanionManager
-                        }
-                      />
-                    ) : (
-                      <JournalCard
-                        key={
-                          item.id
-                        }
-                        item={
-                          item
-                        }
-                        userProfile={
-                          userProfile
-                        }
-                        coupleData={
-                          coupleData
-                        }
-                        selectedCompanionFilter={
-                          selectedCompanionFilter
-                        }
-                        commentInput={
-                          commentInputs[
-                            item.id
-                          ] || ''
-                        }
-                        onCompanionClick={(
-                          companionId
-                        ) =>
-                          setSelectedCompanionFilter(
-                            selectedCompanionFilter ===
-                              companionId
-                              ? null
-                              : companionId
-                          )
-                        }
-                        onOpenPost={
-                          handleOpenPost
-                        }
-                        onOpenLightbox={
-                          handleOpenPostMedia
-                        }
-                        onStartEdit={
-                          onStartEditJournal
-                        }
-                        onRequestDelete={
-                          onRequestDeleteJournal
-                        }
-                        onApproveDelete={
-                          onApproveDeleteJournal
-                        }
-                        onCancelDeleteRequest={
-                          onCancelDeleteRequest
-                        }
-                        onCommentInputChange={
-                          onCommentInputChange
-                        }
-                        onAddComment={
-                          onAddComment
-                        }
-                      />
-                    )
+              <h3 className="text-base font-bold text-slate-800 sm:text-lg">
+                Chưa có kỷ niệm nào phù hợp
+              </h3>
+              <p className="mx-auto mt-1.5 max-w-sm text-xs leading-relaxed text-slate-400">
+                {isAnyFilterActive
+                  ? 'Không tìm thấy nhật ký theo bộ lọc đã chọn. Hãy thử đặt lại bộ lọc hoặc thay đổi từ khóa.'
+                  : 'Hãy bắt đầu viết lại những khoảnh khắc đáng nhớ đầu tiên của hai bạn nhé!'}
+              </p>
+              <div className="mt-5 flex items-center justify-center gap-2">
+                {isAnyFilterActive ? (
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 cursor-pointer"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    <span>Đặt lại bộ lọc</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddJournal(true)}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-rose-500 px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-rose-600 cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Viết nhật ký ngay</span>
+                  </button>
                 )}
               </div>
-            )}
-          </>
-        )}
-
-        {journalViewTab ===
-          'love_map' && (
-          <LoveFootprintMap
-            coupleId={
-              coupleData?.id ||
-              userProfile.coupleId ||
-              'our_forever_couple_id'
-            }
-            userProfile={
-              userProfile
-            }
-            coupleData={
-              coupleData
-            }
-            journals={
-              journals
-            }
-            onOpenJournalLightbox={(
-              journal,
-              index
-            ) =>
-              handleOpenPostMedia(
-                journal,
-                index
-              )
-            }
-            onNavigateToJournal={() =>
-              setJournalViewTab(
-                'feed'
-              )
-            }
-          />
-        )}
-
-        {journalViewTab ===
-          'places' && (
-          <VisitedPlacesTracker
-            coupleId={
-              coupleData?.id ||
-              userProfile.coupleId ||
-              'our_forever_couple_id'
-            }
-            userProfile={
-              userProfile
-            }
-            coupleData={
-              coupleData
-            }
-            journals={
-              journals
-            }
-            onOpenJournalLightbox={(
-              journal,
-              index
-            ) =>
-              handleOpenPostMedia(
-                journal,
-                index
-              )
-            }
-            defaultCollapsed={
-              false
-            }
-          />
-        )}
-      </section>
-    );
-  };
+            </div>
+          ) : (
+            <DailyJournalFeed
+              journals={filteredJournals}
+              renderJournal={renderJournalItem}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+};

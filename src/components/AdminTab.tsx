@@ -378,7 +378,7 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
     setEditAddress(user.address || '');
     setEditBirthday(user.birthday || '');
     setEditCoupleId(user.coupleId || OUR_COUPLE_ID);
-    setEditIsAdmin(!!user.isAdmin || (user.email ? ADMIN_EMAILS.includes(user.email.toLowerCase().trim()) : false));
+    setEditIsAdmin(!!user.isAdmin || (user.email ? (ADMIN_EMAILS as readonly string[]).includes(user.email.toLowerCase().trim()) : false));
   };
 
   // Save User Edit
