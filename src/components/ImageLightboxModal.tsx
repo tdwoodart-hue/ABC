@@ -626,21 +626,7 @@ export const ImageLightboxModal: React.FC<
             so the comments section remains visible/discoverable.
             ===================================================== */}
         <section className="mt-3 shrink-0 sm:mt-4">
-          <div className="relative flex min-h-[320px] w-full items-center justify-center overflow-hidden rounded-[24px] border border-slate-200/80 bg-slate-950 shadow-sm sm:min-h-[420px] sm:rounded-3xl">
-            {/* Soft background fill. It may crop because it is decorative only. */}
-            {!isVideoUrl(currentImageUrl) && (
-              <>
-                <img
-                  key={`blur-${currentImageUrl}`}
-                  src={currentImageUrl}
-                  alt=""
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-3xl"
-                />
-                <div className="pointer-events-none absolute inset-0 bg-black/20" />
-              </>
-            )}
-
+          <div className="relative flex w-full items-center justify-center overflow-hidden rounded-[24px] border border-slate-200/80 bg-slate-900 shadow-sm sm:rounded-3xl">
             {isVideoUrl(
               currentImageUrl
             ) ? (
@@ -653,21 +639,17 @@ export const ImageLightboxModal: React.FC<
                 }
                 controls
                 playsInline
-                preload="metadata"
-                className="relative z-[1] mx-auto block h-auto max-h-[72dvh] w-auto max-w-full object-contain sm:max-h-[78vh]"
+                className="block max-h-[56dvh] w-full object-contain sm:max-h-[70vh]"
               />
             ) : (
               <img
-                key={currentImageUrl}
                 src={
                   currentImageUrl
                 }
                 alt={`Kỷ niệm ${
                   currentIndex + 1
                 }`}
-                loading="eager"
-                decoding="async"
-                className="relative z-[1] mx-auto block h-auto max-h-[72dvh] w-auto max-w-full object-contain sm:max-h-[78vh]"
+                className="block max-h-[56dvh] w-full object-contain sm:max-h-[70vh]"
               />
             )}
 
@@ -750,7 +732,7 @@ export const ImageLightboxModal: React.FC<
                               customThumbnail
                             }
                             alt=""
-                            className="h-full w-full object-contain bg-slate-900"
+                            className="h-full w-full object-cover"
                           />
                         ) : (
                           <video
@@ -767,7 +749,7 @@ export const ImageLightboxModal: React.FC<
                             mediaUrl
                           }
                           alt=""
-                          className="h-full w-full object-contain bg-slate-900"
+                          className="h-full w-full object-cover"
                         />
                       )}
 
@@ -917,7 +899,7 @@ export const ImageLightboxModal: React.FC<
                             alt={
                               authorName
                             }
-                            className="h-full w-full object-contain bg-slate-900"
+                            className="h-full w-full object-cover"
                           />
                         </div>
 
