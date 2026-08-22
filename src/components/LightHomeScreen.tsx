@@ -148,6 +148,97 @@ const MOOD_OPTIONS = [
   'Kỷ niệm'
 ];
 
+const JOURNAL_CACHE_VERSION = 1;
+const JOURNAL_CACHE_MAX_ITEMS = 40;
+const JOURNAL_CACHE_MAX_BYTES = 1_500_000;
+const JOURNAL_PRELOAD_POSTS = 8;
+
+const getJournalCacheKey = (coupleId?: string) =>
+  coupleId ? `us:journal-cache:v${JOURNAL_CACHE_VERSION}:${coupleId}` : '';
+
+const readCachedJournals = (coupleId?: string): JournalEntry[] => {
+  if (typeof window === 'undefined' || !coupleId) return [];
+
+  try {
+    const raw = window.localStorage.getItem(getJournalCacheKey(coupleId));
+    if (!raw) return [];
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.version !== JOURNAL_CACHE_VERSION || !Array.isArray(parsed.items)) {
+      return [];
+    }
+
+    return parsed.items as JournalEntry[];
+  } catch (error) {
+    console.warn('Không thể đọc cache Nhật ký:', error);
+    return [];
+  }
+};
+
+const writeJournalCache = (coupleId: string, items: JournalEntry[]) => {
+  if (typeof window === 'undefined' || !coupleId) return;
+
+  try {
+    const payload = JSON.stringify({
+      version: JOURNAL_CACHE_VERSION,
+      savedAt: Date.now(),
+      items: items.slice(0, JOURNAL_CACHE_MAX_ITEMS),
+    });
+
+    // Tránh làm localStorage phình to nếu bài cũ còn chứa base64/media rất lớn.
+    if (payload.length > JOURNAL_CACHE_MAX_BYTES) return;
+
+    window.localStorage.setItem(getJournalCacheKey(coupleId), payload);
+  } catch (error) {
+    console.warn('Không thể lưu cache Nhật ký:', error);
+  }
+};
+
+const preloadImageUrl = (url?: string) => {
+  if (!url || typeof window === 'undefined') return;
+
+  const img = new Image();
+  img.decoding = 'async';
+  img.src = url;
+};
+
+const warmJournalPreviewMedia = (items: JournalEntry[]) => {
+  if (typeof window === 'undefined' || items.length === 0) return;
+
+  items.slice(0, JOURNAL_PRELOAD_POSTS).forEach((journal) => {
+    const media =
+      journal.images && journal.images.length > 0
+        ? journal.images
+        : journal.imageUrl
+          ? [journal.imageUrl]
+          : [];
+
+    if (media.length === 0) return;
+
+    // Làm nóng tối đa 4 ô media/bài để khi mở tab không phải decode từ đầu.
+    media.slice(0, 4).forEach((mediaUrl) => {
+      if (isVideoUrl(mediaUrl)) {
+        const thumbnail = journal.videoThumbnails?.[mediaUrl];
+
+        if (thumbnail) {
+          preloadImageUrl(thumbnail);
+          return;
+        }
+
+        // Không tải cả video ở background; chỉ warm metadata để tránh tốn data.
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.muted = true;
+        video.src = mediaUrl;
+        video.load();
+        return;
+      }
+
+      preloadImageUrl(mediaUrl);
+    });
+  });
+};
+
 const compressAndConvertToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -191,18 +282,57 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const isAdminUser = checkIsAdmin(userProfile);
   const [activeTab, setActiveTabState] = useState<TabType>(() => getTabFromUrl());
 
+  // Keep each tab's reading position so switching tabs feels like a native app.
+  const activeTabRef = React.useRef<TabType>(activeTab);
+  const tabScrollPositionsRef = React.useRef<Record<TabType, number>>({
+    home: 0,
+    journal: 0,
+    achievements: 0,
+    nutrition: 0,
+    finance: 0,
+    profile: 0,
+    admin: 0,
+  });
+
+  const restoreTabScroll = (tab: TabType) => {
+    window.requestAnimationFrame(() => {
+      window.scrollTo({
+        top: tabScrollPositionsRef.current[tab] || 0,
+        behavior: 'auto',
+      });
+    });
+  };
+
   const handleNavigateTab = (tab: TabType) => {
+    const currentTab = activeTabRef.current;
+    tabScrollPositionsRef.current[currentTab] = window.scrollY;
+
     setActiveTabState(tab);
+    activeTabRef.current = tab;
+
     const targetPath = tab === 'home' ? '/' : `/${tab}`;
     if (window.location.pathname !== targetPath) {
       window.history.pushState(null, '', targetPath);
     }
+
+    restoreTabScroll(tab);
   };
 
   useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  useEffect(() => {
     const handlePopState = () => {
-      setActiveTabState(getTabFromUrl());
+      const currentTab = activeTabRef.current;
+      tabScrollPositionsRef.current[currentTab] = window.scrollY;
+
+      const nextTab = getTabFromUrl();
+      setActiveTabState(nextTab);
+      activeTabRef.current = nextTab;
+      restoreTabScroll(nextTab);
     };
+
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
@@ -214,7 +344,9 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const [updating, setUpdating] = useState(false);
 
   // Journal state
-  const [journals, setJournals] = useState<JournalEntry[]>([]);
+  const [journals, setJournals] = useState<JournalEntry[]>(() =>
+    readCachedJournals(userProfile.coupleId)
+  );
   const [showAddJournal, setShowAddJournal] = useState(false);
   const [journalTitle, setJournalTitle] = useState('');
   const [journalContent, setJournalContent] = useState('');
@@ -791,6 +923,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         items.push({ id: d.id, ...d.data() } as JournalEntry);
       });
       setJournals(items);
+      writeJournalCache(userProfile.coupleId, items);
     }, (err) => {
       console.warn('Error listening to journals:', err);
     });
@@ -856,6 +989,38 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       unsubscribeDeleted();
     };
   }, [userProfile.coupleId]);
+
+  // Warm Journal previews while the user is still on Home/other tabs.
+  // Firestore data is already subscribed above; this removes the delayed
+  // image/video decode that previously only started after opening Nhật ký.
+  useEffect(() => {
+    if (journals.length === 0) return;
+
+    let timeoutId: number | undefined;
+    let idleId: number | undefined;
+
+    const runWarmup = () => warmJournalPreviewMedia(journals);
+
+    const idleWindow = window as typeof window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+
+    if (idleWindow.requestIdleCallback) {
+      idleId = idleWindow.requestIdleCallback(runWarmup, { timeout: 1200 });
+    } else {
+      timeoutId = window.setTimeout(runWarmup, 120);
+    }
+
+    return () => {
+      if (idleId !== undefined) {
+        idleWindow.cancelIdleCallback?.(idleId);
+      }
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [journals]);
 
   // Keep lightboxJournal synced with updated journals
   useEffect(() => {
@@ -1586,8 +1751,13 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         )}
 
 
-        {/* TAB 2: JOURNAL (NHẬT KÝ) */}
-        {activeTab === 'journal' && (
+        {/* TAB 2: JOURNAL (NHẬT KÝ)
+            Keep mounted after app start so switching tabs does not rebuild
+            the whole feed/media tree every time. */}
+        <section
+          className={activeTab === 'journal' ? 'block' : 'hidden'}
+          aria-hidden={activeTab !== 'journal'}
+        >
           <JournalTab
             userProfile={userProfile}
             coupleData={coupleData}
@@ -1730,7 +1900,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             }}
             onEditFilesSelected={handleEditJournalFileChange}
           />
-        )}
+        </section>
 
         {/* TAB 3: ACHIEVEMENTS (THÀNH TÍCH & CỘT MỐC) */}
         {activeTab === 'achievements' && (
