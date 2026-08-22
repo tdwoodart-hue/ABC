@@ -17,7 +17,7 @@ interface LoadingSplashProps {
 const DRAW_IN_MS = 2200;
 const DRAW_OUT_MS = 2700;
 const START_STROKE = 8;
-const MAX_STROKE = 35.5;
+const MAX_STROKE = 37;
 
 const INTRO_THEMES = [
   { accent: '#fb7185', background: '#fff7f8' }, // rose
