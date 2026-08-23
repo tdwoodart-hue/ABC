@@ -29,6 +29,11 @@ type MotionPermissionState =
   | 'denied'
   | 'unsupported';
 
+type StoredMotionPermission = Extract<
+  MotionPermissionState,
+  'granted' | 'denied'
+>;
+
 type DeviceMotionEventWithPermission = typeof DeviceMotionEvent & {
   requestPermission?: () => Promise<'granted' | 'denied'>;
 };
@@ -37,6 +42,52 @@ const SHAKE_DELTA_THRESHOLD = 22;
 const SHAKE_REQUIRED_PEAKS = 2;
 const SHAKE_PEAK_WINDOW_MS = 700;
 const SHAKE_COOLDOWN_MS = 2500;
+
+const MOTION_PERMISSION_STORAGE_KEY =
+  'us:shake-random-memory:motion-permission:v1';
+
+const readStoredMotionPermission = (): StoredMotionPermission | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const stored = window.localStorage.getItem(
+      MOTION_PERMISSION_STORAGE_KEY
+    );
+
+    if (stored === 'granted' || stored === 'denied') {
+      return stored;
+    }
+  } catch (error) {
+    console.warn(
+      'Không thể đọc trạng thái quyền cảm biến chuyển động:',
+      error
+    );
+  }
+
+  return null;
+};
+
+const storeMotionPermission = (
+  permission: StoredMotionPermission
+) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      MOTION_PERMISSION_STORAGE_KEY,
+      permission
+    );
+  } catch (error) {
+    console.warn(
+      'Không thể lưu trạng thái quyền cảm biến chuyển động:',
+      error
+    );
+  }
+};
 
 const getJournalMedia = (journal: JournalEntry): string[] => {
   if (journal.images && journal.images.length > 0) {
@@ -62,11 +113,13 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
 
   const lastSelectedJournalIdRef = useRef('');
   const lastShakeTriggeredAtRef = useRef(0);
+
   const lastVectorRef = useRef<{
     x: number;
     y: number;
     z: number;
   } | null>(null);
+
   const shakePeaksRef = useRef<number[]>([]);
   const motionListenerAttachedRef = useRef(false);
 
@@ -143,12 +196,14 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
       ];
 
     const media = getJournalMedia(randomJournal);
+
     const randomMediaIndex =
       media.length > 1
         ? Math.floor(Math.random() * media.length)
         : 0;
 
     lastSelectedJournalIdRef.current = randomJournal.id;
+
     setSelectedJournal(randomJournal);
     setSelectedMediaIndex(randomMediaIndex);
 
@@ -195,6 +250,7 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
       };
 
       const previous = lastVectorRef.current;
+
       lastVectorRef.current = current;
 
       if (!previous) {
@@ -256,6 +312,7 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
     );
 
     motionListenerAttachedRef.current = true;
+
     setMotionPermission('granted');
   }, [handleDeviceMotion]);
 
@@ -271,30 +328,63 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
     const MotionEvent =
       window.DeviceMotionEvent as DeviceMotionEventWithPermission;
 
+    const detachMotionListener = () => {
+      if (!motionListenerAttachedRef.current) {
+        return;
+      }
+
+      window.removeEventListener(
+        'devicemotion',
+        handleDeviceMotion
+      );
+
+      motionListenerAttachedRef.current = false;
+    };
+
     /*
-     * Android / browsers that do not require explicit permission:
-     * attach immediately.
+     * Android / browser không yêu cầu permission riêng:
+     * attach ngay như behavior cũ.
      */
     if (
       typeof MotionEvent.requestPermission !== 'function'
     ) {
       attachMotionListener();
 
-      return () => {
-        if (motionListenerAttachedRef.current) {
-          window.removeEventListener(
-            'devicemotion',
-            handleDeviceMotion
-          );
-          motionListenerAttachedRef.current = false;
-        }
-      };
+      return detachMotionListener;
     }
 
     /*
-     * iPhone / iPad Safari:
-     * Apple requires requestPermission() to run from a user gesture.
-     * We request it only once, on the first normal interaction with the app.
+     * iPhone / iPad:
+     *
+     * requestPermission() có thể bật popup
+     * "Motion & Orientation Access".
+     *
+     * Trước đây app gọi lại luồng xin quyền sau mỗi lần
+     * component mount -> mở app lại là bị hỏi tiếp.
+     *
+     * Lưu kết quả vào localStorage để không tự động
+     * hỏi lại mỗi lần khởi động app.
+     */
+    const storedPermission = readStoredMotionPermission();
+
+    if (storedPermission === 'granted') {
+      attachMotionListener();
+
+      return detachMotionListener;
+    }
+
+    if (storedPermission === 'denied') {
+      setMotionPermission('denied');
+
+      return;
+    }
+
+    /*
+     * Chỉ thiết bị chưa từng trả lời permission mới
+     * đăng ký gesture xin quyền.
+     *
+     * iOS bắt buộc requestPermission() phải xuất phát
+     * từ user gesture.
      */
     const requestIOSMotionPermission = async () => {
       try {
@@ -302,8 +392,10 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
           await MotionEvent.requestPermission?.();
 
         if (result === 'granted') {
+          storeMotionPermission('granted');
           attachMotionListener();
         } else {
+          storeMotionPermission('denied');
           setMotionPermission('denied');
         }
       } catch (error) {
@@ -311,6 +403,8 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
           'Không thể xin quyền cảm biến chuyển động:',
           error
         );
+
+        storeMotionPermission('denied');
         setMotionPermission('denied');
       }
     };
@@ -327,13 +421,7 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
         requestIOSMotionPermission
       );
 
-      if (motionListenerAttachedRef.current) {
-        window.removeEventListener(
-          'devicemotion',
-          handleDeviceMotion
-        );
-        motionListenerAttachedRef.current = false;
-      }
+      detachMotionListener();
     };
   }, [
     attachMotionListener,
@@ -345,18 +433,23 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
   }
 
   const media = getJournalMedia(selectedJournal);
+
   const safeMediaIndex = Math.min(
     Math.max(0, selectedMediaIndex),
     Math.max(0, media.length - 1)
   );
+
   const activeMedia = media[safeMediaIndex];
+
   const mediaIsVideo =
-    Boolean(activeMedia) && isVideoUrl(activeMedia);
+    Boolean(activeMedia) &&
+    isVideoUrl(activeMedia);
 
   const openFullJournal = () => {
     const journalId = selectedJournal.id;
 
     setSelectedJournal(null);
+
     onNavigate('journal');
 
     window.setTimeout(() => {
@@ -388,10 +481,12 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 text-rose-500">
               <Sparkles className="w-4 h-4 shrink-0" />
+
               <span className="text-[10px] font-black uppercase tracking-[0.14em]">
                 Random Memory
               </span>
             </div>
+
             <p className="text-[10px] text-slate-400 mt-0.5">
               Một kỷ niệm bất ngờ của hai đứa
             </p>
@@ -447,6 +542,7 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
             {selectedJournal.date && (
               <span className="flex items-center gap-1">
                 <Calendar className="w-3 h-3 text-rose-400" />
+
                 {selectedJournal.date}
               </span>
             )}
@@ -454,6 +550,7 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
             {selectedJournal.location && (
               <span className="flex items-center gap-1 min-w-0">
                 <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
+
                 <span className="truncate">
                   {selectedJournal.location}
                 </span>
@@ -474,6 +571,7 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
               className="h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center gap-1.5 transition"
             >
               <RefreshCw className="w-3.5 h-3.5" />
+
               Kỷ niệm khác
             </button>
 
