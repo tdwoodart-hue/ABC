@@ -10,7 +10,7 @@ import { ImageLightboxModal } from './ImageLightboxModal';
 import { AvatarEditorModal } from './AvatarEditorModal';
 import { VisitedPlacesTracker } from './VisitedPlacesTracker';
 import { LoveFootprintMap } from './LoveFootprintMap';
-import { CameraCaptureModal, CameraLocationMetadata } from './CameraCaptureModal';
+import { CameraCaptureModal, CameraCapturedMedia, CameraLocationMetadata } from './CameraCaptureModal';
 import { WakeUpChallengeCard } from './WakeUpChallengeCard';
 import { CompanionManagerModal } from './CompanionManagerModal';
 import { TagPeopleSelector } from './TagPeopleSelector';
@@ -40,6 +40,7 @@ import {
 import { getDeviceHighAccuracyGPS, reverseGeocodeGPS, formatCoordinates } from '../utils/geolocation';
 import {
   isVideoUrl,
+  uploadMediaFile,
   uploadMediaFilesConcurrently,
   uploadDataUrlToFirebaseStorage
 } from '../utils/mediaHelper';
@@ -881,6 +882,162 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       alert(
         'Không thể upload ảnh Camera: ' +
         (err?.message || 'Vui lòng kiểm tra Firebase Storage Rules.')
+      );
+    } finally {
+      setJournalImageLoading(false);
+      setEditImageLoading(false);
+      setMemoryImageLoading(false);
+    }
+  };
+
+  // Camera V2 recorded video -> existing Firebase Storage /videos/ flow.
+  // uploadMediaFile() also creates/uploads the video thumbnail when possible.
+  const handleCameraMediaCaptured = async (
+    media: CameraCapturedMedia,
+    meta?: CameraLocationMetadata
+  ) => {
+    if (media.kind !== 'video') return;
+
+    const target = cameraModalTarget;
+
+    if (target === 'journal_create') {
+      setJournalImageLoading(true);
+    } else if (target === 'journal_edit') {
+      setEditImageLoading(true);
+    } else {
+      setMemoryImageLoading(true);
+    }
+
+    try {
+      const videoFile = new File(
+        [media.blob],
+        media.fileName,
+        {
+          type:
+            media.mimeType ||
+            media.blob.type ||
+            'video/webm',
+          lastModified: Date.now(),
+        }
+      );
+
+      const result =
+        await uploadMediaFile(videoFile);
+
+      if (target === 'journal_create') {
+        setJournalImages((prev) => [
+          ...prev,
+          result.url,
+        ]);
+
+        if (result.thumbnailUrl) {
+          setJournalVideoThumbnails((prev) => ({
+            ...prev,
+            [result.url]: result.thumbnailUrl,
+          }));
+        }
+
+        if (meta) {
+          setJournalLat(meta.lat);
+          setJournalLng(meta.lng);
+          setJournalAccuracy(
+            meta.accuracy ?? null
+          );
+          setJournalLocationTimestamp(
+            meta.locationTimestamp ?? null
+          );
+
+          if (
+            meta.locationName ||
+            meta.address
+          ) {
+            setJournalLocation(
+              meta.locationName ||
+                meta.address ||
+                ''
+            );
+            setJournalLocationAddress(
+              meta.address ||
+                meta.locationName ||
+                ''
+            );
+          }
+        }
+
+        setGpsToast(
+          meta
+            ? `Đã upload video & ghi nhận vị trí${meta.accuracy !== undefined ? ` (±${Math.round(meta.accuracy)}m)` : ''}!`
+            : 'Đã upload video Camera lên Firebase Storage!'
+        );
+      } else if (
+        target === 'journal_edit'
+      ) {
+        setEditImages((prev) => [
+          ...prev,
+          result.url,
+        ]);
+
+        if (result.thumbnailUrl) {
+          setEditVideoThumbnails((prev) => ({
+            ...prev,
+            [result.url]: result.thumbnailUrl,
+          }));
+        }
+
+        if (meta) {
+          setEditLat(meta.lat);
+          setEditLng(meta.lng);
+          setEditAccuracy(
+            meta.accuracy ?? null
+          );
+          setEditLocationTimestamp(
+            meta.locationTimestamp ?? null
+          );
+
+          if (
+            meta.locationName ||
+            meta.address
+          ) {
+            setEditLocation(
+              meta.locationName ||
+                meta.address ||
+                ''
+            );
+            setEditLocationAddress(
+              meta.address ||
+                meta.locationName ||
+                ''
+            );
+          }
+        }
+
+        setGpsToast(
+          meta
+            ? 'Đã upload video Camera & lưu metadata GPS thành công!'
+            : 'Đã upload video Camera lên Firebase Storage!'
+        );
+      } else {
+        // The legacy Memory item only has imageUrl.
+        // Do not silently save a video URL into an image-only field.
+        alert(
+          'Quay video trực tiếp hiện chỉ dùng cho Nhật ký.'
+        );
+      }
+
+      setTimeout(
+        () => setGpsToast(null),
+        4000
+      );
+    } catch (err: any) {
+      console.error(
+        'Lỗi upload video Camera lên Firebase Storage:',
+        err
+      );
+
+      alert(
+        'Không thể upload video Camera: ' +
+          (err?.message ||
+            'Vui lòng kiểm tra Firebase Storage Rules hoặc kết nối mạng.')
       );
     } finally {
       setJournalImageLoading(false);
@@ -2375,6 +2532,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         isOpen={isCameraModalOpen}
         onClose={() => setIsCameraModalOpen(false)}
         onCapture={handleCameraCaptured}
+        onCaptureMedia={handleCameraMediaCaptured}
       />
 
       {/* Companion & Pet Manager Modal */}
