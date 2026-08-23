@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   Calendar,
@@ -108,6 +108,14 @@ export const ImageLightboxModal: React.FC<
     useState<'newest' | 'oldest'>(
       'newest'
     );
+
+  // Touch / Drag swipe state
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
+  const isHorizontalSwipeRef = useRef<boolean | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState<number>(0);
+  const [isDraggingMedia, setIsDraggingMedia] = useState<boolean>(false);
+  const thumbnailRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const handleClose = () => {
     /*
@@ -262,6 +270,93 @@ export const ImageLightboxModal: React.FC<
         ? prev + 1
         : 0
     );
+  };
+
+  // Scroll active thumbnail into view smoothly
+  useEffect(() => {
+    if (thumbnailRefs.current[currentIndex]) {
+      thumbnailRefs.current[currentIndex]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center',
+      });
+    }
+  }, [currentIndex]);
+
+  // Touch Swipe Handlers for mobile
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (imageList.length <= 1) return;
+    touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+    isHorizontalSwipeRef.current = null;
+    setIsDraggingMedia(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (touchStartXRef.current === null || touchStartYRef.current === null) return;
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+    const deltaX = currentX - touchStartXRef.current;
+    const deltaY = currentY - touchStartYRef.current;
+
+    // Detect horizontal swipe intent vs vertical scroll
+    if (isHorizontalSwipeRef.current === null) {
+      if (Math.abs(deltaX) > 6 || Math.abs(deltaY) > 6) {
+        isHorizontalSwipeRef.current = Math.abs(deltaX) > Math.abs(deltaY);
+      }
+    }
+
+    if (isHorizontalSwipeRef.current) {
+      setSwipeOffset(deltaX);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartXRef.current !== null && isHorizontalSwipeRef.current) {
+      const SWIPE_THRESHOLD = 38; // px to trigger next/prev
+      if (swipeOffset < -SWIPE_THRESHOLD) {
+        handleNext();
+      } else if (swipeOffset > SWIPE_THRESHOLD) {
+        handlePrev();
+      }
+    }
+    setSwipeOffset(0);
+    setIsDraggingMedia(false);
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+    isHorizontalSwipeRef.current = null;
+  };
+
+  // Mouse Drag Handlers for desktop / simulator
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (imageList.length <= 1) return;
+    if ((e.target as HTMLElement).closest('button, video')) return;
+    touchStartXRef.current = e.clientX;
+    touchStartYRef.current = e.clientY;
+    isHorizontalSwipeRef.current = true;
+    setIsDraggingMedia(true);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (touchStartXRef.current === null || !isDraggingMedia) return;
+    const deltaX = e.clientX - touchStartXRef.current;
+    setSwipeOffset(deltaX);
+  };
+
+  const handleMouseUp = () => {
+    if (touchStartXRef.current !== null && isDraggingMedia) {
+      const SWIPE_THRESHOLD = 38;
+      if (swipeOffset < -SWIPE_THRESHOLD) {
+        handleNext();
+      } else if (swipeOffset > SWIPE_THRESHOLD) {
+        handlePrev();
+      }
+    }
+    setSwipeOffset(0);
+    setIsDraggingMedia(false);
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+    isHorizontalSwipeRef.current = null;
   };
 
   useEffect(() => {
@@ -656,32 +751,55 @@ export const ImageLightboxModal: React.FC<
             so the comments section remains visible/discoverable.
             ===================================================== */}
         <section className="mt-3 shrink-0 sm:mt-4">
-          <div className="relative flex w-full items-center justify-center overflow-hidden rounded-[24px] border border-slate-200/80 bg-slate-900 shadow-sm sm:rounded-3xl">
-            {isVideoUrl(
-              currentImageUrl
-            ) ? (
-              <video
-                key={
-                  currentImageUrl
-                }
-                src={
-                  currentImageUrl
-                }
-                controls
-                playsInline
-                className="block max-h-[56dvh] w-full object-contain sm:max-h-[70vh]"
-              />
-            ) : (
-              <img
-                src={
-                  currentImageUrl
-                }
-                alt={`Kỷ niệm ${
-                  currentIndex + 1
-                }`}
-                className="block max-h-[56dvh] w-full object-contain sm:max-h-[70vh]"
-              />
-            )}
+          <div
+            className="relative flex w-full items-center justify-center overflow-hidden rounded-[24px] border border-slate-200/80 bg-slate-900 shadow-sm sm:rounded-3xl cursor-grab active:cursor-grabbing select-none touch-pan-y"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          >
+            <div
+              className="w-full flex items-center justify-center will-change-transform"
+              style={{
+                transform: isDraggingMedia
+                  ? `translateX(${swipeOffset}px)`
+                  : 'translateX(0px)',
+                transition: isDraggingMedia
+                  ? 'none'
+                  : 'transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1)',
+              }}
+            >
+              {isVideoUrl(
+                currentImageUrl
+              ) ? (
+                <video
+                  key={
+                    currentImageUrl
+                  }
+                  src={
+                    currentImageUrl
+                  }
+                  controls
+                  playsInline
+                  className="block max-h-[56dvh] w-full object-contain sm:max-h-[70vh]"
+                />
+              ) : (
+                <img
+                  src={
+                    currentImageUrl
+                  }
+                  alt={`Kỷ niệm ${
+                    currentIndex + 1
+                  }`}
+                  draggable={false}
+                  className="block max-h-[56dvh] w-full object-contain sm:max-h-[70vh] pointer-events-none select-none"
+                />
+              )}
+            </div>
 
             {imageList.length >
               1 && (
@@ -708,7 +826,7 @@ export const ImageLightboxModal: React.FC<
                   <ChevronRight className="h-6 w-6" />
                 </button>
 
-                <div className="absolute bottom-3 right-3 z-10 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm">
+                <div className="absolute bottom-3 right-3 z-10 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm pointer-events-none select-none">
                   {currentIndex + 1}{' '}
                   /{' '}
                   {imageList.length}
@@ -743,6 +861,9 @@ export const ImageLightboxModal: React.FC<
                   return (
                     <button
                       key={`${mediaUrl}-${index}`}
+                      ref={(el) => {
+                        thumbnailRefs.current[index] = el;
+                      }}
                       type="button"
                       onClick={() =>
                         setCurrentIndex(
