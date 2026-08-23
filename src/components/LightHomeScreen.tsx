@@ -1,4 +1,3 @@
-// LIGHT_HOME_LOCAL_IMPORT_FIX_V3
 import React, { useState, useEffect } from 'react';
 import { UserProfile, CoupleData, MemoryItem, JournalEntry, JournalComment, JournalExpense, ImageComment, WakeUpLog, Companion, TaggedPerson, DeletedCommentRecord } from '../types';
 import { FinanceTab } from './FinanceTab';
@@ -18,10 +17,6 @@ import { DeviceManagerModal } from './DeviceManagerModal';
 import { JournalMusicPlayer } from './JournalMusicPlayer';
 import { BottomNavigation } from './BottomNavigation';
 import { JournalTab } from './JournalTab';
-import { HomeTab } from './home/HomeTab';
-import { ProfileTab } from './profile/ProfileTab';
-import { ProfileEditModal } from './profile/ProfileEditModal';
-import { RestoreCommentsModal } from './journal/RestoreCommentsModal';
 import { 
   getStoredDeviceOwner, 
   getStoredDeviceName, 
@@ -30,20 +25,8 @@ import {
   syncDeviceToFirestore 
 } from '../utils/deviceHelper';
 import { formatDateVN, formatDateShortVN, formatDateTimeVN } from '../utils/formatDate';
-import { sendPartnerNotification } from '../utils/notifications';
-import {
-  buildImageCommentNotification,
-  buildJournalCommentNotification,
-  buildJournalCreatedNotification,
-  buildStatusNotification,
-} from '../utils/notificationEvents';
 import { getDeviceHighAccuracyGPS, reverseGeocodeGPS, formatCoordinates } from '../utils/geolocation';
-import {
-  isVideoUrl,
-  uploadMediaFile,
-  uploadMediaFilesConcurrently,
-  uploadDataUrlToFirebaseStorage
-} from '../utils/mediaHelper';
+import { isVideoUrl, uploadMediaFile, compressImageToBase64 } from '../utils/mediaHelper';
 import { 
   db, 
   doc, 
@@ -155,97 +138,6 @@ const MOOD_OPTIONS = [
   'Kỷ niệm'
 ];
 
-const JOURNAL_CACHE_VERSION = 1;
-const JOURNAL_CACHE_MAX_ITEMS = 40;
-const JOURNAL_CACHE_MAX_BYTES = 1_500_000;
-const JOURNAL_PRELOAD_POSTS = 8;
-
-const getJournalCacheKey = (coupleId?: string) =>
-  coupleId ? `us:journal-cache:v${JOURNAL_CACHE_VERSION}:${coupleId}` : '';
-
-const readCachedJournals = (coupleId?: string): JournalEntry[] => {
-  if (typeof window === 'undefined' || !coupleId) return [];
-
-  try {
-    const raw = window.localStorage.getItem(getJournalCacheKey(coupleId));
-    if (!raw) return [];
-
-    const parsed = JSON.parse(raw);
-    if (!parsed || parsed.version !== JOURNAL_CACHE_VERSION || !Array.isArray(parsed.items)) {
-      return [];
-    }
-
-    return parsed.items as JournalEntry[];
-  } catch (error) {
-    console.warn('Không thể đọc cache Nhật ký:', error);
-    return [];
-  }
-};
-
-const writeJournalCache = (coupleId: string, items: JournalEntry[]) => {
-  if (typeof window === 'undefined' || !coupleId) return;
-
-  try {
-    const payload = JSON.stringify({
-      version: JOURNAL_CACHE_VERSION,
-      savedAt: Date.now(),
-      items: items.slice(0, JOURNAL_CACHE_MAX_ITEMS),
-    });
-
-    // Tránh làm localStorage phình to nếu bài cũ còn chứa base64/media rất lớn.
-    if (payload.length > JOURNAL_CACHE_MAX_BYTES) return;
-
-    window.localStorage.setItem(getJournalCacheKey(coupleId), payload);
-  } catch (error) {
-    console.warn('Không thể lưu cache Nhật ký:', error);
-  }
-};
-
-const preloadImageUrl = (url?: string) => {
-  if (!url || typeof window === 'undefined') return;
-
-  const img = new Image();
-  img.decoding = 'async';
-  img.src = url;
-};
-
-const warmJournalPreviewMedia = (items: JournalEntry[]) => {
-  if (typeof window === 'undefined' || items.length === 0) return;
-
-  items.slice(0, JOURNAL_PRELOAD_POSTS).forEach((journal) => {
-    const media =
-      journal.images && journal.images.length > 0
-        ? journal.images
-        : journal.imageUrl
-          ? [journal.imageUrl]
-          : [];
-
-    if (media.length === 0) return;
-
-    // Làm nóng tối đa 4 ô media/bài để khi mở tab không phải decode từ đầu.
-    media.slice(0, 4).forEach((mediaUrl) => {
-      if (isVideoUrl(mediaUrl)) {
-        const thumbnail = journal.videoThumbnails?.[mediaUrl];
-
-        if (thumbnail) {
-          preloadImageUrl(thumbnail);
-          return;
-        }
-
-        // Không tải cả video ở background; chỉ warm metadata để tránh tốn data.
-        const video = document.createElement('video');
-        video.preload = 'metadata';
-        video.muted = true;
-        video.src = mediaUrl;
-        video.load();
-        return;
-      }
-
-      preloadImageUrl(mediaUrl);
-    });
-  });
-};
-
 const compressAndConvertToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -289,57 +181,18 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const isAdminUser = checkIsAdmin(userProfile);
   const [activeTab, setActiveTabState] = useState<TabType>(() => getTabFromUrl());
 
-  // Keep each tab's reading position so switching tabs feels like a native app.
-  const activeTabRef = React.useRef<TabType>(activeTab);
-  const tabScrollPositionsRef = React.useRef<Record<TabType, number>>({
-    home: 0,
-    journal: 0,
-    achievements: 0,
-    nutrition: 0,
-    finance: 0,
-    profile: 0,
-    admin: 0,
-  });
-
-  const restoreTabScroll = (tab: TabType) => {
-    window.requestAnimationFrame(() => {
-      window.scrollTo({
-        top: tabScrollPositionsRef.current[tab] || 0,
-        behavior: 'auto',
-      });
-    });
-  };
-
   const handleNavigateTab = (tab: TabType) => {
-    const currentTab = activeTabRef.current;
-    tabScrollPositionsRef.current[currentTab] = window.scrollY;
-
     setActiveTabState(tab);
-    activeTabRef.current = tab;
-
     const targetPath = tab === 'home' ? '/' : `/${tab}`;
     if (window.location.pathname !== targetPath) {
       window.history.pushState(null, '', targetPath);
     }
-
-    restoreTabScroll(tab);
   };
 
   useEffect(() => {
-    activeTabRef.current = activeTab;
-  }, [activeTab]);
-
-  useEffect(() => {
     const handlePopState = () => {
-      const currentTab = activeTabRef.current;
-      tabScrollPositionsRef.current[currentTab] = window.scrollY;
-
-      const nextTab = getTabFromUrl();
-      setActiveTabState(nextTab);
-      activeTabRef.current = nextTab;
-      restoreTabScroll(nextTab);
+      setActiveTabState(getTabFromUrl());
     };
-
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
@@ -351,9 +204,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const [updating, setUpdating] = useState(false);
 
   // Journal state
-  const [journals, setJournals] = useState<JournalEntry[]>(() =>
-    readCachedJournals(userProfile.coupleId)
-  );
+  const [journals, setJournals] = useState<JournalEntry[]>([]);
   const [showAddJournal, setShowAddJournal] = useState(false);
   const [journalTitle, setJournalTitle] = useState('');
   const [journalContent, setJournalContent] = useState('');
@@ -373,10 +224,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const [journalTaggedPeople, setJournalTaggedPeople] = useState<TaggedPerson[]>([]);
   const [journalMusicUrl, setJournalMusicUrl] = useState('');
   const [journalMusicTitle, setJournalMusicTitle] = useState('');
-  const [journalVoiceMemoUrl, setJournalVoiceMemoUrl] = useState('');
-  const [journalVoiceMemoDuration, setJournalVoiceMemoDuration] = useState<number>(0);
-  const [journalVoiceMemoTitle, setJournalVoiceMemoTitle] = useState('');
-  const [journalVoiceMemoRecordedByName, setJournalVoiceMemoRecordedByName] = useState('');
   const [newExpenseTitle, setNewExpenseTitle] = useState('');
   const [newExpenseAmount, setNewExpenseAmount] = useState('');
   const [addingJournal, setAddingJournal] = useState(false);
@@ -413,62 +260,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const [lightboxJournal, setLightboxJournal] = useState<JournalEntry | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-
-  // Notification / deep-link target state.
-  // Example routes:
-  // /journal?post=<journalId>
-  // /journal?post=<journalId>&focus=comments
-  // /journal?post=<journalId>&image=2&focus=image-comments
-  // /?focus=wakeup
-  const readNotificationTargetFromUrl = () => {
-    if (typeof window === 'undefined') {
-      return {
-        postId: null as string | null,
-        focus: null as string | null,
-        imageIndex: null as number | null,
-      };
-    }
-
-    const params = new URLSearchParams(window.location.search);
-    const rawImageIndex = params.get('image');
-    const parsedImageIndex =
-      rawImageIndex !== null && /^\d+$/.test(rawImageIndex)
-        ? Number(rawImageIndex)
-        : null;
-
-    return {
-      postId: params.get('post'),
-      focus: params.get('focus'),
-      imageIndex: parsedImageIndex,
-    };
-  };
-
-  const initialNotificationTarget =
-    readNotificationTargetFromUrl();
-
-  const [
-    notificationTargetJournalId,
-    setNotificationTargetJournalId,
-  ] = useState<string | null>(
-    initialNotificationTarget.postId
-  );
-
-  const [
-    notificationTargetFocus,
-    setNotificationTargetFocus,
-  ] = useState<string | null>(
-    initialNotificationTarget.focus
-  );
-
-  const [
-    notificationTargetImageIndex,
-    setNotificationTargetImageIndex,
-  ] = useState<number | null>(
-    initialNotificationTarget.imageIndex
-  );
-
-  const handledNotificationTargetRef =
-    React.useRef<string>('');
 
   // Journal View Subtab & Location Picker Modal
   const [journalViewTab, setJournalViewTab] = useState<'feed' | 'love_map' | 'places'>('feed');
@@ -522,10 +313,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const [editTaggedPeople, setEditTaggedPeople] = useState<TaggedPerson[]>([]);
   const [editMusicUrl, setEditMusicUrl] = useState('');
   const [editMusicTitle, setEditMusicTitle] = useState('');
-  const [editVoiceMemoUrl, setEditVoiceMemoUrl] = useState('');
-  const [editVoiceMemoDuration, setEditVoiceMemoDuration] = useState<number>(0);
-  const [editVoiceMemoTitle, setEditVoiceMemoTitle] = useState('');
-  const [editVoiceMemoRecordedByName, setEditVoiceMemoRecordedByName] = useState('');
   const [editNewExpenseTitle, setEditNewExpenseTitle] = useState('');
   const [editNewExpenseAmount, setEditNewExpenseAmount] = useState('');
   const [editImageLoading, setEditImageLoading] = useState(false);
@@ -776,33 +563,25 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   };
 
   const handleJournalFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []) as File[];
-    if (files.length === 0) return;
-
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
     setJournalImageLoading(true);
-
     try {
-      const results = await uploadMediaFilesConcurrently(files, 3);
-
-      const newImages = results.map(result => result.url);
-      const newThumbs: Record<string, string> = {
-        ...journalVideoThumbnails
-      };
-
-      results.forEach(result => {
-        if (result.thumbnailUrl) {
-          newThumbs[result.url] = result.thumbnailUrl;
+      const newImages: string[] = [];
+      const newThumbs: Record<string, string> = { ...journalVideoThumbnails };
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const res = await uploadMediaFile(file);
+        newImages.push(res.url);
+        if (res.thumbnailUrl) {
+          newThumbs[res.url] = res.thumbnailUrl;
         }
-      });
-
+      }
       setJournalImages(prev => [...prev, ...newImages]);
       setJournalVideoThumbnails(newThumbs);
     } catch (err: any) {
-      console.error('Lỗi upload ảnh/video nhật ký lên Firebase Storage:', err);
-      alert(
-        'Không thể tải tệp lên Firebase Storage: ' +
-        (err?.message || 'Vui lòng kiểm tra Firebase Storage Rules hoặc kết nối mạng.')
-      );
+      console.error('Lỗi đọc file ảnh/video nhật ký:', err);
+      alert('Không thể tải tệp lên: ' + (err?.message || 'Vui lòng thử lại với ảnh hoặc video khác.'));
     } finally {
       setJournalImageLoading(false);
       e.target.value = '';
@@ -814,29 +593,87 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   };
 
   // Camera Live Capture & Automatic GPS Location Tagging (High-Accuracy metadata)
-  const handleCameraCaptured = async (
-    dataUrl: string,
-    autoLocation?: string,
+  const handleCameraCaptured = (dataUrl: string, autoLocation?: string, meta?: CameraLocationMetadata) => {
+    if (cameraModalTarget === 'journal_create') {
+      setJournalImages(prev => [...prev, dataUrl]);
+      if (meta) {
+        setJournalLat(meta.lat);
+        setJournalLng(meta.lng);
+        setJournalAccuracy(meta.accuracy ?? null);
+        setJournalLocationTimestamp(meta.locationTimestamp ?? null);
+        if (meta.locationName || meta.address) {
+          setJournalLocation(meta.locationName || meta.address || '');
+          setJournalLocationAddress(meta.address || meta.locationName || '');
+        }
+      } else if (autoLocation && !journalLocation) {
+        setJournalLocation(autoLocation);
+        setJournalLocationAddress(autoLocation);
+      }
+      setGpsToast(meta ? `Đã chụp ảnh & ghi nhận GPS chính xác (±${meta.accuracy ? meta.accuracy.toFixed(0) : 0}m)` : (autoLocation ? `Đã chụp ảnh & tự động lưu vị trí: ${autoLocation}` : 'Đã chụp ảnh kỷ niệm thành công!'));
+      setTimeout(() => setGpsToast(null), 4000);
+    } else if (cameraModalTarget === 'journal_edit') {
+      setEditImages(prev => [...prev, dataUrl]);
+      if (meta) {
+        setEditLat(meta.lat);
+        setEditLng(meta.lng);
+        setEditAccuracy(meta.accuracy ?? null);
+        setEditLocationTimestamp(meta.locationTimestamp ?? null);
+        if (meta.locationName || meta.address) {
+          setEditLocation(meta.locationName || meta.address || '');
+          setEditLocationAddress(meta.address || meta.locationName || '');
+        }
+      } else if (autoLocation && !editLocation) {
+        setEditLocation(autoLocation);
+        setEditLocationAddress(autoLocation);
+      }
+      setGpsToast('Đã chụp ảnh & lưu metadata GPS thành công!');
+      setTimeout(() => setGpsToast(null), 4000);
+    } else if (cameraModalTarget === 'memory') {
+      setMemoryImageUrl(dataUrl);
+      setGpsToast('Đã chụp ảnh kỷ niệm thành công!');
+      setTimeout(() => setGpsToast(null), 4000);
+    }
+  };
+
+  // Camera VIDEO Capture -> existing Firebase Storage media flow
+  const handleCameraCapturedMedia = async (
+    media: CameraCapturedMedia,
     meta?: CameraLocationMetadata
   ) => {
-    const target = cameraModalTarget;
+    if (media.kind !== 'video') return;
 
-    if (target === 'journal_create') {
+    if (cameraModalTarget === 'memory') {
+      alert('Video Camera hiện chỉ hỗ trợ trong Nhật ký.');
+      return;
+    }
+
+    if (cameraModalTarget === 'journal_create') {
       setJournalImageLoading(true);
-    } else if (target === 'journal_edit') {
-      setEditImageLoading(true);
     } else {
-      setMemoryImageLoading(true);
+      setEditImageLoading(true);
     }
 
     try {
-      const uploadedUrl = await uploadDataUrlToFirebaseStorage(
-        dataUrl,
-        `camera-${Date.now()}.jpg`
+      const file = new File(
+        [media.blob],
+        media.fileName,
+        {
+          type: media.mimeType || media.blob.type || 'video/webm',
+          lastModified: Date.now(),
+        }
       );
 
-      if (target === 'journal_create') {
-        setJournalImages(prev => [...prev, uploadedUrl]);
+      const uploaded = await uploadMediaFile(file);
+
+      if (cameraModalTarget === 'journal_create') {
+        setJournalImages(prev => [...prev, uploaded.url]);
+
+        if (uploaded.thumbnailUrl) {
+          setJournalVideoThumbnails(prev => ({
+            ...prev,
+            [uploaded.url]: uploaded.thumbnailUrl as string,
+          }));
+        }
 
         if (meta) {
           setJournalLat(meta.lat);
@@ -848,20 +685,16 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             setJournalLocation(meta.locationName || meta.address || '');
             setJournalLocationAddress(meta.address || meta.locationName || '');
           }
-        } else if (autoLocation && !journalLocation) {
-          setJournalLocation(autoLocation);
-          setJournalLocationAddress(autoLocation);
         }
+      } else {
+        setEditImages(prev => [...prev, uploaded.url]);
 
-        setGpsToast(
-          meta
-            ? `Đã upload ảnh & ghi nhận GPS chính xác (±${meta.accuracy ? meta.accuracy.toFixed(0) : 0}m)`
-            : autoLocation
-              ? `Đã upload ảnh & lưu vị trí: ${autoLocation}`
-              : 'Đã upload ảnh Camera lên Firebase Storage!'
-        );
-      } else if (target === 'journal_edit') {
-        setEditImages(prev => [...prev, uploadedUrl]);
+        if (uploaded.thumbnailUrl) {
+          setEditVideoThumbnails(prev => ({
+            ...prev,
+            [uploaded.url]: uploaded.thumbnailUrl as string,
+          }));
+        }
 
         if (meta) {
           setEditLat(meta.lat);
@@ -873,185 +706,29 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             setEditLocation(meta.locationName || meta.address || '');
             setEditLocationAddress(meta.address || meta.locationName || '');
           }
-        } else if (autoLocation && !editLocation) {
-          setEditLocation(autoLocation);
-          setEditLocationAddress(autoLocation);
         }
-
-        setGpsToast('Đã upload ảnh Camera & lưu metadata GPS thành công!');
-      } else {
-        setMemoryImageUrl(uploadedUrl);
-        setGpsToast('Đã upload ảnh kỷ niệm lên Firebase Storage!');
       }
 
+      const durationText = media.durationSeconds
+        ? ` · ${media.durationSeconds}s`
+        : '';
+
+      setGpsToast(
+        meta
+          ? `Đã lưu video${durationText} & GPS chính xác (±${meta.accuracy ? meta.accuracy.toFixed(0) : 0}m)`
+          : `Đã lưu video${durationText} vào Nhật ký!`
+      );
       setTimeout(() => setGpsToast(null), 4000);
     } catch (err: any) {
-      console.error('Lỗi upload ảnh Camera lên Firebase Storage:', err);
+      console.error('Lỗi upload video Camera:', err);
       alert(
-        'Không thể upload ảnh Camera: ' +
-        (err?.message || 'Vui lòng kiểm tra Firebase Storage Rules.')
+        'Không thể lưu video Camera: ' +
+        (err?.message || 'Vui lòng kiểm tra kết nối hoặc Firebase Storage.')
       );
+      throw err;
     } finally {
       setJournalImageLoading(false);
       setEditImageLoading(false);
-      setMemoryImageLoading(false);
-    }
-  };
-
-
-  // Camera V2 recorded video -> existing Firebase Storage /videos/ flow.
-  // uploadMediaFile() also creates/uploads the video thumbnail when possible.
-  const handleCameraMediaCaptured = async (
-    media: CameraCapturedMedia,
-    meta?: CameraLocationMetadata
-  ) => {
-    if (media.kind !== 'video') return;
-
-    const target = cameraModalTarget;
-
-    if (target === 'journal_create') {
-      setJournalImageLoading(true);
-    } else if (target === 'journal_edit') {
-      setEditImageLoading(true);
-    } else {
-      setMemoryImageLoading(true);
-    }
-
-    try {
-      const videoFile = new File(
-        [media.blob],
-        media.fileName,
-        {
-          type:
-            media.mimeType ||
-            media.blob.type ||
-            'video/webm',
-          lastModified: Date.now(),
-        }
-      );
-
-      const result =
-        await uploadMediaFile(videoFile);
-
-      if (target === 'journal_create') {
-        setJournalImages((prev) => [
-          ...prev,
-          result.url,
-        ]);
-
-        if (result.thumbnailUrl) {
-          setJournalVideoThumbnails((prev) => ({
-            ...prev,
-            [result.url]: result.thumbnailUrl,
-          }));
-        }
-
-        if (meta) {
-          setJournalLat(meta.lat);
-          setJournalLng(meta.lng);
-          setJournalAccuracy(
-            meta.accuracy ?? null
-          );
-          setJournalLocationTimestamp(
-            meta.locationTimestamp ?? null
-          );
-
-          if (
-            meta.locationName ||
-            meta.address
-          ) {
-            setJournalLocation(
-              meta.locationName ||
-                meta.address ||
-                ''
-            );
-            setJournalLocationAddress(
-              meta.address ||
-                meta.locationName ||
-                ''
-            );
-          }
-        }
-
-        setGpsToast(
-          meta
-            ? `Đã upload video & ghi nhận vị trí${meta.accuracy !== undefined ? ` (±${Math.round(meta.accuracy)}m)` : ''}!`
-            : 'Đã upload video Camera lên Firebase Storage!'
-        );
-      } else if (
-        target === 'journal_edit'
-      ) {
-        setEditImages((prev) => [
-          ...prev,
-          result.url,
-        ]);
-
-        if (result.thumbnailUrl) {
-          setEditVideoThumbnails((prev) => ({
-            ...prev,
-            [result.url]: result.thumbnailUrl,
-          }));
-        }
-
-        if (meta) {
-          setEditLat(meta.lat);
-          setEditLng(meta.lng);
-          setEditAccuracy(
-            meta.accuracy ?? null
-          );
-          setEditLocationTimestamp(
-            meta.locationTimestamp ?? null
-          );
-
-          if (
-            meta.locationName ||
-            meta.address
-          ) {
-            setEditLocation(
-              meta.locationName ||
-                meta.address ||
-                ''
-            );
-            setEditLocationAddress(
-              meta.address ||
-                meta.locationName ||
-                ''
-            );
-          }
-        }
-
-        setGpsToast(
-          meta
-            ? 'Đã upload video Camera & lưu metadata GPS thành công!'
-            : 'Đã upload video Camera lên Firebase Storage!'
-        );
-      } else {
-        // The legacy Memory item only has imageUrl.
-        // Do not silently save a video URL into an image-only field.
-        alert(
-          'Quay video trực tiếp hiện chỉ dùng cho Nhật ký.'
-        );
-      }
-
-      setTimeout(
-        () => setGpsToast(null),
-        4000
-      );
-    } catch (err: any) {
-      console.error(
-        'Lỗi upload video Camera lên Firebase Storage:',
-        err
-      );
-
-      alert(
-        'Không thể upload video Camera: ' +
-          (err?.message ||
-            'Vui lòng kiểm tra Firebase Storage Rules hoặc kết nối mạng.')
-      );
-    } finally {
-      setJournalImageLoading(false);
-      setEditImageLoading(false);
-      setMemoryImageLoading(false);
     }
   };
 
@@ -1108,21 +785,14 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const handleMemoryFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setMemoryImageLoading(true);
-
     try {
-      const [result] = await uploadMediaFilesConcurrently([file], 1);
-      setMemoryImageUrl(result.url);
-    } catch (err: any) {
-      console.error('Lỗi upload ảnh kỷ niệm lên Firebase Storage:', err);
-      alert(
-        'Không thể upload ảnh kỷ niệm: ' +
-        (err?.message || 'Vui lòng kiểm tra Firebase Storage Rules.')
-      );
+      const base64 = await compressAndConvertToBase64(file);
+      setMemoryImageUrl(base64);
+    } catch (err) {
+      console.error('Lỗi đọc file ảnh kỷ niệm:', err);
     } finally {
       setMemoryImageLoading(false);
-      e.target.value = '';
     }
   };
 
@@ -1151,7 +821,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         items.push({ id: d.id, ...d.data() } as JournalEntry);
       });
       setJournals(items);
-      writeJournalCache(userProfile.coupleId, items);
     }, (err) => {
       console.warn('Error listening to journals:', err);
     });
@@ -1218,38 +887,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     };
   }, [userProfile.coupleId]);
 
-  // Warm Journal previews while the user is still on Home/other tabs.
-  // Firestore data is already subscribed above; this removes the delayed
-  // image/video decode that previously only started after opening Nhật ký.
-  useEffect(() => {
-    if (journals.length === 0) return;
-
-    let timeoutId: number | undefined;
-    let idleId: number | undefined;
-
-    const runWarmup = () => warmJournalPreviewMedia(journals);
-
-    const idleWindow = window as typeof window & {
-      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-      cancelIdleCallback?: (id: number) => void;
-    };
-
-    if (idleWindow.requestIdleCallback) {
-      idleId = idleWindow.requestIdleCallback(runWarmup, { timeout: 1200 });
-    } else {
-      timeoutId = window.setTimeout(runWarmup, 120);
-    }
-
-    return () => {
-      if (idleId !== undefined) {
-        idleWindow.cancelIdleCallback?.(idleId);
-      }
-      if (timeoutId !== undefined) {
-        window.clearTimeout(timeoutId);
-      }
-    };
-  }, [journals]);
-
   // Keep lightboxJournal synced with updated journals
   useEffect(() => {
     if (lightboxJournal) {
@@ -1266,216 +903,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     setLightboxIndex(imageIndex);
     setIsLightboxOpen(true);
   };
-
-  // Keep notification query-state in sync when browser history changes.
-  useEffect(() => {
-    const syncNotificationTargetFromUrl = () => {
-      const next = readNotificationTargetFromUrl();
-
-      handledNotificationTargetRef.current = '';
-      setNotificationTargetJournalId(next.postId);
-      setNotificationTargetFocus(next.focus);
-      setNotificationTargetImageIndex(next.imageIndex);
-    };
-
-    window.addEventListener(
-      'popstate',
-      syncNotificationTargetFromUrl
-    );
-
-    return () =>
-      window.removeEventListener(
-        'popstate',
-        syncNotificationTargetFromUrl
-      );
-  }, []);
-
-  // Open / scroll to the exact Journal targeted by a push notification.
-  useEffect(() => {
-    const journalId = notificationTargetJournalId;
-
-    if (!journalId || journals.length === 0) {
-      return;
-    }
-
-    const targetJournal = journals.find(
-      (journal) => journal.id === journalId
-    );
-
-    if (!targetJournal) {
-      return;
-    }
-
-    const targetKey = [
-      journalId,
-      notificationTargetFocus || '',
-      notificationTargetImageIndex ?? '',
-    ].join(':');
-
-    if (
-      handledNotificationTargetRef.current ===
-      targetKey
-    ) {
-      return;
-    }
-
-    handledNotificationTargetRef.current =
-      targetKey;
-
-    // A notification must always win over temporary Journal filters.
-    setJournalViewTab('feed');
-    setSelectedCompanionFilter(null);
-    setJournalDateFilterMode('all');
-    setJournalSearch('');
-    setJournalSortOrder('newest');
-
-    setActiveTabState('journal');
-    activeTabRef.current = 'journal';
-
-    const safeImageIndex =
-      notificationTargetImageIndex !== null
-        ? Math.max(
-            0,
-            Math.min(
-              notificationTargetImageIndex,
-              Math.max(
-                0,
-                (
-                  targetJournal.images?.length ||
-                  (targetJournal.imageUrl ? 1 : 0)
-                ) - 1
-              )
-            )
-          )
-        : 0;
-
-    let scrollTimer: number | undefined;
-    let clearTargetTimer: number | undefined;
-
-    if (
-      notificationTargetFocus ===
-        'image-comments' ||
-      notificationTargetImageIndex !== null
-    ) {
-      // Image-comment push: open the exact Journal + exact image.
-      window.setTimeout(() => {
-        handleOpenLightbox(
-          targetJournal,
-          safeImageIndex
-        );
-      }, 80);
-    } else {
-      // Normal Journal / Journal-comment push:
-      // DailyJournalFeed receives targetJournalId and expands its capsule.
-      scrollTimer = window.setTimeout(() => {
-        const card = document.getElementById(
-          `journal-card-${journalId}`
-        );
-
-        if (!card) return;
-
-        if (
-          notificationTargetFocus ===
-          'comments'
-        ) {
-          const commentButton =
-            Array.from(
-              card.querySelectorAll('button')
-            ).find((button) =>
-              button.textContent?.includes(
-                'Bình luận & Cập nhật'
-              )
-            );
-
-          (
-            commentButton as
-              | HTMLElement
-              | undefined
-          )?.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-          });
-        } else {
-          card.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start',
-          });
-        }
-      }, 700);
-    }
-
-    // DailyJournalFeed only needs the target briefly to auto-expand.
-    // Clearing it prevents a user collapse from being immediately re-opened.
-    clearTargetTimer = window.setTimeout(() => {
-      setNotificationTargetJournalId(null);
-    }, 1400);
-
-    return () => {
-      if (scrollTimer !== undefined) {
-        window.clearTimeout(scrollTimer);
-      }
-
-      if (clearTargetTimer !== undefined) {
-        window.clearTimeout(clearTargetTimer);
-      }
-    };
-  }, [
-    journals,
-    notificationTargetJournalId,
-    notificationTargetFocus,
-    notificationTargetImageIndex,
-  ]);
-
-  // Wake-up notification: open Home and bring the wake-up card into view.
-  useEffect(() => {
-    if (notificationTargetFocus !== 'wakeup') {
-      return;
-    }
-
-    setActiveTabState('home');
-    activeTabRef.current = 'home';
-
-    const timer = window.setTimeout(() => {
-      const wakeLabel = Array.from(
-        document.querySelectorAll<HTMLElement>(
-          'span'
-        )
-      ).find(
-        (element) =>
-          element.textContent?.trim() ===
-          'Ai Dậy Sớm Hơn?'
-      );
-
-      let wakeCard =
-        wakeLabel?.parentElement || null;
-
-      for (
-        let depth = 0;
-        depth < 5 && wakeCard;
-        depth += 1
-      ) {
-        if (
-          wakeCard.classList.contains(
-            'rounded-2xl'
-          ) &&
-          wakeCard.classList.contains(
-            'bg-white'
-          )
-        ) {
-          break;
-        }
-
-        wakeCard = wakeCard.parentElement;
-      }
-
-      wakeCard?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
-    }, 350);
-
-    return () => window.clearTimeout(timer);
-  }, [notificationTargetFocus]);
 
   const handleSetMainImage = async (journalId: string, imageIndex: number) => {
     if (!userProfile.coupleId) return;
@@ -1496,16 +923,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     }
   };
 
-  const handleAddImageComment = async (
-    journalId: string,
-    imageIndex: number,
-    imageUrl: string,
-    content: string,
-    voiceMemoUrl?: string,
-    voiceMemoDuration?: number,
-    attachmentImageUrl?: string
-  ) => {
-    if (!userProfile.coupleId || (!content.trim() && !voiceMemoUrl && !attachmentImageUrl)) return;
+  const handleAddImageComment = async (journalId: string, imageIndex: number, imageUrl: string, content: string) => {
+    if (!userProfile.coupleId || !content.trim()) return;
     const target = journals.find(j => j.id === journalId);
     if (!target) return;
 
@@ -1518,13 +937,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       content: content.trim(),
       createdAt: new Date().toISOString()
     };
-    if (voiceMemoUrl) {
-      newComment.voiceMemoUrl = voiceMemoUrl;
-      newComment.voiceMemoDuration = voiceMemoDuration;
-    }
-    if (attachmentImageUrl) {
-      newComment.attachmentImageUrl = attachmentImageUrl;
-    }
 
     try {
       const currentComments = target.imageComments || [];
@@ -1532,19 +944,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       await updateDoc(journalRef, {
         imageComments: [...currentComments, newComment]
       });
-      void sendPartnerNotification(
-        buildImageCommentNotification({
-          journalId,
-          journalTitle: target.title,
-          imageIndex,
-          actorName: userProfile.displayName,
-          comment: voiceMemoUrl
-            ? '🎙️ [Lời nhắn thoại cho ảnh]'
-            : attachmentImageUrl && !newComment.content
-            ? '📷 [Đã gửi một hình ảnh]'
-            : newComment.content,
-        })
-      );
     } catch (err) {
       console.error('Lỗi thêm bình luận cho ảnh:', err);
     }
@@ -1611,14 +1010,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       await updateDoc(coupleRef, {
         statusMessage: statusInput.trim()
       });
-      if (statusInput.trim()) {
-        void sendPartnerNotification(
-          buildStatusNotification({
-            actorName: userProfile.displayName,
-            status: statusInput.trim(),
-          })
-        );
-      }
       setIsEditingNote(false);
     } catch (err) {
       console.error('Lỗi cập nhật ghi chú:', err);
@@ -1697,34 +1088,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       if (journalMusicTitle.trim()) {
         docData.musicTitle = journalMusicTitle.trim();
       }
-      if (journalVoiceMemoUrl.trim()) {
-        docData.voiceMemoUrl = journalVoiceMemoUrl.trim();
-        if (journalVoiceMemoDuration) {
-          docData.voiceMemoDuration = journalVoiceMemoDuration;
-        }
-        if (journalVoiceMemoTitle.trim()) {
-          docData.voiceMemoTitle = journalVoiceMemoTitle.trim();
-        }
-        if (journalVoiceMemoRecordedByName.trim()) {
-          docData.voiceMemoRecordedByName = journalVoiceMemoRecordedByName.trim();
-        } else if (userProfile.displayName) {
-          docData.voiceMemoRecordedByName = userProfile.displayName;
-        }
-      }
 
-      const createdJournalRef = await addDoc(journalsRef, docData);
-
-      const createdJournal = {
-        id: createdJournalRef.id,
-        ...docData,
-      } as JournalEntry;
-
-      void sendPartnerNotification(
-        buildJournalCreatedNotification({
-          journal: createdJournal,
-          actorName: userProfile.displayName,
-        })
-      );
+      await addDoc(journalsRef, docData);
       setJournalTitle('');
       setJournalContent('');
       setJournalLocation('');
@@ -1741,10 +1106,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       setJournalTaggedPeople([]);
       setJournalMusicUrl('');
       setJournalMusicTitle('');
-      setJournalVoiceMemoUrl('');
-      setJournalVoiceMemoDuration(0);
-      setJournalVoiceMemoTitle('');
-      setJournalVoiceMemoRecordedByName('');
       setNewExpenseTitle('');
       setNewExpenseAmount('');
       setShowAddJournal(false);
@@ -1778,54 +1139,9 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       await updateDoc(journalRef, {
         comments: [...currentComments, newComment]
       });
-      void sendPartnerNotification(
-        buildJournalCommentNotification({
-          journalId,
-          journalTitle: target?.title,
-          actorName: userProfile.displayName,
-          comment: newComment.content,
-        })
-      );
       setCommentInputs(prev => ({ ...prev, [journalId]: '' }));
     } catch (err) {
       console.error('Lỗi thêm bình luận:', err);
-    }
-  };
-
-  const handleAddVoiceComment = async (
-    journalId: string,
-    voiceData: { url: string; duration: number; textNote?: string }
-  ) => {
-    if (!userProfile.coupleId || !voiceData.url) return;
-
-    const newComment: JournalComment = {
-      id: 'voice_' + Date.now().toString(),
-      authorName: userProfile.displayName,
-      authorUid: userProfile.uid,
-      content: voiceData.textNote || '🎙️ [Lời nhắn thoại]',
-      voiceMemoUrl: voiceData.url,
-      voiceMemoDuration: voiceData.duration,
-      createdAt: new Date().toISOString()
-    };
-
-    try {
-      const journalRef = doc(db, 'couples', userProfile.coupleId, 'journals', journalId);
-      const target = journals.find(j => j.id === journalId);
-      const currentComments = target?.comments || [];
-      await updateDoc(journalRef, {
-        comments: [...currentComments, newComment]
-      });
-      void sendPartnerNotification(
-        buildJournalCommentNotification({
-          journalId,
-          journalTitle: target?.title,
-          actorName: userProfile.displayName,
-          comment: '🎙️ Đã gửi một lời nhắn thoại (' + Math.round(voiceData.duration) + 's)',
-        })
-      );
-    } catch (err) {
-      console.error('Lỗi thêm bình luận thoại:', err);
-      alert('Không thể lưu bình luận thoại: Vui lòng thử lại.');
     }
   };
 
@@ -2000,10 +1316,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     setEditTaggedPeople(item.taggedPeople ? [...item.taggedPeople] : []);
     setEditMusicUrl(item.musicUrl || '');
     setEditMusicTitle(item.musicTitle || '');
-    setEditVoiceMemoUrl(item.voiceMemoUrl || '');
-    setEditVoiceMemoDuration(item.voiceMemoDuration || 0);
-    setEditVoiceMemoTitle(item.voiceMemoTitle || '');
-    setEditVoiceMemoRecordedByName(item.voiceMemoRecordedByName || '');
     setEditNewExpenseTitle('');
     setEditNewExpenseAmount('');
   };
@@ -2027,42 +1339,30 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     setEditTaggedPeople([]);
     setEditMusicUrl('');
     setEditMusicTitle('');
-    setEditVoiceMemoUrl('');
-    setEditVoiceMemoDuration(0);
-    setEditVoiceMemoTitle('');
-    setEditVoiceMemoRecordedByName('');
     setEditNewExpenseTitle('');
     setEditNewExpenseAmount('');
   };
 
   const handleEditJournalFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []) as File[];
-    if (files.length === 0) return;
-
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
     setEditImageLoading(true);
-
     try {
-      const results = await uploadMediaFilesConcurrently(files, 3);
-
-      const newImages = results.map(result => result.url);
-      const newThumbs: Record<string, string> = {
-        ...editVideoThumbnails
-      };
-
-      results.forEach(result => {
-        if (result.thumbnailUrl) {
-          newThumbs[result.url] = result.thumbnailUrl;
+      const newImages: string[] = [];
+      const newThumbs: Record<string, string> = { ...editVideoThumbnails };
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const res = await uploadMediaFile(file);
+        newImages.push(res.url);
+        if (res.thumbnailUrl) {
+          newThumbs[res.url] = res.thumbnailUrl;
         }
-      });
-
+      }
       setEditImages(prev => [...prev, ...newImages]);
       setEditVideoThumbnails(newThumbs);
     } catch (err: any) {
-      console.error('Lỗi upload ảnh/video khi sửa lên Firebase Storage:', err);
-      alert(
-        'Không thể tải tệp lên Firebase Storage: ' +
-        (err?.message || 'Vui lòng kiểm tra Firebase Storage Rules hoặc kết nối mạng.')
-      );
+      console.error('Lỗi đọc file ảnh/video khi sửa:', err);
+      alert('Không thể tải tệp lên: ' + (err?.message || 'Vui lòng kiểm tra lại.'));
     } finally {
       setEditImageLoading(false);
       e.target.value = '';
@@ -2121,10 +1421,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         taggedPeople: editTaggedPeople.length > 0 ? editTaggedPeople : deleteField(),
         musicUrl: editMusicUrl.trim() ? editMusicUrl.trim() : deleteField(),
         musicTitle: editMusicTitle.trim() ? editMusicTitle.trim() : deleteField(),
-        voiceMemoUrl: editVoiceMemoUrl.trim() ? editVoiceMemoUrl.trim() : deleteField(),
-        voiceMemoDuration: editVoiceMemoUrl.trim() && editVoiceMemoDuration ? editVoiceMemoDuration : deleteField(),
-        voiceMemoTitle: editVoiceMemoUrl.trim() && editVoiceMemoTitle.trim() ? editVoiceMemoTitle.trim() : deleteField(),
-        voiceMemoRecordedByName: editVoiceMemoUrl.trim() && editVoiceMemoRecordedByName.trim() ? editVoiceMemoRecordedByName.trim() : deleteField(),
         updatedAt: new Date().toISOString()
       };
       await updateDoc(journalRef, updates);
@@ -2153,15 +1449,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       };
       if (memoryImageUrl.trim()) memoryData.imageUrl = memoryImageUrl.trim();
 
-      const createdMemoryRef = await addDoc(memoriesRef, memoryData);
-      void sendPartnerNotification({
-        type: 'memory_new',
-        title: `💖 ${userProfile.displayName} vừa thêm một kỷ niệm`,
-        body: memoryTitle.trim().slice(0, 180),
-        url: '/',
-        imageUrl: memoryImageUrl.trim() || undefined,
-        tag: `memory-${createdMemoryRef.id}`
-      });
+      await addDoc(memoriesRef, memoryData);
       setMemoryTitle('');
       setMemoryImageUrl('');
       setShowAddMemory(false);
@@ -2271,41 +1559,134 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
         {/* TAB 1: HOME */}
         {activeTab === 'home' && (
-          <HomeTab
-            userProfile={userProfile}
-            coupleData={coupleData}
-            wakeUpLogs={wakeUpLogs}
-            journals={journals}
-            onNavigate={handleNavigateTab}
-            onOpenJournal={(journal) => {
-              handleNavigateTab('journal');
+          <div className="space-y-6">
+            {/* Couple Card */}
+            {(() => {
+              const isU1 = (coupleData?.user1Id === userProfile.uid) || (coupleData?.user1Uid === userProfile.uid) || (userProfile.email?.toLowerCase().includes('duong'));
+              const isU2 = (coupleData?.user2Id === userProfile.uid) || (coupleData?.user2Uid === userProfile.uid) || (userProfile.email?.toLowerCase().includes('chucga'));
 
-              window.setTimeout(() => {
-                document
-                  .getElementById(`journal-card-${journal.id}`)
-                  ?.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start',
-                  });
-              }, 80);
-            }}
-          />
+              const u1Name = isU1 ? (userProfile.displayName || coupleData?.user1Name || 'Dương') : (coupleData?.user1Name || 'Dương');
+              const u2Name = isU2 ? (userProfile.displayName || coupleData?.user2Name || 'Chúc Gà') : (coupleData?.user2Name || 'Chúc Gà');
+
+              const u1Avatar = (isU1 ? userProfile.avatarUrl : coupleData?.user1Avatar) || coupleData?.user1Avatar || 'https://api.dicebear.com/7.x/micah/svg?seed=duong_male&hair=fonze,full&eyes=eyes&mouth=smile';
+              const u2Avatar = (isU2 ? userProfile.avatarUrl : coupleData?.user2Avatar) || coupleData?.user2Avatar || 'https://api.dicebear.com/7.x/micah/svg?seed=chucga_female&hair=donna,straight&eyes=eyes&mouth=smile';
+
+              return (
+                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-md space-y-6">
+                  {/* Partners Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                    {/* Partner 1 Card */}
+                    <div className="p-4 rounded-2xl border border-rose-100/80 bg-rose-50/40 hover:bg-rose-50/70 transition flex items-center gap-3.5 relative overflow-hidden group">
+                      <div className="relative shrink-0">
+                        <div className="w-14 h-14 rounded-full border-2 border-rose-300 p-0.5 overflow-hidden block shadow-xs bg-white">
+                          <img
+                            src={u1Avatar}
+                            alt={u1Name}
+                            className="w-full h-full object-cover rounded-full"
+                          />
+                        </div>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-800 text-base sm:text-lg truncate">
+                            {u1Name}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                            isU1
+                              ? 'bg-rose-500 text-white shadow-xs'
+                              : 'bg-slate-200 text-slate-700'
+                          }`}>
+                            {isU1 ? 'Bạn' : 'Nửa kia'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Partner 2 Card */}
+                    <div className="p-4 rounded-2xl border border-rose-100/80 bg-rose-50/40 hover:bg-rose-50/70 transition flex items-center gap-3.5 relative overflow-hidden group">
+                      <div className="relative shrink-0">
+                        <div className="w-14 h-14 rounded-full border-2 border-rose-300 p-0.5 overflow-hidden block shadow-xs bg-white">
+                          <img
+                            src={u2Avatar}
+                            alt={u2Name}
+                            className="w-full h-full object-cover rounded-full"
+                          />
+                        </div>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-800 text-base sm:text-lg truncate">
+                            {u2Name}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                            isU2
+                              ? 'bg-rose-500 text-white shadow-xs'
+                              : 'bg-slate-200 text-slate-700'
+                          }`}>
+                            {isU2 ? 'Bạn' : 'Nửa kia'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Days Together Counter */}
+                  <div className="bg-gradient-to-br from-rose-50 to-pink-50/50 rounded-2xl p-6 border border-rose-100/80 text-center">
+                    <span className="text-xs font-bold text-rose-500 uppercase tracking-wider block mb-1">
+                      Số Ngày Bên Nhau
+                    </span>
+                    <div className="text-5xl font-black text-rose-600 tracking-tight my-2">
+                      {getDaysTogether()}{' '}
+                      <span className="text-xl font-bold text-rose-400">ngày</span>
+                    </div>
+
+                    {/* Anniversary Date Display */}
+                    <div className="mt-4 pt-3 border-t border-rose-100/80 flex items-center justify-center gap-2 text-xs text-slate-500">
+                      <Calendar className="w-4 h-4 text-rose-400" />
+                      <span>Ngày bắt đầu:</span>
+                      <span className="font-bold text-slate-700">{formatDateVN(coupleData?.anniversaryDate)}</span>
+                    </div>
+                  </div>
+
+                  {/* Achievements Quick Teaser */}
+                  <div 
+                    onClick={() => handleNavigateTab('achievements')}
+                    className="bg-white rounded-2xl p-4 border border-slate-200/80 hover:border-rose-300 transition-all shadow-xs hover:shadow-md cursor-pointer flex items-center justify-between gap-3 group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100 group-hover:scale-105 transition-transform">
+                        <Trophy className="w-5 h-5 text-rose-500" />
+                      </div>
+                      <div className="text-left min-w-0">
+                        <span className="text-sm font-bold text-slate-800 block truncate">Thành Tích & Điểm Thưởng</span>
+                        <p className="text-xs text-slate-500 truncate">Huy hiệu, cấp độ tình yêu & kỷ niệm</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-rose-500 group-hover:translate-x-0.5 transition shrink-0" />
+                  </div>
+
+                  {/* Early Bird Wake-Up Challenge Home Card */}
+                  <WakeUpChallengeCard
+                    compact={true}
+                    userProfile={userProfile}
+                    coupleData={coupleData}
+                    todayLog={wakeUpLogs.find(l => l.date === new Date().toISOString().split('T')[0]) || null}
+                    allLogs={wakeUpLogs}
+                    onNavigateToFinance={() => handleNavigateTab('finance')}
+                  />
+                </div>
+              );
+            })()}
+          </div>
         )}
 
-
-        {/* TAB 2: JOURNAL (NHẬT KÝ)
-            Keep mounted after app start so switching tabs does not rebuild
-            the whole feed/media tree every time. */}
-        <section
-          className={activeTab === 'journal' ? 'block' : 'hidden'}
-          aria-hidden={activeTab !== 'journal'}
-        >
+        {/* TAB 2: JOURNAL (NHẬT KÝ) */}
+        {activeTab === 'journal' && (
           <JournalTab
             userProfile={userProfile}
             coupleData={coupleData}
             journals={journals}
             companions={companions}
-            targetJournalId={notificationTargetJournalId}
             journalViewTab={journalViewTab}
             setJournalViewTab={setJournalViewTab}
             showAddJournal={showAddJournal}
@@ -2331,10 +1712,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
               taggedPeople: journalTaggedPeople,
               musicUrl: journalMusicUrl,
               musicTitle: journalMusicTitle,
-              voiceMemoUrl: journalVoiceMemoUrl,
-              voiceMemoDuration: journalVoiceMemoDuration,
-              voiceMemoTitle: journalVoiceMemoTitle,
-              voiceMemoRecordedByName: journalVoiceMemoRecordedByName,
             }}
             onCreateFormChange={(updated) => {
               if (updated.title !== undefined) setJournalTitle(updated.title);
@@ -2354,10 +1731,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
               if (updated.taggedPeople !== undefined) setJournalTaggedPeople(updated.taggedPeople);
               if (updated.musicUrl !== undefined) setJournalMusicUrl(updated.musicUrl);
               if (updated.musicTitle !== undefined) setJournalMusicTitle(updated.musicTitle);
-              if (updated.voiceMemoUrl !== undefined) setJournalVoiceMemoUrl(updated.voiceMemoUrl);
-              if (updated.voiceMemoDuration !== undefined) setJournalVoiceMemoDuration(updated.voiceMemoDuration);
-              if (updated.voiceMemoTitle !== undefined) setJournalVoiceMemoTitle(updated.voiceMemoTitle);
-              if (updated.voiceMemoRecordedByName !== undefined) setJournalVoiceMemoRecordedByName(updated.voiceMemoRecordedByName);
             }}
             onAddJournalSubmit={handleAddJournal}
             editingJournalId={editingJournalId}
@@ -2381,10 +1754,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
               taggedPeople: editTaggedPeople,
               musicUrl: editMusicUrl,
               musicTitle: editMusicTitle,
-              voiceMemoUrl: editVoiceMemoUrl,
-              voiceMemoDuration: editVoiceMemoDuration,
-              voiceMemoTitle: editVoiceMemoTitle,
-              voiceMemoRecordedByName: editVoiceMemoRecordedByName,
             }}
             onEditFormChange={(updated) => {
               if (updated.title !== undefined) setEditTitle(updated.title);
@@ -2404,10 +1773,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
               if (updated.taggedPeople !== undefined) setEditTaggedPeople(updated.taggedPeople);
               if (updated.musicUrl !== undefined) setEditMusicUrl(updated.musicUrl);
               if (updated.musicTitle !== undefined) setEditMusicTitle(updated.musicTitle);
-              if (updated.voiceMemoUrl !== undefined) setEditVoiceMemoUrl(updated.voiceMemoUrl);
-              if (updated.voiceMemoDuration !== undefined) setEditVoiceMemoDuration(updated.voiceMemoDuration);
-              if (updated.voiceMemoTitle !== undefined) setEditVoiceMemoTitle(updated.voiceMemoTitle);
-              if (updated.voiceMemoRecordedByName !== undefined) setEditVoiceMemoRecordedByName(updated.voiceMemoRecordedByName);
             }}
             onSaveEditJournalSubmit={handleSaveEditJournal}
             onCancelEditJournal={handleCancelEditJournal}
@@ -2437,7 +1802,6 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             commentInputs={commentInputs}
             onCommentInputChange={(jId, val) => setCommentInputs(prev => ({ ...prev, [jId]: val }))}
             onAddComment={handleAddComment}
-            onAddVoiceComment={handleAddVoiceComment}
             onOpenCompanionManager={() => setIsCompanionManagerOpen(true)}
             onOpenCreateMapPicker={() => {
               setJournalMapTarget('create');
@@ -2460,7 +1824,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             }}
             onEditFilesSelected={handleEditJournalFileChange}
           />
-        </section>
+        )}
 
         {/* TAB 3: ACHIEVEMENTS (THÀNH TÍCH & CỘT MỐC) */}
         {activeTab === 'achievements' && (
@@ -2478,61 +1842,657 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         )}
 
         {/* TAB 6: PROFILE */}
-        {activeTab === 'profile' && (
-          <ProfileTab
-            userProfile={userProfile}
-            coupleData={coupleData}
-            companions={companions}
-            deviceOwner={deviceOwner}
-            activeDeviceName={activeDeviceName}
-            onEditProfile={handleStartEditProfile}
-            onOpenAvatar={handleOpenAvatarModal}
-            onOpenCompanionManager={() => setIsCompanionManagerOpen(true)}
-            onOpenDeviceManager={() => setIsDeviceManagerOpen(true)}
-            onOpenRestoreComments={() => {
-              if (journals.length > 0) {
-                setRestoreSelectedJournalId(journals[0].id);
-              }
-              setIsRestoreCommentOpen(true);
-            }}
-            onSignOut={handleSignOut}
-          />
-        )}
+        {activeTab === 'profile' && (() => {
+          const isU1 = (coupleData?.user1Id === userProfile.uid) || (coupleData?.user1Uid === userProfile.uid) || (userProfile.email?.toLowerCase().includes('duong'));
+          const isU2 = (coupleData?.user2Id === userProfile.uid) || (coupleData?.user2Uid === userProfile.uid) || (userProfile.email?.toLowerCase().includes('chucga'));
 
+          const myPhone = isU1 ? coupleData?.user1Phone : coupleData?.user2Phone;
+          const myBirthday = isU1 ? coupleData?.user1Birthday : coupleData?.user2Birthday;
+          const myAvatar = userProfile.avatarUrl || (isU1 ? coupleData?.user1Avatar : coupleData?.user2Avatar) || (isU1 ? 'https://api.dicebear.com/7.x/micah/svg?seed=duong_male' : 'https://api.dicebear.com/7.x/micah/svg?seed=chucga_female');
+
+          let rawPartnerName = isU1 ? (coupleData?.user2Name || 'Chúc Gà') : (coupleData?.user1Name || 'Dương');
+          if (rawPartnerName.trim() === userProfile.displayName.trim() || rawPartnerName.trim() === (isU1 ? 'Dương' : 'Chúc Gà')) {
+            rawPartnerName = isU1 ? 'Chúc Gà' : 'Dương';
+          }
+          const partnerName = rawPartnerName;
+          const partnerPhone = isU1 ? coupleData?.user2Phone : coupleData?.user1Phone;
+          const partnerBirthday = isU1 ? coupleData?.user2Birthday : coupleData?.user1Birthday;
+          const partnerAvatar = isU1 
+            ? (coupleData?.user2Avatar || 'https://api.dicebear.com/7.x/micah/svg?seed=chucga_female&hair=donna,straight&eyes=eyes&mouth=smile')
+            : (coupleData?.user1Avatar || 'https://api.dicebear.com/7.x/micah/svg?seed=duong_male&hair=fonze&eyes=eyes&mouth=smile');
+
+          return (
+            <div className="space-y-4 pb-12 max-w-4xl mx-auto">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2">
+                <div>
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <UserIcon className="w-5 h-5 text-rose-500 shrink-0" />
+                    <span>Tài Khoản & Hồ Sơ Đôi</span>
+                  </h2>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleStartEditProfile}
+                    className="px-3.5 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Chỉnh sửa thông tin</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 2-Column User & Partner Identification Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 1. MY PROFILE CARD */}
+                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-3 relative overflow-hidden group">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200">
+                      {userProfile.displayName || 'Tài khoản của bạn'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAvatarModal(userProfile.uid, userProfile.displayName, myAvatar, isU1 ? 'user1' : 'user2')}
+                      className="text-[11px] text-slate-500 hover:text-rose-600 font-semibold flex items-center gap-1 cursor-pointer transition"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>Đổi ảnh</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-0.5">
+                    <div className="relative shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAvatarModal(userProfile.uid, userProfile.displayName, myAvatar, isU1 ? 'user1' : 'user2')}
+                        className="w-12 h-12 rounded-full border border-rose-200 p-0.5 overflow-hidden block bg-white shadow-2xs cursor-pointer hover:opacity-90 transition"
+                        title="Bấm để đổi avatar"
+                      >
+                        <img src={myAvatar} alt={userProfile.displayName} className="w-full h-full object-cover rounded-full" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAvatarModal(userProfile.uid, userProfile.displayName, myAvatar, isU1 ? 'user1' : 'user2')}
+                        className="absolute -bottom-0.5 -right-0.5 w-4.5 h-4.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full flex items-center justify-center shadow-xs cursor-pointer transition"
+                      >
+                        <Camera className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm sm:text-base font-bold text-slate-800 truncate">{userProfile.displayName}</h3>
+                      <p className="text-[11px] text-slate-400 truncate">{userProfile.email}</p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 space-y-1.5 text-xs text-slate-600">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-slate-500">
+                        <Phone className="w-3.5 h-3.5 text-emerald-500" /> SĐT:
+                      </span>
+                      <span className="font-mono font-medium text-slate-800">{myPhone || 'Chưa cập nhật'}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-slate-500">
+                        <Cake className="w-3.5 h-3.5 text-amber-500" /> Sinh nhật:
+                      </span>
+                      <span className="font-medium text-slate-800">{formatDateVN(myBirthday)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. PARTNER PROFILE CARD */}
+                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-3 relative overflow-hidden group">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                      {partnerName || 'Nửa kia'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAvatarModal(isU1 ? (coupleData?.user2Id || coupleData?.user2Uid || '') : (coupleData?.user1Id || coupleData?.user1Uid || ''), partnerName, partnerAvatar, isU1 ? 'user2' : 'user1')}
+                      className="text-[11px] text-slate-500 hover:text-slate-700 font-semibold flex items-center gap-1 cursor-pointer transition"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>Đổi ảnh</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-0.5">
+                    <div className="relative shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAvatarModal(isU1 ? (coupleData?.user2Id || coupleData?.user2Uid || '') : (coupleData?.user1Id || coupleData?.user1Uid || ''), partnerName, partnerAvatar, isU1 ? 'user2' : 'user1')}
+                        className="w-12 h-12 rounded-full border border-slate-200 p-0.5 overflow-hidden block bg-white shadow-2xs cursor-pointer hover:opacity-90 transition"
+                        title="Bấm để đổi avatar"
+                      >
+                        <img src={partnerAvatar} alt={partnerName} className="w-full h-full object-cover rounded-full" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAvatarModal(isU1 ? (coupleData?.user2Id || coupleData?.user2Uid || '') : (coupleData?.user1Id || coupleData?.user1Uid || ''), partnerName, partnerAvatar, isU1 ? 'user2' : 'user1')}
+                        className="absolute -bottom-0.5 -right-0.5 w-4.5 h-4.5 bg-slate-700 hover:bg-slate-800 text-white rounded-full flex items-center justify-center shadow-xs cursor-pointer transition"
+                      >
+                        <Camera className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm sm:text-base font-bold text-slate-800 truncate">{partnerName}</h3>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 space-y-1.5 text-xs text-slate-600">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-slate-500">
+                        <Phone className="w-3.5 h-3.5 text-emerald-500" /> SĐT:
+                      </span>
+                      <span className="font-mono font-medium text-slate-800">{partnerPhone || 'Chưa cập nhật'}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-slate-500">
+                        <Cake className="w-3.5 h-3.5 text-amber-500" /> Sinh nhật:
+                      </span>
+                      <span className="font-medium text-slate-800">{formatDateVN(partnerBirthday)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Detailed Couple & Living Information */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
+                <h3 className="text-sm font-bold text-slate-800 pb-2 border-b border-slate-100 flex items-center justify-between">
+                  <span>Thông Tin Chung & Hẹn Hò</span>
+                </h3>
+
+                <div className="space-y-3 text-xs">
+                  {/* Anniversary */}
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
+                    <span className="text-slate-500 flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-rose-500" />
+                      Ngày kỷ niệm yêu nhau:
+                    </span>
+                    <span className="font-bold text-rose-600">{formatDateVN(coupleData?.anniversaryDate)}</span>
+                  </div>
+
+                  {/* Address */}
+                  <div className="py-1.5 border-b border-slate-100 space-y-1.5">
+                    <div className="flex items-start justify-between">
+                      <span className="text-slate-500 flex items-center gap-1.5 shrink-0">
+                        <MapPin className="w-3.5 h-3.5 text-sky-500" />
+                        Địa chỉ / Nơi ở:
+                      </span>
+                      <span className="font-medium text-slate-800 text-right">
+                        {coupleData?.address ? (
+                          <>
+                            {coupleData.address}
+                            {coupleData.city && <span className="block text-[11px] text-slate-400">{coupleData.city}</span>}
+                          </>
+                        ) : (
+                          <span className="text-slate-400 italic">Chưa cập nhật</span>
+                        )}
+                      </span>
+                    </div>
+
+                    {(coupleData?.address || coupleData?.city) && (
+                      <div className="pt-1 flex justify-end">
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(((coupleData.address || '') + ' ' + (coupleData.city || '')).trim())}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-sky-50 hover:bg-sky-100 text-sky-600 rounded-lg text-[11px] font-semibold border border-sky-200/60 transition cursor-pointer"
+                        >
+                          <Map className="w-3 h-3 text-sky-500" />
+                          <span>Mở Google Maps / Chỉ đường</span>
+                          <ExternalLink className="w-2.5 h-2.5 text-sky-400 ml-0.5" />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Embedded Google Maps Widget if Address Exists */}
+                  {(coupleData?.address || coupleData?.city) && (
+                    <div className="my-2 rounded-xl border border-sky-100 overflow-hidden bg-slate-50 shadow-2xs">
+                      <iframe
+                        title="Google Maps Location"
+                        width="100%"
+                        height="150"
+                        style={{ border: 0 }}
+                        loading="lazy"
+                        src={`https://maps.google.com/maps?q=${encodeURIComponent(((coupleData?.address || '') + ' ' + (coupleData?.city || '')).trim())}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
+                      />
+                    </div>
+                  )}
+
+                  {/* Favorite Places */}
+                  <div className="py-1.5 border-b border-slate-100 space-y-1.5">
+                    <div className="flex items-start justify-between">
+                      <span className="text-slate-500 flex items-center gap-1.5 shrink-0">
+                        <Heart className="w-3.5 h-3.5 text-rose-500" />
+                        Địa điểm hẹn hò yêu thích:
+                      </span>
+                      <span className="font-medium text-slate-800 text-right max-w-xs">
+                        {coupleData?.favoritePlaces || <span className="text-slate-400 italic">Chưa cập nhật</span>}
+                      </span>
+                    </div>
+                    {coupleData?.favoritePlaces && (
+                      <div className="pt-0.5 flex justify-end">
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coupleData.favoritePlaces)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-[11px] font-semibold border border-rose-200/60 transition cursor-pointer"
+                        >
+                          <Navigation className="w-3 h-3 text-rose-500" />
+                          <span>Tìm địa điểm trên Google Maps</span>
+                          <ExternalLink className="w-2.5 h-2.5 text-rose-400 ml-0.5" />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Status Message */}
+                  <div className="py-1.5 border-b border-slate-100">
+                    <span className="text-slate-500 block mb-1">Lời nhắn tình yêu / Slogan:</span>
+                    <p className="font-medium text-slate-800 italic bg-rose-50/50 p-2.5 rounded-xl border border-rose-100/60">
+                      "{coupleData?.statusMessage || 'Hành trình tình yêu bắt đầu từ những điều nhỏ nhất'}"
+                    </p>
+                  </div>
+
+                  {/* Love Story / Memory Note */}
+                  {coupleData?.loveStory && (
+                    <div className="py-1.5">
+                      <span className="text-slate-500 block mb-1">Kỷ niệm quen nhau / Ghi chú tình yêu:</span>
+                      <p className="text-slate-700 leading-relaxed bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                        {coupleData.loveStory}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Pets & Companions Section */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <PawPrint className="w-4 h-4 text-rose-500" />
+                    <h3 className="text-sm font-bold text-slate-800">Thú Cưng & Bạn Bè Đôi Mình</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCompanionManagerOpen(true)}
+                    className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>+ Quản lý / Thêm</span>
+                  </button>
+                </div>
+
+                {companions.length === 0 ? (
+                  <div className="py-4 text-center text-xs text-slate-400">
+                    <p>Chưa có thú cưng hay bạn bè nào được thêm.</p>
+                    <button
+                      type="button"
+                      onClick={() => setIsCompanionManagerOpen(true)}
+                      className="mt-1.5 text-xs text-rose-500 font-semibold hover:underline"
+                    >
+                      + Thêm mèo cưng / cún cưng ngay
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {companions.map((comp) => (
+                      <div
+                        key={comp.id}
+                        onClick={() => setIsCompanionManagerOpen(true)}
+                        className="flex items-center gap-2.5 p-2.5 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-200/60 cursor-pointer transition"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-lg overflow-hidden shrink-0">
+                          {comp.avatarUrl ? (
+                            <img src={comp.avatarUrl} alt={comp.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span>{comp.emoji || '🐾'}</span>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-xs text-slate-800 truncate">{comp.name}</p>
+                          <p className="text-[10px] text-slate-400 truncate">
+                            {comp.relationship || (comp.type === 'pet' ? 'Thú cưng' : 'Bạn bè')}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Device Management & Security Section */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <h3 className="text-sm font-bold text-slate-800">Quản Lý Thiết Bị & Bảo Mật</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsDeviceManagerOpen(true)}
+                    className="text-xs text-indigo-600 hover:text-indigo-700 font-semibold flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Chi tiết / Đổi máy ⚙️</span>
+                  </button>
+                </div>
+
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                      <p className="text-xs font-bold text-slate-800 truncate">
+                        {activeDeviceName}
+                      </p>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Đang định danh: <span className="font-semibold text-slate-700">{deviceOwner === 'duong' ? 'Dương (Tao)' : 'Chúc (Chúc Gà)'}</span>
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsDeviceManagerOpen(true)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium cursor-pointer shrink-0"
+                  >
+                    Quản lý
+                  </button>
+                </div>
+              </div>
+
+              {/* Recovery & History Protection Tool */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-500" />
+                    <h3 className="text-sm font-bold text-slate-800">Khôi Phục Bình Luận Đã Mất</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (journals.length > 0) {
+                        setRestoreSelectedJournalId(journals[0].id);
+                      }
+                      setIsRestoreCommentOpen(true);
+                    }}
+                    className="text-xs px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold rounded-xl border border-amber-200/70 transition cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>Khôi phục / Viết lại cmt ✍️</span>
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Đã khóa hoàn toàn thao tác xóa bình luận trên toàn hệ thống để không bao giờ bị xóa nhầm nữa. Nếu bạn vừa lỡ bấm xóa bình luận trước đó, hãy bấm nút trên để khôi phục hoặc chèn lại nội dung vào đúng bài viết ngay lập tức.
+                </p>
+              </div>
+
+              {/* Logout Button */}
+              <div className="pt-2">
+                <button
+                  onClick={handleSignOut}
+                  className="w-full py-3 px-4 bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold rounded-2xl text-xs transition flex items-center justify-center gap-2 cursor-pointer border border-rose-200/60"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Đăng xuất tài khoản
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Modal Chỉnh Sửa Thông Tin Profile & Đôi Lứa */}
-        <ProfileEditModal
-          isOpen={isEditingProfile}
-          savingProfile={savingProfile}
-          editUser1Name={editUser1Name}
-          editUser2Name={editUser2Name}
-          editAnniversaryDateProfile={editAnniversaryDateProfile}
-          editStatusMessageProfile={editStatusMessageProfile}
-          editAddress={editAddress}
-          editCity={editCity}
-          editFavoritePlaces={editFavoritePlaces}
-          editUser1Phone={editUser1Phone}
-          editUser2Phone={editUser2Phone}
-          editUser1Birthday={editUser1Birthday}
-          editUser2Birthday={editUser2Birthday}
-          editLoveStory={editLoveStory}
-          onUser1NameChange={setEditUser1Name}
-          onUser2NameChange={setEditUser2Name}
-          onAnniversaryDateChange={setEditAnniversaryDateProfile}
-          onStatusMessageChange={setEditStatusMessageProfile}
-          onAddressChange={setEditAddress}
-          onCityChange={setEditCity}
-          onFavoritePlacesChange={setEditFavoritePlaces}
-          onUser1PhoneChange={setEditUser1Phone}
-          onUser2PhoneChange={setEditUser2Phone}
-          onUser1BirthdayChange={setEditUser1Birthday}
-          onUser2BirthdayChange={setEditUser2Birthday}
-          onLoveStoryChange={setEditLoveStory}
-          onOpenMapPicker={handleOpenMapPicker}
-          onSubmit={handleSaveProfile}
-          onClose={() => setIsEditingProfile(false)}
-        />
+        {isEditingProfile && (
+          <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+            <form onSubmit={handleSaveProfile} className="bg-white w-full max-w-lg rounded-2xl p-5 border border-slate-200 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 sticky top-0 bg-white z-10">
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <Edit3 className="w-4 h-4 text-rose-500" />
+                  Chỉnh Sửa Thông Tin Hồ Sơ & Địa Chỉ
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingProfile(false)}
+                  className="text-slate-400 hover:text-slate-600 transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
 
+              {/* Group 1: Standard Names & Anniversary */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-rose-600 uppercase tracking-wider">1. Thông tin đôi lứa</h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Tên Người yêu 1</label>
+                    <input
+                      type="text"
+                      value={editUser1Name}
+                      onChange={(e) => setEditUser1Name(e.target.value)}
+                      placeholder="Tên Bạn"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Tên Người yêu 2</label>
+                    <input
+                      type="text"
+                      value={editUser2Name}
+                      onChange={(e) => setEditUser2Name(e.target.value)}
+                      placeholder="Tên Người ấy"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Ngày kỷ niệm yêu nhau</label>
+                    <input
+                      type="date"
+                      value={editAnniversaryDateProfile}
+                      onChange={(e) => setEditAnniversaryDateProfile(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Lời nhắn tình yêu / Status</label>
+                    <input
+                      type="text"
+                      value={editStatusMessageProfile}
+                      onChange={(e) => setEditStatusMessageProfile(e.target.value)}
+                      placeholder="VD: Cùng nhau đi qua bão giông"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-400"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Group 2: Address & Location */}
+              <div className="space-y-3 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-sky-600 uppercase tracking-wider flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5" />
+                    2. Địa chỉ & Nơi ở (Google Maps)
+                  </h4>
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((editAddress + ' ' + editCity).trim() || 'Việt Nam')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[11px] text-sky-600 hover:text-sky-700 font-medium flex items-center gap-1 hover:underline"
+                  >
+                    <Map className="w-3 h-3 text-sky-500" />
+                    <span>Tìm trên Google Maps</span>
+                    <ExternalLink className="w-2.5 h-2.5" />
+                  </a>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-600">Địa chỉ chi tiết (Đường, Phường, Quận...)</label>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenMapPicker('address')}
+                      className="px-2.5 py-1 bg-sky-50 hover:bg-sky-100 text-sky-600 rounded-lg text-[11px] font-bold border border-sky-200/80 transition cursor-pointer flex items-center gap-1 shrink-0"
+                    >
+                      <MapPin className="w-3 h-3 text-sky-500" />
+                      <span>Chọn trên Google Maps 📍</span>
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={editAddress}
+                    onChange={(e) => setEditAddress(e.target.value)}
+                    placeholder="VD: 123 Đường Nguyễn Huệ, Phường Bến Nghé, Quận 1"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-sky-400"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Thành phố / Tỉnh thành</label>
+                    <input
+                      type="text"
+                      value={editCity}
+                      onChange={(e) => setEditCity(e.target.value)}
+                      placeholder="VD: TP. Hồ Chí Minh, Hà Nội..."
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-sky-400"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold text-slate-600">Địa điểm hẹn hò yêu thích</label>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenMapPicker('favorite')}
+                        className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-md text-[10px] font-semibold border border-rose-200/80 transition cursor-pointer flex items-center gap-1 shrink-0"
+                      >
+                        <MapPin className="w-2.5 h-2.5 text-rose-500" />
+                        <span>Chọn trên bản đồ</span>
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={editFavoritePlaces}
+                      onChange={(e) => setEditFavoritePlaces(e.target.value)}
+                      placeholder="VD: Lẩu Haidilao, Phố cổ, Cà phê ngõ..."
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-sky-400"
+                    />
+                  </div>
+                </div>
+
+                {/* Google Maps Live Interactive Preview in Edit Modal */}
+                {(editAddress.trim() || editCity.trim()) && (
+                  <div className="mt-2 rounded-xl border border-sky-200/80 overflow-hidden bg-slate-50 shadow-2xs space-y-0">
+                    <div className="p-2 bg-sky-50/80 border-b border-sky-100 flex items-center justify-between text-[11px] font-semibold text-sky-800">
+                      <span className="flex items-center gap-1.5">
+                        <Navigation className="w-3.5 h-3.5 text-sky-500" />
+                        Bản đồ vị trí Google Maps tương ứng:
+                      </span>
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((editAddress + ' ' + editCity).trim())}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sky-600 hover:text-sky-800 underline flex items-center gap-0.5"
+                      >
+                        Chỉ đường trên Google Maps <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+                    </div>
+                    <iframe
+                      title="Google Maps Location Preview"
+                      width="100%"
+                      height="160"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                      src={`https://maps.google.com/maps?q=${encodeURIComponent((editAddress + ' ' + editCity).trim())}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Group 3: Phone & Birthdays */}
+              <div className="space-y-3 pt-2 border-t border-slate-100">
+                <h4 className="text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1">
+                  <Phone className="w-3.5 h-3.5" />
+                  3. Liên hệ & Sinh nhật
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Số điện thoại ({editUser1Name || 'Partner 1'})</label>
+                    <input
+                      type="text"
+                      value={editUser1Phone}
+                      onChange={(e) => setEditUser1Phone(e.target.value)}
+                      placeholder="0901234567"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Số điện thoại ({editUser2Name || 'Partner 2'})</label>
+                    <input
+                      type="text"
+                      value={editUser2Phone}
+                      onChange={(e) => setEditUser2Phone(e.target.value)}
+                      placeholder="0908765432"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Sinh nhật ({editUser1Name || 'Partner 1'})</label>
+                    <input
+                      type="date"
+                      value={editUser1Birthday}
+                      onChange={(e) => setEditUser1Birthday(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Sinh nhật ({editUser2Name || 'Partner 2'})</label>
+                    <input
+                      type="date"
+                      value={editUser2Birthday}
+                      onChange={(e) => setEditUser2Birthday(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Group 4: Love Story / Notes */}
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Ghi chú kỷ niệm quen nhau / Love Story</label>
+                <textarea
+                  rows={3}
+                  value={editLoveStory}
+                  onChange={(e) => setEditLoveStory(e.target.value)}
+                  placeholder="Lần đầu hai đứa gặp nhau ở đâu, ấn tượng gì..."
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-400"
+                />
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 sticky bottom-0 bg-white">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingProfile(false)}
+                  className="px-4 py-2 rounded-xl text-slate-500 hover:bg-slate-100 text-xs font-medium cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="px-5 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold shadow-xs disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  {savingProfile ? 'Đang lưu...' : 'Lưu thông tin'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
 
         {/* TAB 6: ADMIN (Hidden from UI, only accessible via /admin) */}
         {activeTab === 'admin' && (
@@ -2644,7 +2604,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         isOpen={isCameraModalOpen}
         onClose={() => setIsCameraModalOpen(false)}
         onCapture={handleCameraCaptured}
-        onCaptureMedia={handleCameraMediaCaptured}
+        onCaptureMedia={handleCameraCapturedMedia}
       />
 
       {/* Companion & Pet Manager Modal */}
@@ -2656,26 +2616,234 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       />
 
       {/* Modal Thùng Rác & Khôi Phục Bình Luận Đã Xóa */}
-      <RestoreCommentsModal
-        isOpen={isRestoreCommentOpen}
-        deletedCommentsList={deletedCommentsList}
-        restoringDeletedId={restoringDeletedId}
-        journals={journals}
-        showManualRestoreForm={showManualRestoreForm}
-        restoreSelectedJournalId={restoreSelectedJournalId}
-        restoreCommentText={restoreCommentText}
-        restoreCommentAuthor={restoreCommentAuthor}
-        restoreCommentLoading={restoreCommentLoading}
-        onClose={() => setIsRestoreCommentOpen(false)}
-        onShowManualRestoreFormChange={setShowManualRestoreForm}
-        onRestoreDeletedComment={handleRestoreDeletedCommentRecord}
-        onPermanentDeleteRecord={handlePermanentDeleteRecord}
-        onSelectedJournalChange={setRestoreSelectedJournalId}
-        onCommentTextChange={setRestoreCommentText}
-        onCommentAuthorChange={setRestoreCommentAuthor}
-        onManualRestoreSubmit={handleRestoreCommentSubmit}
-      />
+      {isRestoreCommentOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-2xl space-y-4 max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-amber-50 text-amber-700 border border-amber-200/80 flex items-center justify-center">
+                  <History className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">
+                    Thùng Rác & Khôi Phục Bình Luận
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Khôi phục lại những bình luận bạn hoặc đối phương đã từng xóa
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRestoreCommentOpen(false);
+                  setShowManualRestoreForm(false);
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
+            {/* Modal Content - Scrollable */}
+            <div className="space-y-4 overflow-y-auto flex-1 pr-1">
+              {/* Deleted Comments List (True Restore) */}
+              {!showManualRestoreForm ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs text-slate-600 font-semibold px-1">
+                    <span>Bình luận đã xóa trong thùng rác ({deletedCommentsList.length}):</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowManualRestoreForm(true)}
+                      className="text-purple-600 hover:text-purple-700 text-[11px] font-bold cursor-pointer"
+                    >
+                      + Nhập tay nếu cần
+                    </button>
+                  </div>
+
+                  {deletedCommentsList.length === 0 ? (
+                    <div className="py-10 text-center text-slate-400 text-xs space-y-2.5 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                      <Archive className="w-8 h-8 mx-auto text-slate-300 stroke-[1.5]" />
+                      <p className="font-medium text-slate-600">Thùng rác hiện đang trống</p>
+                      <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
+                        Khi bạn xóa bất kỳ bình luận nào, bình luận đó sẽ được tự động lưu vào đây để có thể khôi phục lại bất kỳ lúc nào.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100 border border-slate-200/80 rounded-2xl overflow-hidden bg-white shadow-2xs">
+                      {deletedCommentsList.map((item) => (
+                        <div
+                          key={item.id}
+                          className="p-3.5 hover:bg-amber-50/30 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+                        >
+                          <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                            <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-800 font-bold flex items-center justify-center shrink-0 mt-0.5 text-xs border border-amber-200 overflow-hidden">
+                              {item.authorAvatar ? (
+                                <img src={item.authorAvatar} alt={item.authorName} className="w-full h-full object-cover" />
+                              ) : (
+                                <span>{item.authorName?.charAt(0)?.toUpperCase() || 'U'}</span>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-bold text-slate-800 text-xs">{item.authorName}</span>
+                                <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600">
+                                  {item.journalTitle || 'Kỷ niệm'}
+                                </span>
+                                {item.deletedAt && (
+                                  <span className="text-[10px] text-slate-400">
+                                    Đã xóa: {formatDateShortVN(item.deletedAt)}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-700 mt-1 leading-relaxed break-words bg-slate-50 p-2 rounded-xl border border-slate-100 font-medium">
+                                "{item.content}"
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* 1-Click Restore & Permanent Delete Actions */}
+                          <div className="flex items-center justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                            <button
+                              type="button"
+                              disabled={restoringDeletedId === item.id}
+                              onClick={() => handleRestoreDeletedCommentRecord(item)}
+                              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 font-bold rounded-xl text-xs border border-emerald-200 transition flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
+                              title="Khôi phục lại vào bài viết"
+                            >
+                              <RotateCcw className={`w-3.5 h-3.5 ${restoringDeletedId === item.id ? 'animate-spin' : ''}`} />
+                              <span>{restoringDeletedId === item.id ? 'Đang khôi phục...' : 'Khôi phục ✨'}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handlePermanentDeleteRecord(item)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer"
+                              title="Xóa vĩnh viễn khỏi thùng rác"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Manual write/restore form */
+                <form onSubmit={handleRestoreCommentSubmit} className="space-y-3">
+                  <div className="flex items-center justify-between pb-1">
+                    <span className="text-xs font-bold text-slate-700">Tạo lại bình luận thủ công:</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowManualRestoreForm(false)}
+                      className="text-xs text-slate-500 hover:text-slate-700 font-semibold"
+                    >
+                      ← Quay lại Thùng rác
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      Chọn bài viết kỷ niệm:
+                    </label>
+                    <select
+                      value={restoreSelectedJournalId}
+                      onChange={(e) => setRestoreSelectedJournalId(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    >
+                      {journals.map((j) => (
+                        <option key={j.id} value={j.id}>
+                          {j.title || 'Kỷ niệm ngày ' + j.date} ({j.date})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      Người bình luận:
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setRestoreCommentAuthor('duong')}
+                        className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                          restoreCommentAuthor === 'duong'
+                            ? 'bg-rose-50 border-rose-400 text-rose-700 shadow-xs'
+                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        <span>👦 Dương</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRestoreCommentAuthor('chuc')}
+                        className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                          restoreCommentAuthor === 'chuc'
+                            ? 'bg-rose-50 border-rose-400 text-rose-700 shadow-xs'
+                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        <span>👧 Chúc Gà</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      Nội dung bình luận:
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={restoreCommentText}
+                      onChange={(e) => setRestoreCommentText(e.target.value)}
+                      placeholder="Nhập nội dung bình luận..."
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                      required
+                    />
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setShowManualRestoreForm(false)}
+                      className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition cursor-pointer"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={restoreCommentLoading || !restoreCommentText.trim()}
+                      className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      {restoreCommentLoading ? <span>Đang lưu...</span> : <span>Thêm vào bài viết ✨</span>}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between shrink-0">
+              <span className="text-[11px] text-slate-400">
+                {deletedCommentsList.length} bình luận đã lưu trữ
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRestoreCommentOpen(false);
+                  setShowManualRestoreForm(false);
+                }}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Device Manager & Identification Modal */}
       <DeviceManagerModal
