@@ -1502,9 +1502,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     imageUrl: string,
     content: string,
     voiceMemoUrl?: string,
-    voiceMemoDuration?: number
+    voiceMemoDuration?: number,
+    attachmentImageUrl?: string
   ) => {
-    if (!userProfile.coupleId || (!content.trim() && !voiceMemoUrl)) return;
+    if (!userProfile.coupleId || (!content.trim() && !voiceMemoUrl && !attachmentImageUrl)) return;
     const target = journals.find(j => j.id === journalId);
     if (!target) return;
 
@@ -1521,6 +1522,9 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       newComment.voiceMemoUrl = voiceMemoUrl;
       newComment.voiceMemoDuration = voiceMemoDuration;
     }
+    if (attachmentImageUrl) {
+      newComment.attachmentImageUrl = attachmentImageUrl;
+    }
 
     try {
       const currentComments = target.imageComments || [];
@@ -1534,7 +1538,11 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
           journalTitle: target.title,
           imageIndex,
           actorName: userProfile.displayName,
-          comment: voiceMemoUrl ? '🎙️ [Lời nhắn thoại cho ảnh]' : newComment.content,
+          comment: voiceMemoUrl
+            ? '🎙️ [Lời nhắn thoại cho ảnh]'
+            : attachmentImageUrl && !newComment.content
+            ? '📷 [Đã gửi một hình ảnh]'
+            : newComment.content,
         })
       );
     } catch (err) {

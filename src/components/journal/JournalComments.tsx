@@ -111,6 +111,21 @@ export const JournalComments: React.FC<JournalCommentsProps> = ({
                       {comment.content}
                     </p>
                   )}
+
+                  {comment.attachmentImageUrl && (
+                    <div className="pt-1">
+                      <img
+                        src={comment.attachmentImageUrl}
+                        alt="Ảnh đính kèm"
+                        className="max-h-48 max-w-full rounded-xl object-cover border border-slate-200/80 cursor-pointer hover:opacity-95 transition"
+                        onClick={() => {
+                          if (typeof window !== 'undefined' && comment.attachmentImageUrl) {
+                            window.open(comment.attachmentImageUrl, '_blank');
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             );

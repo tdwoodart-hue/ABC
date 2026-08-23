@@ -33,7 +33,8 @@ import {
   Crosshair,
   Info,
   CheckCircle2,
-  ListFilter
+  ListFilter,
+  Play
 } from 'lucide-react';
 import L from 'leaflet';
 import { db, collection, addDoc, doc, deleteDoc, updateDoc, onSnapshot, query, orderBy } from '../lib/firebase';
@@ -42,6 +43,7 @@ import { JournalMusicPlayer } from './JournalMusicPlayer';
 import { MapLocationPickerModal, SelectedLocationResult } from './MapLocationPickerModal';
 import { formatCoordinates, getDeviceHighAccuracyGPS, reverseGeocodeGPS } from '../utils/geolocation';
 import { compressAndConvertToBase64 } from '../utils/imageCompression';
+import { isVideoUrl } from '../utils/mediaHelper';
 
 export interface MapFootprintItem {
   id: string;
@@ -291,7 +293,9 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
     const size = isSelected ? 44 : 36;
     const pinHeight = isSelected ? 54 : 44;
 
-    const thumbnail = item.imageUrl || (item.images && item.images[0]);
+    const firstImage = item.images?.find((img) => !isVideoUrl(img)) || (item.imageUrl && !isVideoUrl(item.imageUrl) ? item.imageUrl : undefined);
+    const firstMedia = item.imageUrl || (item.images && item.images[0]);
+    const thumbnail = firstImage || (firstMedia && item.journalRef?.videoThumbnails?.[firstMedia]);
 
     return L.divIcon({
       className: 'love-map-pin',
@@ -958,11 +962,49 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
                         : 'cursor-default'
                     }`}
                   >
-                    <img
-                      src={selectedFootprint.imageUrl || selectedFootprint.images?.[0]}
-                      alt={selectedFootprint.title}
-                      className="h-full w-full object-cover"
-                    />
+                    {(() => {
+                      const mediaUrl = selectedFootprint.imageUrl || selectedFootprint.images?.[0] || '';
+                      const isVid = isVideoUrl(mediaUrl);
+                      const thumb = selectedFootprint.journalRef?.videoThumbnails?.[mediaUrl] || 
+                        selectedFootprint.images?.find((img) => !isVideoUrl(img));
+
+                      if (isVid && !thumb) {
+                        return (
+                          <div className="relative w-full h-full bg-slate-900 flex items-center justify-center">
+                            <video
+                              src={mediaUrl}
+                              className="h-full w-full object-cover pointer-events-none"
+                              preload="metadata"
+                              muted
+                              playsInline
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/25 text-white pointer-events-none">
+                              <div className="w-6 h-6 rounded-full bg-black/50 backdrop-blur-xs flex items-center justify-center text-white">
+                                <Play className="w-3 h-3 fill-white text-white translate-x-0.5" />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="relative w-full h-full">
+                          <img
+                            src={thumb || mediaUrl}
+                            alt={selectedFootprint.title}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                          {isVid && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/25 text-white pointer-events-none">
+                              <div className="w-6 h-6 rounded-full bg-black/50 backdrop-blur-xs flex items-center justify-center text-white">
+                                <Play className="w-3 h-3 fill-white text-white translate-x-0.5" />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {selectedFootprint.images && selectedFootprint.images.length > 1 && (
                       <span className="absolute bottom-1.5 right-1.5 rounded-full bg-black/65 px-1.5 py-0.5 text-[9px] font-bold text-white">

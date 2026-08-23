@@ -61,6 +61,7 @@ export interface JournalComment {
   content: string;
   voiceMemoUrl?: string; // URL file ghi âm giọng nói bình luận
   voiceMemoDuration?: number; // Thời lượng tính bằng giây
+  attachmentImageUrl?: string; // URL ảnh đính kèm bình luận
   createdAt: string;
 }
 
@@ -115,6 +116,7 @@ export interface ImageComment {
   content: string;
   voiceMemoUrl?: string;
   voiceMemoDuration?: number;
+  attachmentImageUrl?: string;
   createdAt: string;
 }
 

@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Heart,
   Image as ImageIcon,
+  Loader2,
   MessageSquare,
   Mic,
   Play,
@@ -30,7 +31,7 @@ import {
   formatDateVN,
 } from '../utils/formatDate';
 
-import { isVideoUrl } from '../utils/mediaHelper';
+import { isVideoUrl, uploadMediaFile } from '../utils/mediaHelper';
 import { CommentVoiceRecorder } from './journal/CommentVoiceRecorder';
 import { JournalVoiceMemoPlayer } from './journal/JournalVoiceMemoPlayer';
 
@@ -54,7 +55,8 @@ interface ImageLightboxModalProps {
     imageUrl: string,
     content: string,
     voiceMemoUrl?: string,
-    voiceMemoDuration?: number
+    voiceMemoDuration?: number,
+    attachmentImageUrl?: string
   ) => Promise<void>;
   onDeleteImageComment: (
     journalId: string,
@@ -95,6 +97,15 @@ export const ImageLightboxModal: React.FC<
     submittingComment,
     setSubmittingComment,
   ] = useState(false);
+
+  const [commentImageAttachment, setCommentImageAttachment] = useState<{
+    file?: File;
+    previewUrl: string;
+    uploadedUrl?: string;
+  } | null>(null);
+
+  const [isUploadingCommentImage, setIsUploadingCommentImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const [
     settingMainImage,
@@ -475,6 +486,43 @@ export const ImageLightboxModal: React.FC<
       }
     };
 
+  const handleImageFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 30 * 1024 * 1024) {
+      alert('Kích thước ảnh đính kèm tối đa 30MB.');
+      return;
+    }
+
+    const localPreview = URL.createObjectURL(file);
+    setCommentImageAttachment({
+      file,
+      previewUrl: localPreview,
+    });
+    setIsUploadingCommentImage(true);
+
+    try {
+      const uploadRes = await uploadMediaFile(file);
+      setCommentImageAttachment({
+        file,
+        previewUrl: uploadRes.url,
+        uploadedUrl: uploadRes.url,
+      });
+    } catch (err: any) {
+      console.error('Lỗi upload ảnh đính kèm bình luận:', err);
+      alert('Không thể tải ảnh lên: ' + (err?.message || 'Vui lòng thử lại.'));
+      setCommentImageAttachment(null);
+    } finally {
+      setIsUploadingCommentImage(false);
+      if (imageInputRef.current) {
+        imageInputRef.current.value = '';
+      }
+    }
+  };
+
   const handleSendComment =
     async (
       event: React.FormEvent
@@ -483,10 +531,13 @@ export const ImageLightboxModal: React.FC<
 
       const content =
         commentText.trim();
+      const attachmentUrl =
+        commentImageAttachment?.uploadedUrl;
 
       if (
-        !content ||
-        submittingComment
+        (!content && !attachmentUrl) ||
+        submittingComment ||
+        isUploadingCommentImage
       ) {
         return;
       }
@@ -498,10 +549,14 @@ export const ImageLightboxModal: React.FC<
           journal.id,
           currentIndex,
           currentImageUrl,
-          content
+          content,
+          undefined,
+          undefined,
+          attachmentUrl
         );
 
         setCommentText('');
+        setCommentImageAttachment(null);
 
         showToast(
           'Đã gửi bình luận cho bức ảnh 💕'
@@ -1093,6 +1148,21 @@ export const ImageLightboxModal: React.FC<
                               }
                             </p>
                           )}
+
+                          {comment.attachmentImageUrl && (
+                            <div className="mt-2 inline-block overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-100 shadow-2xs">
+                              <img
+                                src={comment.attachmentImageUrl}
+                                alt="Ảnh đính kèm"
+                                className="max-h-52 w-auto max-w-full rounded-2xl object-cover transition hover:opacity-95 cursor-pointer"
+                                onClick={() => {
+                                  if (typeof window !== 'undefined' && comment.attachmentImageUrl) {
+                                    window.open(comment.attachmentImageUrl, '_blank');
+                                  }
+                                }}
+                              />
+                            </div>
+                          )}
                         </div>
 
                         <button
@@ -1124,6 +1194,54 @@ export const ImageLightboxModal: React.FC<
                 'max(env(safe-area-inset-bottom, 0px), 8px)',
             }}
           >
+            {/* Hidden file input for image upload */}
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleImageFileChange}
+            />
+
+            {/* Selected image preview badge */}
+            {commentImageAttachment && (
+              <div className="mb-2 flex items-center gap-2.5 rounded-2xl border border-rose-200/90 bg-white p-2 shadow-sm">
+                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-rose-100 bg-slate-100">
+                  <img
+                    src={commentImageAttachment.previewUrl}
+                    alt="Ảnh đính kèm"
+                    className="h-full w-full object-cover"
+                  />
+                  {isUploadingCommentImage && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/45 text-white">
+                      <Loader2 className="h-5 w-5 animate-spin text-white" />
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-slate-800 truncate">
+                    {isUploadingCommentImage
+                      ? 'Đang tải ảnh lên...'
+                      : 'Đã đính kèm ảnh ✨'}
+                  </p>
+                  <p className="text-[10px] text-slate-400">
+                    {isUploadingCommentImage
+                      ? 'Vui lòng đợi giây lát'
+                      : 'Sẵn sàng gửi kèm bình luận'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCommentImageAttachment(null)}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+                  aria-label="Hủy ảnh đính kèm"
+                  title="Hủy ảnh"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+
             {isVoiceRecording ? (
               <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-lg sm:rounded-3xl">
                 <CommentVoiceRecorder
@@ -1149,7 +1267,7 @@ export const ImageLightboxModal: React.FC<
                         .value
                     )
                   }
-                  placeholder="Viết bình luận cho bức ảnh này..."
+                  placeholder={commentImageAttachment ? "Viết chú thích cho bức ảnh..." : "Viết bình luận cho bức ảnh này..."}
                   className="min-w-0 flex-1 bg-transparent px-2.5 py-2 text-base text-slate-800 outline-none placeholder:text-slate-400 sm:text-sm"
                 />
 
@@ -1165,8 +1283,14 @@ export const ImageLightboxModal: React.FC<
 
                 <button
                   type="button"
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
+                  onClick={() => imageInputRef.current?.click()}
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition cursor-pointer ${
+                    commentImageAttachment
+                      ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                      : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'
+                  }`}
                   aria-label="Thêm ảnh"
+                  title="Đính kèm ảnh vào bình luận"
                 >
                   <ImageIcon className="h-5 w-5" />
                 </button>
@@ -1174,13 +1298,18 @@ export const ImageLightboxModal: React.FC<
                 <button
                   type="submit"
                   disabled={
-                    !commentText.trim() ||
-                    submittingComment
+                    (!commentText.trim() && !commentImageAttachment?.uploadedUrl) ||
+                    submittingComment ||
+                    isUploadingCommentImage
                   }
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-500 text-white shadow-md shadow-rose-500/20 transition hover:bg-rose-600 active:scale-95 disabled:pointer-events-none disabled:opacity-40"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-500 text-white shadow-md shadow-rose-500/20 transition hover:bg-rose-600 active:scale-95 disabled:pointer-events-none disabled:opacity-40 cursor-pointer"
                   aria-label="Gửi bình luận"
                 >
-                  <Send className="h-4.5 w-4.5" />
+                  {isUploadingCommentImage || submittingComment ? (
+                    <Loader2 className="h-4.5 w-4.5 animate-spin" />
+                  ) : (
+                    <Send className="h-4.5 w-4.5" />
+                  )}
                 </button>
               </form>
             )}

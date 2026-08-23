@@ -20,7 +20,8 @@ import {
   ZoomIn,
   RefreshCw,
   ExternalLink,
-  Star
+  Star,
+  Play
 } from 'lucide-react';
 import { 
   db, 
@@ -35,6 +36,71 @@ import {
   orderBy 
 } from '../lib/firebase';
 import { UserProfile, CoupleData, VisitedPlace, VisitedProvinceRecord, JournalEntry } from '../types';
+import { isVideoUrl } from '../utils/mediaHelper';
+
+const PlaceMediaThumbnail: React.FC<{
+  url?: string;
+  thumbnailUrl?: string;
+  alt?: string;
+  className?: string;
+  showPlayBadge?: boolean;
+}> = ({ url, thumbnailUrl, alt = 'Media preview', className = 'w-full h-full object-cover', showPlayBadge = true }) => {
+  const [hasError, setHasError] = useState(false);
+  const isVid = isVideoUrl(url || '');
+
+  if (!url && !thumbnailUrl) return null;
+
+  if (isVid) {
+    return (
+      <div className="relative w-full h-full overflow-hidden bg-slate-900 flex items-center justify-center">
+        {thumbnailUrl && !hasError ? (
+          <img
+            src={thumbnailUrl}
+            alt={alt}
+            loading="lazy"
+            decoding="async"
+            onError={() => setHasError(true)}
+            className={className}
+          />
+        ) : (
+          <video
+            src={url}
+            className={`${className} pointer-events-none`}
+            preload="metadata"
+            muted
+            playsInline
+          />
+        )}
+        {showPlayBadge && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/25 text-white pointer-events-none">
+            <div className="w-5 h-5 rounded-full bg-black/50 backdrop-blur-xs flex items-center justify-center text-white">
+              <Play className="w-2.5 h-2.5 fill-white text-white translate-x-0.5" />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="w-full h-full bg-slate-100 flex items-center justify-center text-slate-300">
+        <MapPin className="w-4 h-4" />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={thumbnailUrl || url}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      onError={() => setHasError(true)}
+      className={className}
+    />
+  );
+};
 
 export interface ProvinceInfo {
   name: string;
@@ -236,6 +302,8 @@ export interface UnifiedPlaceItem {
   dateVisited?: string;
   imageUrl?: string;
   images?: string[];
+  thumbnailUrl?: string;
+  isVideo?: boolean;
   note?: string;
   rating?: number;
   authorName?: string;
@@ -369,9 +437,17 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
         const detected = detectProvince(j.location, j.title, j.locationAddress);
         const provinceName = detected ? detected.name : (j.location || 'Địa điểm kỷ niệm');
         const region = detected ? detected.region : 'bac';
+        
+        const allMedia = j.images && j.images.length > 0 ? j.images : (j.imageUrl ? [j.imageUrl] : []);
+        const firstNonVideo = allMedia.find((m) => !isVideoUrl(m));
         const mainImg = j.images && j.images.length > 0 
           ? j.images[j.mainImageIndex || 0] || j.images[0]
           : j.imageUrl;
+        
+        const isVid = mainImg ? isVideoUrl(mainImg) : false;
+        const thumb = mainImg && j.videoThumbnails?.[mainImg]
+          ? j.videoThumbnails[mainImg]
+          : firstNonVideo;
 
         return {
           id: `journal_${j.id}`,
@@ -380,6 +456,8 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
           region,
           dateVisited: j.date,
           imageUrl: mainImg,
+          thumbnailUrl: thumb,
+          isVideo: isVid,
           images: j.images,
           note: j.content || j.title,
           authorName: j.authorName,
@@ -392,19 +470,24 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
 
   // Unified list of all places (Custom added + From Journals)
   const allUnifiedPlaces = useMemo<UnifiedPlaceItem[]>(() => {
-    const custom: UnifiedPlaceItem[] = visitedPlaces.map((p) => ({
-      id: p.id,
-      name: p.name,
-      province: p.province,
-      region: p.region,
-      dateVisited: p.dateVisited,
-      imageUrl: p.imageUrl,
-      note: p.note,
-      rating: p.rating,
-      authorName: p.addedByName,
-      authorUid: p.addedByUid,
-      isFromJournal: false
-    }));
+    const custom: UnifiedPlaceItem[] = visitedPlaces.map((p) => {
+      const isVid = p.imageUrl ? isVideoUrl(p.imageUrl) : false;
+      return {
+        id: p.id,
+        name: p.name,
+        province: p.province,
+        region: p.region,
+        dateVisited: p.dateVisited,
+        imageUrl: p.imageUrl,
+        thumbnailUrl: undefined,
+        isVideo: isVid,
+        note: p.note,
+        rating: p.rating,
+        authorName: p.addedByName,
+        authorUid: p.addedByUid,
+        isFromJournal: false
+      };
+    });
 
     return [...journalPlaces, ...custom];
   }, [visitedPlaces, journalPlaces]);
@@ -570,7 +653,7 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
   };
 
   const handleOpenEditPlace = (place: UnifiedPlaceItem) => {
-    if (place.isFromJournal) return; // Journal places are edited via Journal edit
+    if (place.isFromJournal) return;
     setEditingPlaceId(place.id);
     setPlaceName(place.name);
     setPlaceProvince(place.province);
@@ -705,31 +788,28 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
   }, [allUnifiedPlaces, searchTerm, placeOriginFilter, regionFilter]);
 
   return (
-    <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-3.5">
-      {/* Header with real-time stats & badges */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-rose-500 to-pink-500 text-white flex items-center justify-center shrink-0 shadow-xs">
-            <Compass className="w-5 h-5" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <h3 className="text-sm font-black text-slate-800 tracking-tight">
-                Hành Trình & 63 Tỉnh Thành
-              </h3>
-              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-600 font-black border border-rose-100 shadow-2xs">
-                {totalVisitedProvincesCount}/63
-              </span>
+    <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-3">
+
+      {/* Compact journey header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
+              <Compass className="w-4 h-4" />
             </div>
-            <p className="text-[11px] text-slate-500 truncate flex items-center gap-1.5 mt-0.5 font-medium">
-              <span>{allUnifiedPlaces.length} địa điểm kỷ niệm đã ghé</span>
-              {journalPlaces.length > 0 && (
-                <span className="text-[10px] text-rose-500 bg-rose-50 px-1.5 py-0.2 rounded-md font-semibold border border-rose-100/60 inline-flex items-center gap-0.5">
-                  <Sparkles className="w-2.5 h-2.5 text-rose-500" />
-                  {journalPlaces.length} từ bài viết
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-black text-slate-900 tracking-tight truncate">
+                  Hành trình Việt Nam
+                </h3>
+                <span className="shrink-0 text-[11px] px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 font-black border border-rose-100">
+                  {totalVisitedProvincesCount}/63
                 </span>
-              )}
-            </p>
+              </div>
+              <p className="mt-0.5 text-[11px] text-slate-500 font-medium">
+                {allUnifiedPlaces.length} địa điểm · {percentage}% Việt Nam
+              </p>
+            </div>
           </div>
         </div>
 
@@ -738,23 +818,25 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
             type="button"
             onClick={handleSyncMemoriesToProvinces}
             disabled={isAutoSyncing}
-            className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer border border-slate-200"
-            title="Đồng bộ lại từ các bài viết kỷ niệm"
+            className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer border border-slate-200"
+            title="Đồng bộ từ Nhật ký"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isAutoSyncing ? 'animate-spin text-rose-500' : ''}`} />
           </button>
+
           <button
             type="button"
             onClick={() => handleOpenAddPlace()}
-            className="flex items-center gap-1 px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold shadow-2xs transition cursor-pointer"
+            className="h-8 px-3 flex items-center gap-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-[11px] font-bold shadow-2xs transition cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Thêm nơi ghé</span>
+            <span>Thêm nơi</span>
           </button>
+
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-xl transition cursor-pointer border border-slate-200"
+            className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer border border-slate-200"
             title={isExpanded ? 'Thu gọn' : 'Mở rộng'}
           >
             {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -762,74 +844,114 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
         </div>
       </div>
 
-      {/* Sync Banner Notification */}
+      {/* Compact progress */}
+      <div>
+        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-rose-500 rounded-full transition-all duration-500"
+            style={{ width: `${Math.max(percentage, totalVisitedProvincesCount > 0 ? 3 : 0)}%` }}
+          />
+        </div>
+        <div className="mt-1.5 flex items-center justify-between gap-2">
+          <span className="text-[10px] text-slate-500 font-medium truncate">
+            {getMilestoneTitle()}
+          </span>
+          {journalPlaces.length > 0 && (
+            <span className="text-[10px] text-rose-500 font-semibold shrink-0">
+              {journalPlaces.length} từ Nhật ký
+            </span>
+          )}
+        </div>
+      </div>
+
       {syncSuccessMsg && (
-        <div className="bg-emerald-50 text-emerald-700 text-xs px-3 py-2 rounded-xl border border-emerald-200 font-medium flex items-center gap-2 animate-in fade-in duration-200">
+        <div className="bg-emerald-50 text-emerald-700 text-[11px] px-3 py-2 rounded-xl border border-emerald-200 font-medium flex items-center gap-2 animate-in fade-in duration-200">
           <Sparkles className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
           <span>{syncSuccessMsg}</span>
         </div>
       )}
 
-      {/* Progress Bar (Always visible) */}
-      <div className="space-y-1">
-        <div className="flex items-center justify-between text-[11px]">
-          <span className="font-semibold text-slate-600 flex items-center gap-1">
-            <Award className="w-3.5 h-3.5 text-amber-500" />
-            <span>{getMilestoneTitle()}</span>
-          </span>
-          <span className="font-black text-rose-600">
-            {percentage}%
-          </span>
-        </div>
-        <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-rose-100">
-          <div 
-            className="h-full bg-gradient-to-r from-rose-400 via-pink-500 to-rose-600 rounded-full transition-all duration-500 shadow-2xs"
-            style={{ width: `${Math.max(percentage, totalVisitedProvincesCount > 0 ? 3 : 0)}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Expanded Content Area */}
       {isExpanded && (
         <div className="space-y-3 pt-2 border-t border-slate-100 animate-in fade-in duration-200">
-          {/* Sub-tabs & Search */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 bg-slate-100/90 p-0.5 rounded-xl w-fit">
-              <button
-                type="button"
-                onClick={() => setActiveSubView('provinces')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                  activeSubView === 'provinces'
-                    ? 'bg-white text-rose-600 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Map className="w-3.5 h-3.5" />
-                <span>63 Tỉnh ({totalVisitedProvincesCount})</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveSubView('places')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                  activeSubView === 'places'
-                    ? 'bg-white text-rose-600 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Navigation className="w-3.5 h-3.5" />
-                <span>Nơi đã đi ({allUnifiedPlaces.length})</span>
-              </button>
-            </div>
 
-            {/* Quick Search */}
-            <div className="relative w-full sm:w-56">
+          {/* Main switch */}
+          <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-100">
+            <button
+              type="button"
+              onClick={() => setActiveSubView('provinces')}
+              className={`py-1.5 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                activeSubView === 'provinces'
+                  ? 'bg-white text-rose-600 shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <Map className="w-3.5 h-3.5" />
+              Tỉnh thành
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveSubView('places')}
+              className={`py-1.5 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                activeSubView === 'places'
+                  ? 'bg-white text-rose-600 shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <Navigation className="w-3.5 h-3.5" />
+              Địa điểm
+            </button>
+          </div>
+
+          {/* Compact filters */}
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setRegionFilter('all')}
+              className={`h-8 px-2.5 rounded-xl text-[10px] font-bold transition shrink-0 cursor-pointer ${
+                regionFilter === 'all'
+                  ? 'bg-slate-800 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              Tất cả
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setRegionFilter('visited')}
+              className={`h-8 px-2.5 rounded-xl text-[10px] font-bold transition shrink-0 cursor-pointer flex items-center gap-1 ${
+                regionFilter === 'visited'
+                  ? 'bg-rose-500 text-white'
+                  : 'bg-rose-50 text-rose-600 hover:bg-rose-100'
+              }`}
+            >
+              <Check className="w-3 h-3" />
+              Đã đi
+            </button>
+
+            <select
+              value={regionFilter === 'bac' || regionFilter === 'trung' || regionFilter === 'nam' ? regionFilter : ''}
+              onChange={(e) => {
+                const value = e.target.value as 'bac' | 'trung' | 'nam' | '';
+                setRegionFilter(value || 'all');
+              }}
+              className="h-8 min-w-0 rounded-xl bg-white border border-slate-200 px-2 text-[10px] font-semibold text-slate-600 outline-none focus:ring-1 focus:ring-rose-400 cursor-pointer"
+              aria-label="Lọc theo miền"
+            >
+              <option value="">Miền</option>
+              <option value="bac">Miền Bắc</option>
+              <option value="trung">Trung & Tây Nguyên</option>
+              <option value="nam">Miền Nam</option>
+            </select>
+
+            <div className="relative flex-1 min-w-0">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Tìm tỉnh, điểm đến, kỷ niệm..."
+                placeholder={activeSubView === 'provinces' ? 'Tìm tỉnh...' : 'Tìm địa điểm...'}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-8 pr-6 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-400 focus:bg-white"
+                className="h-8 w-full pl-8 pr-7 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-400 focus:bg-white"
               />
               {searchTerm && (
                 <button
@@ -843,340 +965,286 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
             </div>
           </div>
 
-          {/* Secondary Filter Badges */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-            {/* Region Chips */}
-            <div className="flex items-center gap-1 overflow-x-auto pb-1 text-xs scrollbar-none">
-              <button
-                type="button"
-                onClick={() => setRegionFilter('all')}
-                className={`px-2.5 py-1 rounded-lg font-semibold text-[11px] transition cursor-pointer shrink-0 ${
-                  regionFilter === 'all'
-                    ? 'bg-slate-800 text-white'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-                }`}
-              >
-                Tất cả (63)
-              </button>
-              <button
-                type="button"
-                onClick={() => setRegionFilter('visited')}
-                className={`px-2.5 py-1 rounded-lg font-semibold text-[11px] transition cursor-pointer shrink-0 flex items-center gap-1 ${
-                  regionFilter === 'visited'
-                    ? 'bg-rose-500 text-white'
-                    : 'bg-rose-50 hover:bg-rose-100 text-rose-600'
-                }`}
-              >
-                <Check className="w-2.5 h-2.5" />
-                <span>Đã đi ({totalVisitedProvincesCount})</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setRegionFilter('bac')}
-                className={`px-2.5 py-1 rounded-lg font-semibold text-[11px] transition cursor-pointer shrink-0 ${
-                  regionFilter === 'bac'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-blue-50 hover:bg-blue-100 text-blue-700'
-                }`}
-              >
-                Bắc (25)
-              </button>
-              <button
-                type="button"
-                onClick={() => setRegionFilter('trung')}
-                className={`px-2.5 py-1 rounded-lg font-semibold text-[11px] transition cursor-pointer shrink-0 ${
-                  regionFilter === 'trung'
-                    ? 'bg-amber-600 text-white'
-                    : 'bg-amber-50 hover:bg-amber-100 text-amber-700'
-                }`}
-              >
-                Trung & Tây Nguyên (19)
-              </button>
-              <button
-                type="button"
-                onClick={() => setRegionFilter('nam')}
-                className={`px-2.5 py-1 rounded-lg font-semibold text-[11px] transition cursor-pointer shrink-0 ${
-                  regionFilter === 'nam'
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
-                }`}
-              >
-                Nam (19)
-              </button>
+          {/* Source filter only for places */}
+          {activeSubView === 'places' && (
+            <div className="flex items-center gap-1">
+              {[
+                { id: 'all', label: `Tất cả ${allUnifiedPlaces.length}` },
+                { id: 'journal', label: `Nhật ký ${journalPlaces.length}` },
+                { id: 'custom', label: `Tự thêm ${visitedPlaces.length}` },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setPlaceOriginFilter(item.id as 'all' | 'journal' | 'custom')}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition cursor-pointer ${
+                    placeOriginFilter === item.id
+                      ? 'bg-rose-50 text-rose-600 border border-rose-100'
+                      : 'text-slate-500 hover:bg-slate-50 border border-transparent'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
             </div>
+          )}
 
-            {/* Places Origin Filter (when on places subview) */}
-            {activeSubView === 'places' && (
-              <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-[10px] font-bold">
-                <button
-                  type="button"
-                  onClick={() => setPlaceOriginFilter('all')}
-                  className={`px-2 py-0.5 rounded-md transition ${placeOriginFilter === 'all' ? 'bg-white text-slate-800 shadow-2xs' : 'text-slate-500'}`}
-                >
-                  Tất cả ({allUnifiedPlaces.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPlaceOriginFilter('journal')}
-                  className={`px-2 py-0.5 rounded-md transition flex items-center gap-0.5 ${placeOriginFilter === 'journal' ? 'bg-rose-500 text-white shadow-2xs' : 'text-slate-500'}`}
-                >
-                  <BookOpen className="w-2.5 h-2.5" />
-                  <span>Kỷ niệm ({journalPlaces.length})</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPlaceOriginFilter('custom')}
-                  className={`px-2 py-0.5 rounded-md transition ${placeOriginFilter === 'custom' ? 'bg-white text-slate-800 shadow-2xs' : 'text-slate-500'}`}
-                >
-                  Riêng lẻ ({visitedPlaces.length})
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* VIEW 1: COMPACT 63 PROVINCES SCROLLABLE LIST (2x4) */}
+          {/* PROVINCES — no nested scroll */}
           {activeSubView === 'provinces' && (
-            <div className="space-y-2">
-              <div className="max-h-[268px] overflow-y-auto pr-1 space-y-1.5 rounded-2xl border border-slate-100 p-1.5 bg-slate-50/50">
-                {filteredProvinces.length === 0 ? (
-                  <div className="py-8 text-center text-xs text-slate-400">
-                    Không tìm thấy tỉnh thành nào phù hợp với bộ lọc.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {filteredProvinces.map((prov) => {
-                      const visited = isProvinceVisited(prov.name);
-                      const details = provinceDetailsMap[prov.name];
-                      const totalPlaces = details ? details.totalCount : 0;
-                      const hasJournals = details && details.journalCount > 0;
+            <div>
+              {filteredProvinces.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-400">
+                  Không tìm thấy tỉnh thành phù hợp.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {filteredProvinces.map((prov) => {
+                    const visited = isProvinceVisited(prov.name);
+                    const details = provinceDetailsMap[prov.name];
+                    const latestDate = visitedProvinces[prov.name]?.visitedAt || details?.latestDate;
+                    const previewImages = details?.items
+                      ?.filter((item) => !!item.imageUrl || !!item.thumbnailUrl)
+                      .slice(0, 3) || [];
 
-                      return (
-                        <div
-                          key={prov.name}
-                          className={`p-2.5 rounded-2xl border transition flex items-center justify-between gap-2 ${
-                            visited
-                              ? 'bg-rose-50/70 border-rose-200/90 shadow-2xs hover:bg-rose-50'
-                              : 'bg-white hover:bg-slate-50 border-slate-200/70'
-                          }`}
-                        >
-                          <div 
-                            className="min-w-0 flex-1 cursor-pointer"
+                    return (
+                      <div
+                        key={prov.name}
+                        className={`rounded-2xl border transition overflow-hidden ${
+                          visited
+                            ? 'bg-white border-rose-200 shadow-2xs'
+                            : 'bg-white border-slate-200/80 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="p-3 flex items-start gap-2.5">
+                          <button
+                            type="button"
                             onClick={() => handleOpenProvinceDetails(prov)}
+                            className="min-w-0 flex-1 text-left cursor-pointer"
                           >
-                            <div className="flex items-center gap-1.5">
-                              <span className={`font-black text-xs truncate ${visited ? 'text-rose-950' : 'text-slate-800'}`}>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <h4 className={`text-xs font-black truncate ${visited ? 'text-slate-900' : 'text-slate-800'}`}>
                                 {prov.name}
-                              </span>
-                              <span className={`text-[8px] px-1 py-0.2 rounded font-semibold shrink-0 ${
-                                prov.region === 'bac' ? 'bg-blue-100 text-blue-700' :
-                                prov.region === 'trung' ? 'bg-amber-100 text-amber-800' :
-                                'bg-emerald-100 text-emerald-800'
+                              </h4>
+                              <span className={`text-[8px] px-1.5 py-0.5 rounded-md font-semibold shrink-0 ${
+                                prov.region === 'bac'
+                                  ? 'bg-blue-50 text-blue-600'
+                                  : prov.region === 'trung'
+                                    ? 'bg-amber-50 text-amber-700'
+                                    : 'bg-emerald-50 text-emerald-700'
                               }`}>
                                 {prov.region === 'bac' ? 'Bắc' : prov.region === 'trung' ? 'Trung' : 'Nam'}
                               </span>
                             </div>
 
-                            <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-400 flex-wrap">
-                              {hasJournals && (
-                                <span className="text-rose-600 font-bold flex items-center gap-0.5 bg-rose-100/60 px-1 py-0.2 rounded">
-                                  <BookOpen className="w-2.5 h-2.5" />
-                                  {details.journalCount} bài viết
-                                </span>
-                              )}
-                              {details && details.customCount > 0 && (
-                                <span className="text-slate-600 font-semibold flex items-center gap-0.5">
-                                  <MapPin className="w-2.5 h-2.5" />
-                                  {details.customCount} nơi
-                                </span>
-                              )}
-                              {!details && prov.highlightSpot && (
-                                <span className="truncate max-w-[130px]" title={prov.highlightSpot}>
-                                  {prov.highlightSpot}
-                                </span>
-                              )}
-                            </div>
-                          </div>
+                            {visited ? (
+                              <div className="mt-1 space-y-1">
+                                <p className="text-[10px] text-slate-500">
+                                  {details
+                                    ? `${details.journalCount} kỷ niệm${details.customCount > 0 ? ` · ${details.customCount} địa điểm` : ''}`
+                                    : 'Đã đánh dấu từng ghé'}
+                                </p>
+                                {latestDate && (
+                                  <p className="text-[9px] text-slate-400">
+                                    Gần nhất · {latestDate}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="mt-1 text-[10px] text-slate-400 line-clamp-1">
+                                {prov.highlightSpot || 'Chưa có kỷ niệm'}
+                              </p>
+                            )}
+                          </button>
 
-                          <div className="flex items-center gap-1 shrink-0">
-                            {/* Quick Add Place Button */}
+                          {visited ? (
                             <button
                               type="button"
-                              onClick={() => handleOpenAddPlace(prov.name)}
-                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-100 rounded-lg transition cursor-pointer"
-                              title={`Thêm nơi ghé tại ${prov.name}`}
+                              onClick={() => handleOpenProvinceDetails(prov)}
+                              className="w-7 h-7 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 cursor-pointer shadow-2xs"
+                              title={`Xem hành trình ${prov.name}`}
                             >
-                              <Plus className="w-3.5 h-3.5" />
+                              <Check className="w-3.5 h-3.5" />
                             </button>
-
-                            {/* Toggle Visited */}
+                          ) : (
                             <button
                               type="button"
                               onClick={() => handleToggleProvince(prov)}
-                              className={`w-6 h-6 rounded-full flex items-center justify-center transition cursor-pointer ${
-                                visited
-                                  ? 'bg-rose-500 text-white shadow-2xs'
-                                  : 'bg-slate-100 hover:bg-rose-100 text-slate-300 hover:text-rose-500'
-                              }`}
-                              title={visited ? 'Đã đi (Bấm để tùy chỉnh)' : 'Đánh dấu đã đi'}
+                              className="w-7 h-7 rounded-full bg-slate-100 text-slate-400 hover:bg-rose-50 hover:text-rose-500 flex items-center justify-center shrink-0 cursor-pointer transition"
+                              title={`Đánh dấu đã đi ${prov.name}`}
                             >
-                              <Check className="w-3 h-3" />
+                              <Plus className="w-3.5 h-3.5" />
                             </button>
-                          </div>
+                          )}
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+
+                        {visited && previewImages.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenProvinceDetails(prov)}
+                            className="px-3 pb-3 w-full cursor-pointer"
+                          >
+                            <div className="flex gap-1.5">
+                              {previewImages.map((item, idx) => (
+                                <div
+                                  key={`${item.id}_${idx}`}
+                                  className="w-10 h-10 rounded-lg overflow-hidden border border-slate-100 shrink-0 bg-slate-100"
+                                >
+                                  <PlaceMediaThumbnail
+                                    url={item.imageUrl}
+                                    thumbnailUrl={item.thumbnailUrl}
+                                    alt={item.name}
+                                    className="w-full h-full object-cover"
+                                    showPlayBadge={true}
+                                  />
+                                </div>
+                              ))}
+                              {details && details.totalCount > previewImages.length && (
+                                <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-500 text-[9px] font-bold flex items-center justify-center">
+                                  +{details.totalCount - previewImages.length}
+                                </div>
+                              )}
+                            </div>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
-          {/* VIEW 2: ALL PLACES & MEMORIES */}
+          {/* PLACES — compact rows, no nested scroll */}
           {activeSubView === 'places' && (
             <div className="space-y-2">
-              <div className="max-h-[380px] overflow-y-auto pr-1 space-y-2 rounded-2xl border border-slate-100 p-1.5 bg-slate-50/50">
-                {filteredPlaces.length === 0 ? (
-                  <div className="py-8 text-center text-xs text-slate-400 space-y-2">
-                    <p>Chưa có địa điểm hoặc kỷ niệm nào theo bộ lọc.</p>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenAddPlace()}
-                      className="px-3 py-1.5 bg-rose-500 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1 shadow-2xs cursor-pointer"
-                    >
-                      <Plus className="w-3 h-3" />
-                      <span>Thêm nơi đã đi</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {filteredPlaces.map((place) => (
-                      <div
-                        key={place.id}
-                        className={`p-3 bg-white rounded-2xl border transition shadow-2xs flex flex-col justify-between gap-2.5 ${
-                          place.isFromJournal ? 'border-rose-100 hover:border-rose-300' : 'border-slate-200/80 hover:border-slate-300'
+              {filteredPlaces.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-400 space-y-2">
+                  <p>Chưa có địa điểm hoặc kỷ niệm theo bộ lọc.</p>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAddPlace()}
+                    className="px-3 py-1.5 bg-rose-500 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1 shadow-2xs cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Thêm nơi đã đi
+                  </button>
+                </div>
+              ) : (
+                filteredPlaces.map((place) => (
+                  <div
+                    key={place.id}
+                    className={`p-2.5 rounded-2xl border bg-white transition flex items-center gap-2.5 ${
+                      place.isFromJournal
+                        ? 'border-rose-100 hover:border-rose-200'
+                        : 'border-slate-200/80 hover:border-slate-300'
+                    }`}
+                  >
+                    {place.imageUrl ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (place.journalRef && onOpenJournalLightbox) {
+                            onOpenJournalLightbox(place.journalRef, place.journalRef.mainImageIndex || 0);
+                          }
+                        }}
+                        className={`w-[68px] h-[68px] rounded-xl overflow-hidden bg-slate-100 shrink-0 border border-slate-100 ${
+                          place.journalRef && onOpenJournalLightbox ? 'cursor-pointer' : 'cursor-default'
                         }`}
                       >
-                        <div className="space-y-2">
-                          {/* Image preview with click to zoom */}
-                          {place.imageUrl && (
-                            <div 
-                              onClick={() => {
-                                if (place.journalRef && onOpenJournalLightbox) {
-                                  onOpenJournalLightbox(place.journalRef, place.journalRef.mainImageIndex || 0);
-                                }
-                              }}
-                              className="h-28 rounded-xl overflow-hidden bg-slate-100 relative group cursor-pointer border border-slate-100"
-                            >
-                              <img
-                                src={place.imageUrl}
-                                alt={place.name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                              />
-                              <div className="absolute top-1.5 left-1.5 bg-slate-900/70 text-white text-[9px] font-bold px-2 py-0.5 rounded-md backdrop-blur-xs flex items-center gap-1">
-                                {place.isFromJournal ? (
-                                  <>
-                                    <BookOpen className="w-2.5 h-2.5 text-rose-400" />
-                                    <span>Kỷ niệm nhật ký</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <MapPin className="w-2.5 h-2.5 text-amber-400" />
-                                    <span>Địa điểm đã lưu</span>
-                                  </>
-                                )}
-                              </div>
-                              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center pointer-events-none">
-                                <div className="p-1 rounded-full bg-white/40 text-white">
-                                  <ZoomIn className="w-4 h-4" />
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          <div>
-                            <div className="flex items-center justify-between gap-2">
-                              <h4 className="font-bold text-xs text-slate-900 line-clamp-1">{place.name}</h4>
-                              {place.dateVisited && (
-                                <span className="text-[10px] text-slate-400 shrink-0 flex items-center gap-0.5">
-                                  <Calendar className="w-2.5 h-2.5 text-rose-400" />
-                                  {place.dateVisited}
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                              <span className="text-[10px] text-rose-700 font-bold bg-rose-50 px-2 py-0.5 rounded-md border border-rose-100 flex items-center gap-1">
-                                <MapPin className="w-2.5 h-2.5 text-rose-500" />
-                                <span>{place.province}</span>
-                              </span>
-                              {place.authorName && (
-                                <span className="text-[10px] text-slate-500">
-                                  bởi {place.authorName}
-                                </span>
-                              )}
-                            </div>
-
-                            {place.note && (
-                              <p className="text-[11px] text-slate-600 line-clamp-2 italic mt-1.5 bg-slate-50 p-1.5 rounded-lg border border-slate-100">
-                                "{place.note}"
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Actions bar */}
-                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-                          <a
-                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name} ${place.province}`)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[10px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded-lg transition"
-                          >
-                            <Navigation className="w-3 h-3" />
-                            <span>Chỉ đường</span>
-                          </a>
-
-                          <div className="flex items-center gap-1">
-                            {place.isFromJournal ? (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (place.journalRef && onOpenJournalLightbox) {
-                                    onOpenJournalLightbox(place.journalRef, 0);
-                                  }
-                                }}
-                                className="text-[10px] font-semibold text-slate-500 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-slate-100 transition flex items-center gap-1 cursor-pointer"
-                              >
-                                <ExternalLink className="w-2.5 h-2.5" />
-                                <span>Xem bài</span>
-                              </button>
-                            ) : (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenEditPlace(place)}
-                                  className="p-1 text-slate-400 hover:text-slate-700 rounded-md transition cursor-pointer"
-                                  title="Sửa địa điểm"
-                                >
-                                  <Edit3 className="w-3 h-3" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeletePlace(place.id)}
-                                  className="p-1 text-slate-400 hover:text-rose-600 rounded-md transition cursor-pointer"
-                                  title="Xóa địa điểm"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
+                        <PlaceMediaThumbnail
+                          url={place.imageUrl}
+                          thumbnailUrl={place.thumbnailUrl}
+                          alt={place.name}
+                          className="w-full h-full object-cover"
+                          showPlayBadge={true}
+                        />
+                      </button>
+                    ) : (
+                      <div className="w-[54px] h-[54px] rounded-xl bg-slate-50 border border-slate-100 shrink-0 flex items-center justify-center">
+                        <MapPin className="w-4 h-4 text-slate-300" />
                       </div>
-                    ))}
+                    )}
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <h4 className="font-bold text-xs text-slate-900 truncate">
+                          {place.name}
+                        </h4>
+                        {place.isFromJournal && (
+                          <span className="shrink-0 text-[8px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md">
+                            Nhật ký
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-1 flex items-center gap-1.5 text-[10px] text-slate-500 min-w-0">
+                        <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
+                        <span className="truncate">{place.province}</span>
+                        {place.dateVisited && (
+                          <>
+                            <span className="text-slate-300">·</span>
+                            <span className="shrink-0">{place.dateVisited}</span>
+                          </>
+                        )}
+                      </div>
+
+                      {(place.authorName || place.note) && (
+                        <p className="mt-1 text-[9px] text-slate-400 truncate">
+                          {place.authorName ? `${place.authorName}` : ''}
+                          {place.authorName && place.note ? ' · ' : ''}
+                          {place.note || ''}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      {place.isFromJournal ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (place.journalRef && onOpenJournalLightbox) {
+                              onOpenJournalLightbox(place.journalRef, 0);
+                            }
+                          }}
+                          className="h-8 px-2.5 rounded-xl text-[10px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span className="hidden sm:inline">Xem</span>
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditPlace(place)}
+                            className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition flex items-center justify-center cursor-pointer"
+                            title="Sửa địa điểm"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePlace(place.id)}
+                            className="w-8 h-8 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition flex items-center justify-center cursor-pointer"
+                            title="Xóa địa điểm"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
+
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name} ${place.province}`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-8 h-8 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition flex items-center justify-center"
+                        title="Chỉ đường"
+                      >
+                        <Navigation className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
                   </div>
-                )}
-              </div>
+                ))
+              )}
             </div>
           )}
         </div>
@@ -1212,7 +1280,6 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
               </div>
             )}
 
-            {/* Memories in this province */}
             {provinceDetailsMap[selectedProvince.name]?.items?.length > 0 && (
               <div className="space-y-2">
                 <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
@@ -1231,7 +1298,15 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
                       className="p-2 bg-slate-50 hover:bg-rose-50/50 rounded-xl border border-slate-100 transition flex items-center gap-2.5 cursor-pointer"
                     >
                       {item.imageUrl && (
-                        <img src={item.imageUrl} alt={item.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                        <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-100 shrink-0 bg-slate-100">
+                          <PlaceMediaThumbnail
+                            url={item.imageUrl}
+                            thumbnailUrl={item.thumbnailUrl}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                            showPlayBadge={true}
+                          />
+                        </div>
                       )}
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-bold text-slate-800 truncate">{item.name}</p>
@@ -1367,12 +1442,17 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
                 </label>
                 <div className="flex items-center gap-3">
                   {placeImageUrl ? (
-                    <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shrink-0">
-                      <img src={placeImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                    <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shrink-0 bg-slate-100">
+                      <PlaceMediaThumbnail
+                        url={placeImageUrl}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        showPlayBadge={true}
+                      />
                       <button
                         type="button"
                         onClick={() => setPlaceImageUrl('')}
-                        className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 hover:bg-rose-500 transition cursor-pointer"
+                        className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 hover:bg-rose-500 transition cursor-pointer z-10"
                       >
                         <X className="w-3 h-3" />
                       </button>
