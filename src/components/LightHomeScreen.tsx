@@ -31,6 +31,12 @@ import {
 } from '../utils/deviceHelper';
 import { formatDateVN, formatDateShortVN, formatDateTimeVN } from '../utils/formatDate';
 import { sendPartnerNotification } from '../utils/notifications';
+import {
+  buildImageCommentNotification,
+  buildJournalCommentNotification,
+  buildJournalCreatedNotification,
+  buildStatusNotification,
+} from '../utils/notificationEvents';
 import { getDeviceHighAccuracyGPS, reverseGeocodeGPS, formatCoordinates } from '../utils/geolocation';
 import {
   isVideoUrl,
@@ -403,6 +409,62 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
+  // Notification / deep-link target state.
+  // Example routes:
+  // /journal?post=<journalId>
+  // /journal?post=<journalId>&focus=comments
+  // /journal?post=<journalId>&image=2&focus=image-comments
+  // /?focus=wakeup
+  const readNotificationTargetFromUrl = () => {
+    if (typeof window === 'undefined') {
+      return {
+        postId: null as string | null,
+        focus: null as string | null,
+        imageIndex: null as number | null,
+      };
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const rawImageIndex = params.get('image');
+    const parsedImageIndex =
+      rawImageIndex !== null && /^\d+$/.test(rawImageIndex)
+        ? Number(rawImageIndex)
+        : null;
+
+    return {
+      postId: params.get('post'),
+      focus: params.get('focus'),
+      imageIndex: parsedImageIndex,
+    };
+  };
+
+  const initialNotificationTarget =
+    readNotificationTargetFromUrl();
+
+  const [
+    notificationTargetJournalId,
+    setNotificationTargetJournalId,
+  ] = useState<string | null>(
+    initialNotificationTarget.postId
+  );
+
+  const [
+    notificationTargetFocus,
+    setNotificationTargetFocus,
+  ] = useState<string | null>(
+    initialNotificationTarget.focus
+  );
+
+  const [
+    notificationTargetImageIndex,
+    setNotificationTargetImageIndex,
+  ] = useState<number | null>(
+    initialNotificationTarget.imageIndex
+  );
+
+  const handledNotificationTargetRef =
+    React.useRef<string>('');
+
   // Journal View Subtab & Location Picker Modal
   const [journalViewTab, setJournalViewTab] = useState<'feed' | 'love_map' | 'places'>('feed');
   const [isJournalMapPickerOpen, setIsJournalMapPickerOpen] = useState(false);
@@ -705,7 +767,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   };
 
   const handleJournalFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files: File[] = e.target.files ? Array.from(e.target.files) : [];
+    const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
     setJournalImageLoading(true);
@@ -1039,6 +1101,216 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     setIsLightboxOpen(true);
   };
 
+  // Keep notification query-state in sync when browser history changes.
+  useEffect(() => {
+    const syncNotificationTargetFromUrl = () => {
+      const next = readNotificationTargetFromUrl();
+
+      handledNotificationTargetRef.current = '';
+      setNotificationTargetJournalId(next.postId);
+      setNotificationTargetFocus(next.focus);
+      setNotificationTargetImageIndex(next.imageIndex);
+    };
+
+    window.addEventListener(
+      'popstate',
+      syncNotificationTargetFromUrl
+    );
+
+    return () =>
+      window.removeEventListener(
+        'popstate',
+        syncNotificationTargetFromUrl
+      );
+  }, []);
+
+  // Open / scroll to the exact Journal targeted by a push notification.
+  useEffect(() => {
+    const journalId = notificationTargetJournalId;
+
+    if (!journalId || journals.length === 0) {
+      return;
+    }
+
+    const targetJournal = journals.find(
+      (journal) => journal.id === journalId
+    );
+
+    if (!targetJournal) {
+      return;
+    }
+
+    const targetKey = [
+      journalId,
+      notificationTargetFocus || '',
+      notificationTargetImageIndex ?? '',
+    ].join(':');
+
+    if (
+      handledNotificationTargetRef.current ===
+      targetKey
+    ) {
+      return;
+    }
+
+    handledNotificationTargetRef.current =
+      targetKey;
+
+    // A notification must always win over temporary Journal filters.
+    setJournalViewTab('feed');
+    setSelectedCompanionFilter(null);
+    setJournalDateFilterMode('all');
+    setJournalSearch('');
+    setJournalSortOrder('newest');
+
+    setActiveTabState('journal');
+    activeTabRef.current = 'journal';
+
+    const safeImageIndex =
+      notificationTargetImageIndex !== null
+        ? Math.max(
+            0,
+            Math.min(
+              notificationTargetImageIndex,
+              Math.max(
+                0,
+                (
+                  targetJournal.images?.length ||
+                  (targetJournal.imageUrl ? 1 : 0)
+                ) - 1
+              )
+            )
+          )
+        : 0;
+
+    let scrollTimer: number | undefined;
+    let clearTargetTimer: number | undefined;
+
+    if (
+      notificationTargetFocus ===
+        'image-comments' ||
+      notificationTargetImageIndex !== null
+    ) {
+      // Image-comment push: open the exact Journal + exact image.
+      window.setTimeout(() => {
+        handleOpenLightbox(
+          targetJournal,
+          safeImageIndex
+        );
+      }, 80);
+    } else {
+      // Normal Journal / Journal-comment push:
+      // DailyJournalFeed receives targetJournalId and expands its capsule.
+      scrollTimer = window.setTimeout(() => {
+        const card = document.getElementById(
+          `journal-card-${journalId}`
+        );
+
+        if (!card) return;
+
+        if (
+          notificationTargetFocus ===
+          'comments'
+        ) {
+          const commentButton =
+            Array.from(
+              card.querySelectorAll('button')
+            ).find((button) =>
+              button.textContent?.includes(
+                'Bình luận & Cập nhật'
+              )
+            );
+
+          (
+            commentButton as
+              | HTMLElement
+              | undefined
+          )?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+          });
+        } else {
+          card.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+          });
+        }
+      }, 700);
+    }
+
+    // DailyJournalFeed only needs the target briefly to auto-expand.
+    // Clearing it prevents a user collapse from being immediately re-opened.
+    clearTargetTimer = window.setTimeout(() => {
+      setNotificationTargetJournalId(null);
+    }, 1400);
+
+    return () => {
+      if (scrollTimer !== undefined) {
+        window.clearTimeout(scrollTimer);
+      }
+
+      if (clearTargetTimer !== undefined) {
+        window.clearTimeout(clearTargetTimer);
+      }
+    };
+  }, [
+    journals,
+    notificationTargetJournalId,
+    notificationTargetFocus,
+    notificationTargetImageIndex,
+  ]);
+
+  // Wake-up notification: open Home and bring the wake-up card into view.
+  useEffect(() => {
+    if (notificationTargetFocus !== 'wakeup') {
+      return;
+    }
+
+    setActiveTabState('home');
+    activeTabRef.current = 'home';
+
+    const timer = window.setTimeout(() => {
+      const wakeLabel = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          'span'
+        )
+      ).find(
+        (element) =>
+          element.textContent?.trim() ===
+          'Ai Dậy Sớm Hơn?'
+      );
+
+      let wakeCard =
+        wakeLabel?.parentElement || null;
+
+      for (
+        let depth = 0;
+        depth < 5 && wakeCard;
+        depth += 1
+      ) {
+        if (
+          wakeCard.classList.contains(
+            'rounded-2xl'
+          ) &&
+          wakeCard.classList.contains(
+            'bg-white'
+          )
+        ) {
+          break;
+        }
+
+        wakeCard = wakeCard.parentElement;
+      }
+
+      wakeCard?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [notificationTargetFocus]);
+
   const handleSetMainImage = async (journalId: string, imageIndex: number) => {
     if (!userProfile.coupleId) return;
     const target = journals.find(j => j.id === journalId);
@@ -1079,14 +1351,15 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       await updateDoc(journalRef, {
         imageComments: [...currentComments, newComment]
       });
-      void sendPartnerNotification({
-        type: 'image_comment',
-        title: `💬 ${userProfile.displayName} vừa bình luận ảnh`,
-        body: newComment.content.slice(0, 180),
-        url: '/journal',
-        imageUrl,
-        tag: `image-comment-${journalId}-${newComment.id}`
-      });
+      void sendPartnerNotification(
+        buildImageCommentNotification({
+          journalId,
+          journalTitle: target.title,
+          imageIndex,
+          actorName: userProfile.displayName,
+          comment: newComment.content,
+        })
+      );
     } catch (err) {
       console.error('Lỗi thêm bình luận cho ảnh:', err);
     }
@@ -1154,13 +1427,12 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         statusMessage: statusInput.trim()
       });
       if (statusInput.trim()) {
-        void sendPartnerNotification({
-          type: 'status_note',
-          title: `💌 ${userProfile.displayName} vừa đổi lời nhắn`,
-          body: statusInput.trim().slice(0, 180),
-          url: '/',
-          tag: `status-${Date.now()}`
-        });
+        void sendPartnerNotification(
+          buildStatusNotification({
+            actorName: userProfile.displayName,
+            status: statusInput.trim(),
+          })
+        );
       }
       setIsEditingNote(false);
     } catch (err) {
@@ -1242,14 +1514,18 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       }
 
       const createdJournalRef = await addDoc(journalsRef, docData);
-      void sendPartnerNotification({
-        type: 'journal_new',
-        title: `📸 ${userProfile.displayName} vừa thêm nhật ký mới`,
-        body: journalTitle.trim().slice(0, 180),
-        url: '/journal',
-        imageUrl: journalImages.length > 0 ? journalImages[journalMainImageIndex] || journalImages[0] : undefined,
-        tag: `journal-${createdJournalRef.id}`
-      });
+
+      const createdJournal = {
+        id: createdJournalRef.id,
+        ...docData,
+      } as JournalEntry;
+
+      void sendPartnerNotification(
+        buildJournalCreatedNotification({
+          journal: createdJournal,
+          actorName: userProfile.displayName,
+        })
+      );
       setJournalTitle('');
       setJournalContent('');
       setJournalLocation('');
@@ -1299,13 +1575,14 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       await updateDoc(journalRef, {
         comments: [...currentComments, newComment]
       });
-      void sendPartnerNotification({
-        type: 'journal_comment',
-        title: `💬 ${userProfile.displayName} vừa bình luận`,
-        body: newComment.content.slice(0, 180),
-        url: '/journal',
-        tag: `journal-comment-${journalId}-${newComment.id}`
-      });
+      void sendPartnerNotification(
+        buildJournalCommentNotification({
+          journalId,
+          journalTitle: target?.title,
+          actorName: userProfile.displayName,
+          comment: newComment.content,
+        })
+      );
       setCommentInputs(prev => ({ ...prev, [journalId]: '' }));
     } catch (err) {
       console.error('Lỗi thêm bình luận:', err);
@@ -1511,7 +1788,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   };
 
   const handleEditJournalFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files: File[] = e.target.files ? Array.from(e.target.files) : [];
+    const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
     setEditImageLoading(true);
@@ -1776,6 +2053,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             coupleData={coupleData}
             journals={journals}
             companions={companions}
+            targetJournalId={notificationTargetJournalId}
             journalViewTab={journalViewTab}
             setJournalViewTab={setJournalViewTab}
             showAddJournal={showAddJournal}

@@ -19,6 +19,7 @@ export interface JournalTabProps {
   coupleData: CoupleData | null;
   journals: JournalEntry[];
   companions: Companion[];
+  targetJournalId?: string | null;
   journalViewTab: 'feed' | 'love_map' | 'places';
   setJournalViewTab: (tab: 'feed' | 'love_map' | 'places') => void;
   showAddJournal: boolean;
@@ -97,6 +98,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
   coupleData,
   journals,
   companions,
+  targetJournalId,
   journalViewTab,
   setJournalViewTab,
   showAddJournal,
@@ -411,6 +413,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
             <DailyJournalFeed
               journals={filteredJournals}
               renderJournal={renderJournalItem}
+              targetJournalId={targetJournalId}
             />
           )}
         </>

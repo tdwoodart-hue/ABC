@@ -16,6 +16,7 @@ import { isVideoUrl } from '../../utils/mediaHelper';
 interface DailyJournalFeedProps {
   journals: JournalEntry[];
   renderJournal: (journal: JournalEntry) => React.ReactNode;
+  targetJournalId?: string | null;
 }
 
 type DayGroup = {
@@ -111,11 +112,13 @@ const groupJournalsByDay = (
 interface DailyCapsuleProps {
   group: DayGroup;
   renderJournal: (journal: JournalEntry) => React.ReactNode;
+  targetJournalId?: string | null;
 }
 
 const DailyCapsule: React.FC<DailyCapsuleProps> = ({
   group,
   renderJournal,
+  targetJournalId,
 }) => {
   const [expanded, setExpanded] = React.useState(false);
   const capsuleRef = React.useRef<HTMLDivElement>(null);
@@ -152,6 +155,31 @@ const DailyCapsule: React.FC<DailyCapsuleProps> = ({
       });
     }, 50);
   };
+
+  React.useEffect(() => {
+    if (!targetJournalId) return;
+
+    const containsTarget = group.items.some(
+      (journal) => journal.id === targetJournalId
+    );
+
+    if (!containsTarget) return;
+
+    if (!expanded) {
+      setExpanded(true);
+    }
+
+    const scrollTimer = window.setTimeout(() => {
+      document
+        .getElementById(`journal-card-${targetJournalId}`)
+        ?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        });
+    }, expanded ? 60 : 140);
+
+    return () => window.clearTimeout(scrollTimer);
+  }, [targetJournalId, group.items, expanded]);
 
   const stats = React.useMemo(() => {
     let mediaCount = 0;
@@ -436,6 +464,7 @@ export const DailyJournalFeed: React.FC<
 > = ({
   journals,
   renderJournal,
+  targetJournalId,
 }) => {
   const groups = React.useMemo(
     () => groupJournalsByDay(journals),
@@ -456,6 +485,7 @@ export const DailyJournalFeed: React.FC<
             key={group.dateKey}
             group={group}
             renderJournal={renderJournal}
+            targetJournalId={targetJournalId}
           />
         )
       )}

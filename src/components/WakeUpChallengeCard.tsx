@@ -13,6 +13,8 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { formatDateShortVN } from '../utils/formatDate';
+import { sendPartnerNotification } from '../utils/notifications';
+import { buildWakeUpNotification } from '../utils/notificationEvents';
 
 interface WakeUpChallengeCardProps {
   userProfile: UserProfile;
@@ -303,6 +305,21 @@ export const WakeUpChallengeCard: React.FC<
 
       if (result === 'winner') {
         setShowCelebration(true);
+
+        const notificationTime =
+          now.toLocaleTimeString('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+
+        void sendPartnerNotification(
+          buildWakeUpNotification({
+            winnerName: myName,
+            winnerTime: notificationTime,
+            loserName: targetLoserName,
+            fineAmount: 5000,
+          })
+        );
 
         window.setTimeout(
           () =>
