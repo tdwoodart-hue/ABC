@@ -660,25 +660,14 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
       {/* 1. Header Toolbar */}
       <div className="p-3.5 sm:p-4 bg-white/95 backdrop-blur-md border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 z-10 shrink-0">
 
-        {/* Left: Title & Stats */}
+        {/* Left: Title */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center font-bold shadow-2xs">
+          <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center font-bold shadow-2xs shrink-0">
             <Compass className="w-5 h-5" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-slate-900">
-                Bản Đồ Dấu Chân Tình Yêu
-              </h2>
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-600 border border-rose-100 flex items-center gap-1">
-                <Heart className="w-3 h-3 fill-rose-500 text-rose-500" />
-                {unifiedFootprints.length} dấu chân GPS
-              </span>
-            </div>
-            <p className="text-xs text-slate-500">
-              Định vị GPS độ chính xác cao ghi dấu mọi khoảnh khắc bên nhau
-            </p>
-          </div>
+          <h2 className="text-base font-bold text-slate-900">
+            Bản Đồ Dấu Chân Tình Yêu
+          </h2>
         </div>
 
         {/* Right: Search, Filter & Add Button */}
