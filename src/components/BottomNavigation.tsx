@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import type { TabType } from './LightHomeScreen';
+import { TabType } from './LightHomeScreen';
 import { MoreMenuSheet } from './MoreMenuSheet';
-import { ShakeRandomMemory } from './ShakeRandomMemory';
 import {
   Home,
   BookOpen,
@@ -118,9 +117,6 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
           </button>
         </div>
       </nav>
-
-      {/* Hidden global Easter egg: shake phone -> random Journal memory */}
-      <ShakeRandomMemory onNavigate={onNavigate} />
 
       {/* More Options Bottom Sheet */}
       <MoreMenuSheet
