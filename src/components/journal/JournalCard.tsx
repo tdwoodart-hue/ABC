@@ -250,9 +250,11 @@ export const JournalCard: React.FC<JournalCardProps> = ({
 
       {/* Body */}
       <div className="space-y-3 p-4 sm:p-5">
-        <h3 className="text-base font-bold leading-snug tracking-tight text-slate-900 sm:text-lg">
-          {item.title}
-        </h3>
+        {item.title && item.title.trim() && (
+          <h3 className="text-base font-bold leading-snug tracking-tight text-slate-900 sm:text-lg">
+            {item.title}
+          </h3>
+        )}
 
         {item.taggedPeople && item.taggedPeople.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5">
