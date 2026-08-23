@@ -59,6 +59,8 @@ export interface JournalComment {
   authorName: string;
   authorUid: string;
   content: string;
+  voiceMemoUrl?: string; // URL file ghi âm giọng nói bình luận
+  voiceMemoDuration?: number; // Thời lượng tính bằng giây
   createdAt: string;
 }
 
@@ -111,6 +113,8 @@ export interface ImageComment {
   authorName: string;
   authorUid: string;
   content: string;
+  voiceMemoUrl?: string;
+  voiceMemoDuration?: number;
   createdAt: string;
 }
 
@@ -162,6 +166,10 @@ export interface JournalEntry {
   taggedPeople?: TaggedPerson[]; // Danh sách người hoặc thú cưng (con mèo, bạn bè...) xuất hiện
   musicUrl?: string; // Link bài hát gắn kèm (YouTube, Spotify, Soundcloud, Zing, MP3...)
   musicTitle?: string; // Tên bài hát hiển thị
+  voiceMemoUrl?: string; // URL file ghi âm giọng nói / lời thì thầm
+  voiceMemoDuration?: number; // Thời lượng ghi âm tính bằng giây (VD: 25)
+  voiceMemoTitle?: string; // Tiêu đề hoặc ghi chú cho đoạn ghi âm (VD: Lời chúc ngủ ngon, Tiếng sóng biển...)
+  voiceMemoRecordedByName?: string; // Người thu âm
   authorName: string;
   authorUid: string;
   createdAt: string;

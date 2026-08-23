@@ -373,6 +373,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const [journalTaggedPeople, setJournalTaggedPeople] = useState<TaggedPerson[]>([]);
   const [journalMusicUrl, setJournalMusicUrl] = useState('');
   const [journalMusicTitle, setJournalMusicTitle] = useState('');
+  const [journalVoiceMemoUrl, setJournalVoiceMemoUrl] = useState('');
+  const [journalVoiceMemoDuration, setJournalVoiceMemoDuration] = useState<number>(0);
+  const [journalVoiceMemoTitle, setJournalVoiceMemoTitle] = useState('');
+  const [journalVoiceMemoRecordedByName, setJournalVoiceMemoRecordedByName] = useState('');
   const [newExpenseTitle, setNewExpenseTitle] = useState('');
   const [newExpenseAmount, setNewExpenseAmount] = useState('');
   const [addingJournal, setAddingJournal] = useState(false);
@@ -518,6 +522,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const [editTaggedPeople, setEditTaggedPeople] = useState<TaggedPerson[]>([]);
   const [editMusicUrl, setEditMusicUrl] = useState('');
   const [editMusicTitle, setEditMusicTitle] = useState('');
+  const [editVoiceMemoUrl, setEditVoiceMemoUrl] = useState('');
+  const [editVoiceMemoDuration, setEditVoiceMemoDuration] = useState<number>(0);
+  const [editVoiceMemoTitle, setEditVoiceMemoTitle] = useState('');
+  const [editVoiceMemoRecordedByName, setEditVoiceMemoRecordedByName] = useState('');
   const [editNewExpenseTitle, setEditNewExpenseTitle] = useState('');
   const [editNewExpenseAmount, setEditNewExpenseAmount] = useState('');
   const [editImageLoading, setEditImageLoading] = useState(false);
@@ -889,6 +897,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       setMemoryImageLoading(false);
     }
   };
+
 
   // Camera V2 recorded video -> existing Firebase Storage /videos/ flow.
   // uploadMediaFile() also creates/uploads the video thumbnail when possible.
@@ -1487,8 +1496,15 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     }
   };
 
-  const handleAddImageComment = async (journalId: string, imageIndex: number, imageUrl: string, content: string) => {
-    if (!userProfile.coupleId || !content.trim()) return;
+  const handleAddImageComment = async (
+    journalId: string,
+    imageIndex: number,
+    imageUrl: string,
+    content: string,
+    voiceMemoUrl?: string,
+    voiceMemoDuration?: number
+  ) => {
+    if (!userProfile.coupleId || (!content.trim() && !voiceMemoUrl)) return;
     const target = journals.find(j => j.id === journalId);
     if (!target) return;
 
@@ -1501,6 +1517,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       content: content.trim(),
       createdAt: new Date().toISOString()
     };
+    if (voiceMemoUrl) {
+      newComment.voiceMemoUrl = voiceMemoUrl;
+      newComment.voiceMemoDuration = voiceMemoDuration;
+    }
 
     try {
       const currentComments = target.imageComments || [];
@@ -1514,7 +1534,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
           journalTitle: target.title,
           imageIndex,
           actorName: userProfile.displayName,
-          comment: newComment.content,
+          comment: voiceMemoUrl ? '🎙️ [Lời nhắn thoại cho ảnh]' : newComment.content,
         })
       );
     } catch (err) {
@@ -1618,7 +1638,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
 
   const handleAddJournal = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userProfile.coupleId) return;
+    if (!userProfile.coupleId || !journalTitle.trim()) return;
 
     setAddingJournal(true);
     try {
@@ -1669,6 +1689,20 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       if (journalMusicTitle.trim()) {
         docData.musicTitle = journalMusicTitle.trim();
       }
+      if (journalVoiceMemoUrl.trim()) {
+        docData.voiceMemoUrl = journalVoiceMemoUrl.trim();
+        if (journalVoiceMemoDuration) {
+          docData.voiceMemoDuration = journalVoiceMemoDuration;
+        }
+        if (journalVoiceMemoTitle.trim()) {
+          docData.voiceMemoTitle = journalVoiceMemoTitle.trim();
+        }
+        if (journalVoiceMemoRecordedByName.trim()) {
+          docData.voiceMemoRecordedByName = journalVoiceMemoRecordedByName.trim();
+        } else if (userProfile.displayName) {
+          docData.voiceMemoRecordedByName = userProfile.displayName;
+        }
+      }
 
       const createdJournalRef = await addDoc(journalsRef, docData);
 
@@ -1699,6 +1733,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       setJournalTaggedPeople([]);
       setJournalMusicUrl('');
       setJournalMusicTitle('');
+      setJournalVoiceMemoUrl('');
+      setJournalVoiceMemoDuration(0);
+      setJournalVoiceMemoTitle('');
+      setJournalVoiceMemoRecordedByName('');
       setNewExpenseTitle('');
       setNewExpenseAmount('');
       setShowAddJournal(false);
@@ -1743,6 +1781,43 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       setCommentInputs(prev => ({ ...prev, [journalId]: '' }));
     } catch (err) {
       console.error('Lỗi thêm bình luận:', err);
+    }
+  };
+
+  const handleAddVoiceComment = async (
+    journalId: string,
+    voiceData: { url: string; duration: number; textNote?: string }
+  ) => {
+    if (!userProfile.coupleId || !voiceData.url) return;
+
+    const newComment: JournalComment = {
+      id: 'voice_' + Date.now().toString(),
+      authorName: userProfile.displayName,
+      authorUid: userProfile.uid,
+      content: voiceData.textNote || '🎙️ [Lời nhắn thoại]',
+      voiceMemoUrl: voiceData.url,
+      voiceMemoDuration: voiceData.duration,
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      const journalRef = doc(db, 'couples', userProfile.coupleId, 'journals', journalId);
+      const target = journals.find(j => j.id === journalId);
+      const currentComments = target?.comments || [];
+      await updateDoc(journalRef, {
+        comments: [...currentComments, newComment]
+      });
+      void sendPartnerNotification(
+        buildJournalCommentNotification({
+          journalId,
+          journalTitle: target?.title,
+          actorName: userProfile.displayName,
+          comment: '🎙️ Đã gửi một lời nhắn thoại (' + Math.round(voiceData.duration) + 's)',
+        })
+      );
+    } catch (err) {
+      console.error('Lỗi thêm bình luận thoại:', err);
+      alert('Không thể lưu bình luận thoại: Vui lòng thử lại.');
     }
   };
 
@@ -1917,6 +1992,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     setEditTaggedPeople(item.taggedPeople ? [...item.taggedPeople] : []);
     setEditMusicUrl(item.musicUrl || '');
     setEditMusicTitle(item.musicTitle || '');
+    setEditVoiceMemoUrl(item.voiceMemoUrl || '');
+    setEditVoiceMemoDuration(item.voiceMemoDuration || 0);
+    setEditVoiceMemoTitle(item.voiceMemoTitle || '');
+    setEditVoiceMemoRecordedByName(item.voiceMemoRecordedByName || '');
     setEditNewExpenseTitle('');
     setEditNewExpenseAmount('');
   };
@@ -1940,6 +2019,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     setEditTaggedPeople([]);
     setEditMusicUrl('');
     setEditMusicTitle('');
+    setEditVoiceMemoUrl('');
+    setEditVoiceMemoDuration(0);
+    setEditVoiceMemoTitle('');
+    setEditVoiceMemoRecordedByName('');
     setEditNewExpenseTitle('');
     setEditNewExpenseAmount('');
   };
@@ -2002,7 +2085,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
 
   const handleSaveEditJournal = async (journalId: string, e: React.FormEvent) => {
     e.preventDefault();
-    if (!userProfile.coupleId) return;
+    if (!userProfile.coupleId || !editTitle.trim()) return;
 
     setSavingEdit(true);
     try {
@@ -2030,6 +2113,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         taggedPeople: editTaggedPeople.length > 0 ? editTaggedPeople : deleteField(),
         musicUrl: editMusicUrl.trim() ? editMusicUrl.trim() : deleteField(),
         musicTitle: editMusicTitle.trim() ? editMusicTitle.trim() : deleteField(),
+        voiceMemoUrl: editVoiceMemoUrl.trim() ? editVoiceMemoUrl.trim() : deleteField(),
+        voiceMemoDuration: editVoiceMemoUrl.trim() && editVoiceMemoDuration ? editVoiceMemoDuration : deleteField(),
+        voiceMemoTitle: editVoiceMemoUrl.trim() && editVoiceMemoTitle.trim() ? editVoiceMemoTitle.trim() : deleteField(),
+        voiceMemoRecordedByName: editVoiceMemoUrl.trim() && editVoiceMemoRecordedByName.trim() ? editVoiceMemoRecordedByName.trim() : deleteField(),
         updatedAt: new Date().toISOString()
       };
       await updateDoc(journalRef, updates);
@@ -2236,6 +2323,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
               taggedPeople: journalTaggedPeople,
               musicUrl: journalMusicUrl,
               musicTitle: journalMusicTitle,
+              voiceMemoUrl: journalVoiceMemoUrl,
+              voiceMemoDuration: journalVoiceMemoDuration,
+              voiceMemoTitle: journalVoiceMemoTitle,
+              voiceMemoRecordedByName: journalVoiceMemoRecordedByName,
             }}
             onCreateFormChange={(updated) => {
               if (updated.title !== undefined) setJournalTitle(updated.title);
@@ -2255,6 +2346,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
               if (updated.taggedPeople !== undefined) setJournalTaggedPeople(updated.taggedPeople);
               if (updated.musicUrl !== undefined) setJournalMusicUrl(updated.musicUrl);
               if (updated.musicTitle !== undefined) setJournalMusicTitle(updated.musicTitle);
+              if (updated.voiceMemoUrl !== undefined) setJournalVoiceMemoUrl(updated.voiceMemoUrl);
+              if (updated.voiceMemoDuration !== undefined) setJournalVoiceMemoDuration(updated.voiceMemoDuration);
+              if (updated.voiceMemoTitle !== undefined) setJournalVoiceMemoTitle(updated.voiceMemoTitle);
+              if (updated.voiceMemoRecordedByName !== undefined) setJournalVoiceMemoRecordedByName(updated.voiceMemoRecordedByName);
             }}
             onAddJournalSubmit={handleAddJournal}
             editingJournalId={editingJournalId}
@@ -2278,6 +2373,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
               taggedPeople: editTaggedPeople,
               musicUrl: editMusicUrl,
               musicTitle: editMusicTitle,
+              voiceMemoUrl: editVoiceMemoUrl,
+              voiceMemoDuration: editVoiceMemoDuration,
+              voiceMemoTitle: editVoiceMemoTitle,
+              voiceMemoRecordedByName: editVoiceMemoRecordedByName,
             }}
             onEditFormChange={(updated) => {
               if (updated.title !== undefined) setEditTitle(updated.title);
@@ -2297,6 +2396,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
               if (updated.taggedPeople !== undefined) setEditTaggedPeople(updated.taggedPeople);
               if (updated.musicUrl !== undefined) setEditMusicUrl(updated.musicUrl);
               if (updated.musicTitle !== undefined) setEditMusicTitle(updated.musicTitle);
+              if (updated.voiceMemoUrl !== undefined) setEditVoiceMemoUrl(updated.voiceMemoUrl);
+              if (updated.voiceMemoDuration !== undefined) setEditVoiceMemoDuration(updated.voiceMemoDuration);
+              if (updated.voiceMemoTitle !== undefined) setEditVoiceMemoTitle(updated.voiceMemoTitle);
+              if (updated.voiceMemoRecordedByName !== undefined) setEditVoiceMemoRecordedByName(updated.voiceMemoRecordedByName);
             }}
             onSaveEditJournalSubmit={handleSaveEditJournal}
             onCancelEditJournal={handleCancelEditJournal}
@@ -2326,6 +2429,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             commentInputs={commentInputs}
             onCommentInputChange={(jId, val) => setCommentInputs(prev => ({ ...prev, [jId]: val }))}
             onAddComment={handleAddComment}
+            onAddVoiceComment={handleAddVoiceComment}
             onOpenCompanionManager={() => setIsCompanionManagerOpen(true)}
             onOpenCreateMapPicker={() => {
               setJournalMapTarget('create');

@@ -241,7 +241,7 @@ function getFirebaseServices() {
 
 function createObjectPath(
   userId: string,
-  folder: 'images' | 'videos' | 'thumbnails',
+  folder: 'images' | 'videos' | 'thumbnails' | 'audio',
   filename: string
 ): string {
   const now = new Date();
@@ -319,7 +319,8 @@ function uploadBlobResumable(
     mediaType:
       | 'image'
       | 'video'
-      | 'thumbnail';
+      | 'thumbnail'
+      | 'audio';
   },
   onProgress?: (
     percent: number
@@ -1346,6 +1347,84 @@ export async function uploadDataUrlToFirebaseStorage(
       `Không thể upload ảnh Camera lên Firebase Storage của shop. ${explainStorageError(
         error
       )}`
+    );
+  }
+}
+
+/**
+ * Upload an audio Blob (from Voice Memo recorder) to Firebase Storage under couple-app/{userId}/{yearMonth}/audio/
+ */
+export async function uploadAudioBlob(
+  blob: Blob,
+  filename = `voice-memo-${Date.now()}.webm`,
+  onProgress?: (percent: number) => void
+): Promise<string> {
+  const { user } = getFirebaseServices();
+
+  const safeFilename =
+    sanitizeText(filename) || `voice-memo-${Date.now()}.webm`;
+
+  const objectPath = createObjectPath(
+    user.uid,
+    'audio',
+    safeFilename
+  );
+
+  try {
+    return await uploadBlobResumable(
+      blob,
+      objectPath,
+      {
+        contentType: blob.type || 'audio/webm',
+        originalName: safeFilename,
+        uploadedBy: user.uid,
+        mediaType: 'audio',
+      },
+      onProgress
+    );
+  } catch (error: any) {
+    throw new Error(
+      `Không thể tải đoạn ghi âm lên Firebase Storage: ${explainStorageError(error)}`
+    );
+  }
+}
+
+/**
+ * Upload an audio File (selected from user's device) to Firebase Storage.
+ */
+export async function uploadAudioFile(
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<{ url: string; originalName: string }> {
+  if (!file) {
+    throw new Error('Không tìm thấy file ghi âm.');
+  }
+
+  const { user } = getFirebaseServices();
+
+  const safeFilename = sanitizeFilename(file, false);
+  const objectPath = createObjectPath(user.uid, 'audio', safeFilename);
+
+  try {
+    const url = await uploadBlobResumable(
+      file,
+      objectPath,
+      {
+        contentType: file.type || 'audio/mpeg',
+        originalName: file.name || safeFilename,
+        uploadedBy: user.uid,
+        mediaType: 'audio',
+      },
+      onProgress
+    );
+
+    return {
+      url,
+      originalName: file.name,
+    };
+  } catch (error: any) {
+    throw new Error(
+      `Không thể tải file âm thanh lên: ${explainStorageError(error)}`
     );
   }
 }

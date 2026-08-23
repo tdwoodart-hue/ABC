@@ -82,6 +82,7 @@ export interface JournalTabProps {
   commentInputs: Record<string, string>;
   onCommentInputChange: (journalId: string, value: string) => void;
   onAddComment: (journalId: string, e: React.FormEvent) => void;
+  onAddVoiceComment?: (journalId: string, voiceData: { url: string; duration: number; textNote?: string }) => Promise<void>;
   onOpenCompanionManager: () => void;
   onOpenCreateMapPicker: () => void;
   onAutoDetectCreateGPS: () => void;
@@ -142,6 +143,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
   commentInputs,
   onCommentInputChange,
   onAddComment,
+  onAddVoiceComment,
   onOpenCompanionManager,
   onOpenCreateMapPicker,
   onAutoDetectCreateGPS,
@@ -246,6 +248,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
           onCancelDeleteRequest={onCancelDeleteRequest}
           onCommentInputChange={onCommentInputChange}
           onAddComment={onAddComment}
+          onAddVoiceComment={onAddVoiceComment}
         />
       );
     },
@@ -277,6 +280,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
       onCancelDeleteRequest,
       onCommentInputChange,
       onAddComment,
+      onAddVoiceComment,
     ]
   );
 

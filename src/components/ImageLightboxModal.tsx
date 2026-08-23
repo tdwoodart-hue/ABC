@@ -8,6 +8,7 @@ import {
   Heart,
   Image as ImageIcon,
   MessageSquare,
+  Mic,
   Play,
   Reply,
   Send,
@@ -30,6 +31,8 @@ import {
 } from '../utils/formatDate';
 
 import { isVideoUrl } from '../utils/mediaHelper';
+import { CommentVoiceRecorder } from './journal/CommentVoiceRecorder';
+import { JournalVoiceMemoPlayer } from './journal/JournalVoiceMemoPlayer';
 
 const SHOW_VIEWER_EXTRAS = false;
 
@@ -49,7 +52,9 @@ interface ImageLightboxModalProps {
     journalId: string,
     imageIndex: number,
     imageUrl: string,
-    content: string
+    content: string,
+    voiceMemoUrl?: string,
+    voiceMemoDuration?: number
   ) => Promise<void>;
   onDeleteImageComment: (
     journalId: string,
@@ -82,6 +87,9 @@ export const ImageLightboxModal: React.FC<
 
   const [commentText, setCommentText] =
     useState('');
+
+  const [isVoiceRecording, setIsVoiceRecording] =
+    useState(false);
 
   const [
     submittingComment,
@@ -412,6 +420,28 @@ export const ImageLightboxModal: React.FC<
         setSubmittingComment(false);
       }
     };
+
+  const handleVoiceSend = async (voiceData: {
+    url: string;
+    duration: number;
+    textNote?: string;
+  }) => {
+    try {
+      await onAddImageComment(
+        journal.id,
+        currentIndex,
+        currentImageUrl,
+        voiceData.textNote || '🎙️ [Lời nhắn thoại cho ảnh]',
+        voiceData.url,
+        voiceData.duration
+      );
+      setIsVoiceRecording(false);
+      showToast('Đã gửi lời nhắn thoại cho bức ảnh 💕');
+    } catch (error) {
+      console.error('Lỗi gửi voice comment ảnh:', error);
+      alert('Không thể gửi voice comment: Vui lòng thử lại.');
+    }
+  };
 
   const isUser1 =
     coupleData?.user1Id ===
@@ -911,6 +941,13 @@ export const ImageLightboxModal: React.FC<
                               }
                             </span>
 
+                            {comment.voiceMemoUrl && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full bg-rose-100/80 px-1.5 py-0.5 text-[9px] font-bold text-rose-600">
+                                <Mic className="h-2.5 w-2.5" />
+                                <span>Voice</span>
+                              </span>
+                            )}
+
                             <span className="text-[11px] font-medium text-slate-400">
                               {formatDateTimeVN(
                                 comment.createdAt
@@ -918,11 +955,23 @@ export const ImageLightboxModal: React.FC<
                             </span>
                           </div>
 
-                          <p className="mt-1.5 whitespace-pre-line break-words text-sm leading-relaxed text-slate-700">
-                            {
-                              comment.content
-                            }
-                          </p>
+                          {comment.voiceMemoUrl && (
+                            <div className="mt-1.5 max-w-sm">
+                              <JournalVoiceMemoPlayer
+                                voiceMemoUrl={comment.voiceMemoUrl}
+                                duration={comment.voiceMemoDuration}
+                                compact={true}
+                              />
+                            </div>
+                          )}
+
+                          {comment.content && (
+                            <p className="mt-1.5 whitespace-pre-line break-words text-sm leading-relaxed text-slate-700">
+                              {
+                                comment.content
+                              }
+                            </p>
+                          )}
                         </div>
 
                         <button
@@ -954,47 +1003,66 @@ export const ImageLightboxModal: React.FC<
                 'max(env(safe-area-inset-bottom, 0px), 8px)',
             }}
           >
-            <form
-              onSubmit={
-                handleSendComment
-              }
-              className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-lg sm:rounded-3xl"
-            >
-              <input
-                type="text"
-                value={commentText}
-                onChange={(
-                  event
-                ) =>
-                  setCommentText(
-                    event.target
-                      .value
-                  )
+            {isVoiceRecording ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-lg sm:rounded-3xl">
+                <CommentVoiceRecorder
+                  onVoiceCommentSend={handleVoiceSend}
+                  onCancel={() => setIsVoiceRecording(false)}
+                />
+              </div>
+            ) : (
+              <form
+                onSubmit={
+                  handleSendComment
                 }
-                placeholder="Viết bình luận cho bức ảnh này..."
-                className="min-w-0 flex-1 bg-transparent px-2.5 py-2 text-base text-slate-800 outline-none placeholder:text-slate-400 sm:text-sm"
-              />
-
-              <button
-                type="button"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
-                aria-label="Thêm ảnh"
+                className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-lg sm:rounded-3xl"
               >
-                <ImageIcon className="h-5 w-5" />
-              </button>
+                <input
+                  type="text"
+                  value={commentText}
+                  onChange={(
+                    event
+                  ) =>
+                    setCommentText(
+                      event.target
+                        .value
+                    )
+                  }
+                  placeholder="Viết bình luận cho bức ảnh này..."
+                  className="min-w-0 flex-1 bg-transparent px-2.5 py-2 text-base text-slate-800 outline-none placeholder:text-slate-400 sm:text-sm"
+                />
 
-              <button
-                type="submit"
-                disabled={
-                  !commentText.trim() ||
-                  submittingComment
-                }
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-500 text-white shadow-md shadow-rose-500/20 transition hover:bg-rose-600 active:scale-95 disabled:pointer-events-none disabled:opacity-40"
-                aria-label="Gửi bình luận"
-              >
-                <Send className="h-4.5 w-4.5" />
-              </button>
-            </form>
+                <button
+                  type="button"
+                  onClick={() => setIsVoiceRecording(true)}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-rose-500 transition hover:bg-rose-50 hover:text-rose-600"
+                  aria-label="Ghi âm lời nhắn"
+                  title="Ghi âm bình luận bằng giọng nói"
+                >
+                  <Mic className="h-5 w-5" />
+                </button>
+
+                <button
+                  type="button"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
+                  aria-label="Thêm ảnh"
+                >
+                  <ImageIcon className="h-5 w-5" />
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={
+                    !commentText.trim() ||
+                    submittingComment
+                  }
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-500 text-white shadow-md shadow-rose-500/20 transition hover:bg-rose-600 active:scale-95 disabled:pointer-events-none disabled:opacity-40"
+                  aria-label="Gửi bình luận"
+                >
+                  <Send className="h-4.5 w-4.5" />
+                </button>
+              </form>
+            )}
           </div>
         </section>
       </div>

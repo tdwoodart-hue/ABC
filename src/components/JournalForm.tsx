@@ -9,6 +9,7 @@ import {
 import { CameraLocationMetadata } from './CameraCaptureModal';
 import { TagPeopleSelector } from './TagPeopleSelector';
 import { JournalMusicPlayer } from './JournalMusicPlayer';
+import { VoiceMemoRecorder } from './journal/VoiceMemoRecorder';
 import { isVideoUrl } from '../utils/mediaHelper';
 import {
   Sparkles,
@@ -23,6 +24,7 @@ import {
   Star,
   X,
   Music,
+  Mic,
   Receipt,
   Edit3,
   Users,
@@ -50,6 +52,10 @@ export interface JournalFormData {
   taggedPeople: TaggedPerson[];
   musicUrl: string;
   musicTitle: string;
+  voiceMemoUrl?: string;
+  voiceMemoDuration?: number;
+  voiceMemoTitle?: string;
+  voiceMemoRecordedByName?: string;
 }
 
 interface JournalFormProps {
@@ -229,8 +235,8 @@ export const JournalForm: React.FC<JournalFormProps> = ({
               : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60'
           }`}
         >
-          <Music className="w-3.5 h-3.5" />
-          <span>4. Nhạc & Chi tiêu</span>
+          <Mic className="w-3.5 h-3.5" />
+          <span>4. Lời thì thầm & Nhạc {formData.voiceMemoUrl ? '🎙️' : ''}</span>
         </button>
       </div>
 
@@ -279,10 +285,20 @@ export const JournalForm: React.FC<JournalFormProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Dòng tâm sự / Cảm xúc
-              <span className="text-slate-400 font-normal ml-1">(Không bắt buộc)</span>
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-semibold text-slate-700">
+                Dòng tâm sự / Cảm xúc
+                <span className="text-slate-400 font-normal ml-1">(Không bắt buộc)</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setActiveSection('music_expense')}
+                className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-lg border border-rose-200/60 transition"
+              >
+                <Mic className="w-3 h-3 text-rose-500" />
+                <span>{formData.voiceMemoUrl ? 'Đã có ghi âm 🎙️' : '+ Ghi âm giọng nói 🎙️'}</span>
+              </button>
+            </div>
             <textarea
               rows={4}
               disabled={!isAuthor && mode === 'edit'}
@@ -498,9 +514,34 @@ export const JournalForm: React.FC<JournalFormProps> = ({
         </div>
       )}
 
-      {/* SECTION 4: NHẠC & CHI TIÊU */}
+      {/* SECTION 4: LỜI THÌ THẦM, NHẠC & CHI TIÊU */}
       {activeSection === 'music_expense' && (
         <div className="space-y-4 animate-in fade-in duration-150">
+          {/* Voice Memo Recorder */}
+          <VoiceMemoRecorder
+            currentVoiceUrl={formData.voiceMemoUrl}
+            currentVoiceDuration={formData.voiceMemoDuration}
+            currentVoiceTitle={formData.voiceMemoTitle}
+            recordedByName={formData.voiceMemoRecordedByName || userProfile.displayName}
+            onVoiceMemoSaved={(data) => {
+              onFormChange({
+                voiceMemoUrl: data.url,
+                voiceMemoDuration: data.duration,
+                voiceMemoTitle: data.title,
+                voiceMemoRecordedByName: data.recordedByName || userProfile.displayName,
+              });
+            }}
+            onVoiceMemoRemoved={() => {
+              onFormChange({
+                voiceMemoUrl: '',
+                voiceMemoDuration: 0,
+                voiceMemoTitle: '',
+                voiceMemoRecordedByName: '',
+              });
+            }}
+            disabled={!isAuthor && mode === 'edit'}
+          />
+
           {/* Music Attachment */}
           <div className="p-4 bg-rose-50/40 border border-rose-200/60 rounded-2xl space-y-2.5">
             <div className="flex items-center justify-between">

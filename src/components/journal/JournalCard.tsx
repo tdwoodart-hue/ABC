@@ -2,6 +2,7 @@ import React from 'react';
 import { JournalEntry, UserProfile, CoupleData } from '../../types';
 import { formatDateShortVN } from '../../utils/formatDate';
 import { JournalMusicPlayer } from '../JournalMusicPlayer';
+import { JournalVoiceMemoPlayer } from './JournalVoiceMemoPlayer';
 import { JournalMediaGallery } from './JournalMediaGallery';
 import { JournalComments } from './JournalComments';
 import {
@@ -32,6 +33,7 @@ export interface JournalCardProps {
   onCancelDeleteRequest: (journalId: string) => void;
   onCommentInputChange: (journalId: string, value: string) => void;
   onAddComment: (journalId: string, e: React.FormEvent) => void;
+  onAddVoiceComment?: (journalId: string, voiceData: { url: string; duration: number; textNote?: string }) => Promise<void>;
   singlePostView?: boolean;
 }
 
@@ -50,6 +52,7 @@ export const JournalCard: React.FC<JournalCardProps> = ({
   onCancelDeleteRequest,
   onCommentInputChange,
   onAddComment,
+  onAddVoiceComment,
   singlePostView = false,
 }) => {
   const isU1 =
@@ -330,6 +333,17 @@ export const JournalCard: React.FC<JournalCardProps> = ({
           </div>
         )}
 
+        {item.voiceMemoUrl && (
+          <div className="pt-0.5">
+            <JournalVoiceMemoPlayer
+              voiceMemoUrl={item.voiceMemoUrl}
+              duration={item.voiceMemoDuration}
+              title={item.voiceMemoTitle}
+              recordedByName={item.voiceMemoRecordedByName}
+            />
+          </div>
+        )}
+
         <JournalMediaGallery
           item={item}
           mediaList={mediaList}
@@ -409,6 +423,7 @@ export const JournalCard: React.FC<JournalCardProps> = ({
           getAuthor={getAuthor}
           onCommentInputChange={onCommentInputChange}
           onAddComment={onAddComment}
+          onAddVoiceComment={onAddVoiceComment}
         />
       </div>
     </article>
