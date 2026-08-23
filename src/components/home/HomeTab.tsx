@@ -13,6 +13,7 @@ import {
   MapPinned,
   Crown,
   CalendarDays,
+  Moon,
 } from 'lucide-react';
 
 import { CoupleData, JournalEntry, UserProfile, WakeUpLog } from '../../types';
@@ -38,6 +39,8 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   onOpenJournal,
 }) => {
   const [showSecretStats, setShowSecretStats] = React.useState(false);
+  const [showLateNightUs, setShowLateNightUs] = React.useState(false);
+  const [homeClock, setHomeClock] = React.useState(() => new Date());
   const secretPressTimerRef = React.useRef<number | null>(null);
   const secretPressTriggeredRef = React.useRef(false);
 
@@ -677,6 +680,155 @@ export const HomeTab: React.FC<HomeTabProps> = ({
     return tones[Math.abs(hash) % tones.length];
   }, [memoryOfTheDay]);
 
+  React.useEffect(() => {
+    const timer = window.setInterval(() => {
+      setHomeClock(new Date());
+    }, 60_000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const isLateNight =
+    homeClock.getHours() >= 0 &&
+    homeClock.getHours() < 2;
+
+  const lateNightMemories = React.useMemo(() => {
+    if (!isLateNight || journals.length === 0) {
+      return [];
+    }
+
+    const year = homeClock.getFullYear();
+    const month = String(homeClock.getMonth() + 1).padStart(2, '0');
+    const day = String(homeClock.getDate()).padStart(2, '0');
+    const nightKey = `${year}-${month}-${day}`;
+
+    const getJournalDateKey = (journal: JournalEntry) => {
+      if (journal.date && journal.date.length >= 10) {
+        return journal.date.slice(0, 10);
+      }
+
+      if (journal.createdAt) {
+        const parsed = new Date(journal.createdAt);
+
+        if (!Number.isNaN(parsed.getTime())) {
+          const parsedYear = parsed.getFullYear();
+          const parsedMonth = String(parsed.getMonth() + 1).padStart(2, '0');
+          const parsedDay = String(parsed.getDate()).padStart(2, '0');
+
+          return `${parsedYear}-${parsedMonth}-${parsedDay}`;
+        }
+      }
+
+      return '';
+    };
+
+    const getPreview = (journal: JournalEntry) => {
+      const media =
+        journal.images && journal.images.length > 0
+          ? journal.images
+          : journal.imageUrl
+            ? [journal.imageUrl]
+            : [];
+
+      if (media.length === 0) return '';
+
+      const preferredIndex = Math.min(
+        Math.max(journal.mainImageIndex ?? 0, 0),
+        media.length - 1
+      );
+
+      const preferred = media[preferredIndex];
+
+      if (!isVideoUrl(preferred)) {
+        return preferred;
+      }
+
+      if (journal.videoThumbnails?.[preferred]) {
+        return journal.videoThumbnails[preferred];
+      }
+
+      const firstImage = media.find((url) => !isVideoUrl(url));
+      return firstImage || '';
+    };
+
+    const oldJournals = journals.filter((journal) => {
+      const dateKey = getJournalDateKey(journal);
+      return Boolean(dateKey && dateKey < nightKey);
+    });
+
+    if (oldJournals.length === 0) return [];
+
+    const hashText = `${nightKey}:${userProfile.uid}:${oldJournals
+      .map((journal) => journal.id)
+      .sort()
+      .join('|')}`;
+
+    let seed = 2166136261;
+
+    for (let index = 0; index < hashText.length; index += 1) {
+      seed ^= hashText.charCodeAt(index);
+      seed = Math.imul(seed, 16777619);
+    }
+
+    const nextRandom = () => {
+      seed += 0x6d2b79f5;
+      let value = seed;
+      value = Math.imul(value ^ (value >>> 15), value | 1);
+      value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+      return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+    };
+
+    const shuffled = [...oldJournals];
+
+    for (let index = shuffled.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(nextRandom() * (index + 1));
+      [shuffled[index], shuffled[swapIndex]] = [
+        shuffled[swapIndex],
+        shuffled[index],
+      ];
+    }
+
+    return shuffled.slice(0, 3).map((journal) => ({
+      journal,
+      preview: getPreview(journal),
+    }));
+  }, [
+    isLateNight,
+    journals,
+    userProfile.uid,
+    homeClock.getFullYear(),
+    homeClock.getMonth(),
+    homeClock.getDate(),
+  ]);
+
+  const lateNightCopy = React.useMemo(() => {
+    const year = homeClock.getFullYear();
+    const month = String(homeClock.getMonth() + 1).padStart(2, '0');
+    const day = String(homeClock.getDate()).padStart(2, '0');
+    const key = `${year}-${month}-${day}`;
+
+    const copies = [
+      'Muộn rồi mà vẫn vào xem hai đứa à?',
+      'Có vẻ ai đó đang nhớ ai đó.',
+      'Giờ này mà còn lục lại kỷ niệm hả?',
+      'Đêm khuya hợp để nhớ chuyện cũ ghê.',
+    ];
+
+    let hash = 0;
+
+    for (let index = 0; index < key.length; index += 1) {
+      hash = ((hash << 5) - hash + key.charCodeAt(index)) | 0;
+    }
+
+    return copies[Math.abs(hash) % copies.length];
+  }, [
+    homeClock.getFullYear(),
+    homeClock.getMonth(),
+    homeClock.getDate(),
+  ]);
+
   const secretStats = React.useMemo(() => {
     const normalize = (value?: string) =>
       (value || '')
@@ -904,11 +1056,12 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   };
 
   React.useEffect(() => {
-    if (!showSecretStats) return;
+    if (!showSecretStats && !showLateNightUs) return;
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setShowSecretStats(false);
+        setShowLateNightUs(false);
       }
     };
 
@@ -920,7 +1073,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
         handleEscape
       );
     };
-  }, [showSecretStats]);
+  }, [showSecretStats, showLateNightUs]);
 
   return (
     <div className="space-y-6">
@@ -1031,6 +1184,33 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           </div>
         </div>
 
+        {/* Late Night Us: only visible from 00:00 to 01:59 */}
+        {isLateNight && lateNightMemories.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowLateNightUs(true)}
+            className="group flex w-full items-center justify-between gap-3 rounded-2xl border border-indigo-100/80 bg-gradient-to-r from-slate-950 via-indigo-950 to-violet-950 px-4 py-3 text-left shadow-xs transition hover:-translate-y-0.5 hover:shadow-md active:translate-y-0"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-indigo-100 backdrop-blur-sm">
+                <Moon className="h-4 w-4" />
+              </div>
+
+              <div className="min-w-0">
+                <p className="truncate text-xs font-bold text-white">
+                  {lateNightCopy}
+                </p>
+
+                <p className="mt-0.5 text-[10px] font-medium text-indigo-200/70">
+                  Late Night Us · {lateNightMemories.length} kỷ niệm cũ
+                </p>
+              </div>
+            </div>
+
+            <ChevronRight className="h-4 w-4 shrink-0 text-indigo-200/70 transition-transform group-hover:translate-x-0.5" />
+          </button>
+        )}
+
         {/* On This Day / Random Memory */}
         {memoryOfTheDay && (
           <button
@@ -1138,6 +1318,109 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           onNavigateToFinance={() => onNavigate('finance')}
         />
       </div>
+
+      {showLateNightUs && (
+        <div
+          className="fixed inset-0 z-[125] flex items-end justify-center bg-slate-950/70 p-0 backdrop-blur-[5px] sm:items-center sm:p-5"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setShowLateNightUs(false);
+            }
+          }}
+        >
+          <div className="max-h-[90dvh] w-full max-w-xl overflow-y-auto rounded-t-[32px] border border-white/10 bg-slate-950 shadow-2xl sm:rounded-[32px]">
+            <div className="sticky top-0 z-10 flex items-start justify-between border-b border-white/10 bg-slate-950/95 px-5 pb-4 pt-5 backdrop-blur-xl sm:px-6">
+              <div>
+                <div className="flex items-center gap-2 text-indigo-200">
+                  <Moon className="h-4 w-4" />
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em]">
+                    Late Night Us
+                  </p>
+                </div>
+
+                <h2 className="mt-1.5 text-xl font-black tracking-tight text-white sm:text-2xl">
+                  {lateNightCopy}
+                </h2>
+
+                <p className="mt-1 text-xs text-slate-400">
+                  Ba chuyện cũ được Us lôi ra cho tối nay.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowLateNightUs(false)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10"
+                aria-label="Đóng Late Night Us"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 p-4 sm:p-5">
+              {lateNightMemories.map(({ journal, preview }, index) => (
+                <button
+                  key={journal.id}
+                  type="button"
+                  onClick={() => {
+                    setShowLateNightUs(false);
+                    onOpenJournal(journal);
+                  }}
+                  className="group grid w-full grid-cols-[104px_1fr] gap-3 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.045] p-2.5 text-left transition hover:border-indigo-300/30 hover:bg-white/[0.07] sm:grid-cols-[128px_1fr]"
+                >
+                  <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-slate-900">
+                    {preview ? (
+                      <img
+                        src={preview}
+                        alt={journal.title || `Kỷ niệm ${index + 1}`}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-950 to-violet-950 text-indigo-200">
+                        <Sparkles className="h-5 w-5" />
+                      </div>
+                    )}
+
+                    <div className="absolute left-2 top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-black/55 px-1.5 text-[10px] font-black text-white backdrop-blur-sm">
+                      {index + 1}
+                    </div>
+                  </div>
+
+                  <div className="flex min-w-0 flex-col justify-center py-1">
+                    <p className="line-clamp-2 text-sm font-extrabold leading-snug text-white sm:text-base">
+                      {journal.title || 'Một kỷ niệm cũ'}
+                    </p>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-medium text-slate-400">
+                      <span>{formatDateVN(journal.date)}</span>
+
+                      {journal.location && (
+                        <span className="inline-flex min-w-0 items-center gap-1 text-indigo-200/75">
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          <span className="max-w-[150px] truncate">
+                            {journal.location}
+                          </span>
+                        </span>
+                      )}
+                    </div>
+
+                    <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-indigo-200">
+                      Xem lại
+                      <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                    </span>
+                  </div>
+                </button>
+              ))}
+
+              <p className="pt-1 text-center text-[10px] font-medium text-slate-600">
+                Chỉ xuất hiện từ 00:00 đến trước 02:00.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showSecretStats && (
         <div

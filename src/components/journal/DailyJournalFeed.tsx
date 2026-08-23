@@ -118,6 +118,40 @@ const DailyCapsule: React.FC<DailyCapsuleProps> = ({
   renderJournal,
 }) => {
   const [expanded, setExpanded] = React.useState(false);
+  const capsuleRef = React.useRef<HTMLDivElement>(null);
+  const expandedSectionRef = React.useRef<HTMLDivElement>(null);
+
+  const handleToggleExpand = () => {
+    setExpanded((prev) => {
+      const next = !prev;
+      if (next) {
+        window.setTimeout(() => {
+          if (expandedSectionRef.current) {
+            expandedSectionRef.current.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start',
+            });
+          } else if (capsuleRef.current) {
+            capsuleRef.current.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start',
+            });
+          }
+        }, 80);
+      }
+      return next;
+    });
+  };
+
+  const handleCollapse = () => {
+    setExpanded(false);
+    window.setTimeout(() => {
+      capsuleRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    }, 50);
+  };
 
   const stats = React.useMemo(() => {
     let mediaCount = 0;
@@ -204,13 +238,14 @@ const DailyCapsule: React.FC<DailyCapsuleProps> = ({
 
   return (
     <div
+      ref={capsuleRef}
       id={`journal-day-${group.dateKey}`}
       className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-xs"
     >
       <button
         type="button"
-        onClick={() => setExpanded((value) => !value)}
-        className="block w-full text-left"
+        onClick={handleToggleExpand}
+        className="block w-full text-left cursor-pointer transition hover:bg-slate-50/50"
         aria-expanded={expanded}
       >
         <div className="p-4 sm:p-5">
@@ -357,7 +392,10 @@ const DailyCapsule: React.FC<DailyCapsuleProps> = ({
       </button>
 
       {expanded && (
-        <div className="border-t border-slate-100 bg-slate-50/45 p-3 sm:p-4">
+        <div
+          ref={expandedSectionRef}
+          className="border-t border-slate-100 bg-slate-50/45 p-3 sm:p-4 scroll-mt-4"
+        >
           <div className="relative space-y-4">
             <div className="pointer-events-none absolute bottom-6 left-[14px] top-6 w-px bg-rose-100 sm:left-[18px]" />
 
@@ -382,8 +420,8 @@ const DailyCapsule: React.FC<DailyCapsuleProps> = ({
 
           <button
             type="button"
-            onClick={() => setExpanded(false)}
-            className="mt-4 w-full rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-500 transition hover:bg-slate-50"
+            onClick={handleCollapse}
+            className="mt-4 w-full rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-500 transition hover:bg-slate-50 cursor-pointer"
           >
             Thu gọn ngày này
           </button>

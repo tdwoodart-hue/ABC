@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { JournalEntry, UserProfile, CoupleData } from '../../types';
-import { MessageCircle, ChevronDown, ChevronUp, Heart } from 'lucide-react';
+import { MessageCircle, Heart } from 'lucide-react';
 
 interface JournalCommentsProps {
   item: JournalEntry;
@@ -28,34 +28,20 @@ export const JournalComments: React.FC<JournalCommentsProps> = ({
   onCommentInputChange,
   onAddComment,
 }) => {
-  const [showAllComments, setShowAllComments] = useState(false);
   const commentsCount = item.comments?.length || 0;
 
   return (
     <div className="pt-3 border-t border-slate-100/90 space-y-2.5">
-      <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-        <button
-          type="button"
-          onClick={() => setShowAllComments(!showAllComments)}
-          className="flex items-center gap-1.5 text-slate-700 hover:text-rose-600 transition cursor-pointer"
-        >
+      {commentsCount > 0 && (
+        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
           <MessageCircle className="w-4 h-4 text-rose-500" />
           <span>Bình luận & Cập nhật ({commentsCount})</span>
-          {commentsCount > 0 && (
-            showAllComments ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
-          )}
-        </button>
+        </div>
+      )}
 
-        {!isAuthor && (
-          <span className="text-[10px] text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full font-medium">
-            Gửi lời nhắn cho nửa kia 💬
-          </span>
-        )}
-      </div>
-
-      {/* Comment list preview */}
+      {/* Scrollable Comment list */}
       {item.comments && item.comments.length > 0 && (
-        <div className={`space-y-2 pr-1 ${showAllComments ? 'max-h-64 overflow-y-auto' : 'max-h-36 overflow-hidden'}`}>
+        <div className="max-h-52 overflow-y-auto overscroll-contain space-y-2 pr-1.5 scrollbar-thin">
           {item.comments.map((comment) => {
             const cAuthor = getAuthor(comment.authorUid, comment.authorName);
             return (
