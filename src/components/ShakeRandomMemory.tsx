@@ -38,6 +38,64 @@ const SHAKE_REQUIRED_PEAKS = 2;
 const SHAKE_PEAK_WINDOW_MS = 700;
 const SHAKE_COOLDOWN_MS = 2500;
 
+/**
+ * IMPORTANT:
+ * iOS exposes DeviceMotionEvent.requestPermission() but does not expose
+ * a standard Permissions API entry that lets us query the current motion
+ * permission without prompting.
+ *
+ * The old implementation called requestPermission() again on the first
+ * pointer-up after EVERY app launch. That is why the user kept seeing the
+ * Motion & Orientation confirmation.
+ *
+ * We remember the user's decision at app level. After the first grant:
+ * - future mounts attach the devicemotion listener immediately;
+ * - requestPermission() is NOT called again by this component;
+ * - therefore opening/using the app no longer creates a new permission prompt.
+ *
+ * Browser/OS permission is still controlled by iOS. If the user clears website
+ * data or resets Safari permissions, web code cannot bypass that OS decision.
+ */
+const MOTION_PERMISSION_STORAGE_KEY =
+  'us:shake-random-memory:motion-permission:v1';
+
+const readStoredMotionPermission = (): MotionPermissionState => {
+  if (typeof window === 'undefined') {
+    return 'unknown';
+  }
+
+  try {
+    const value = window.localStorage.getItem(
+      MOTION_PERMISSION_STORAGE_KEY
+    );
+
+    if (value === 'granted' || value === 'denied') {
+      return value;
+    }
+  } catch {
+    // Storage may be unavailable in private/restricted browsing.
+  }
+
+  return 'unknown';
+};
+
+const storeMotionPermission = (
+  permission: 'granted' | 'denied'
+) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      MOTION_PERMISSION_STORAGE_KEY,
+      permission
+    );
+  } catch {
+    // Failure to persist must not break the Easter egg.
+  }
+};
+
 const getJournalMedia = (journal: JournalEntry): string[] => {
   if (journal.images && journal.images.length > 0) {
     return journal.images.filter(Boolean);
@@ -57,16 +115,21 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
   const [selectedJournal, setSelectedJournal] =
     useState<JournalEntry | null>(null);
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0);
+
   const [motionPermission, setMotionPermission] =
-    useState<MotionPermissionState>('unknown');
+    useState<MotionPermissionState>(() =>
+      readStoredMotionPermission()
+    );
 
   const lastSelectedJournalIdRef = useRef('');
   const lastShakeTriggeredAtRef = useRef(0);
+
   const lastVectorRef = useRef<{
     x: number;
     y: number;
     z: number;
   } | null>(null);
+
   const shakePeaksRef = useRef<number[]>([]);
   const motionListenerAttachedRef = useRef(false);
 
@@ -143,6 +206,7 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
       ];
 
     const media = getJournalMedia(randomJournal);
+
     const randomMediaIndex =
       media.length > 1
         ? Math.floor(Math.random() * media.length)
@@ -249,6 +313,14 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
       return;
     }
 
+    /**
+     * Do not call requestPermission() here.
+     *
+     * If iOS still has permission for this origin, events start flowing.
+     * If the browser/OS has reset that permission, it simply will not emit
+     * sensor events; importantly we still do NOT interrupt app startup with
+     * another automatic permission dialog.
+     */
     window.addEventListener(
       'devicemotion',
       handleDeviceMotion,
@@ -256,7 +328,6 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
     );
 
     motionListenerAttachedRef.current = true;
-    setMotionPermission('granted');
   }, [handleDeviceMotion]);
 
   useEffect(() => {
@@ -271,39 +342,81 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
     const MotionEvent =
       window.DeviceMotionEvent as DeviceMotionEventWithPermission;
 
-    /*
-     * Android / browsers that do not require explicit permission:
-     * attach immediately.
+    const cleanupMotionListener = () => {
+      if (motionListenerAttachedRef.current) {
+        window.removeEventListener(
+          'devicemotion',
+          handleDeviceMotion
+        );
+
+        motionListenerAttachedRef.current = false;
+      }
+    };
+
+    /**
+     * Android / browsers that do not require explicit permission.
      */
     if (
       typeof MotionEvent.requestPermission !== 'function'
     ) {
       attachMotionListener();
+      setMotionPermission('granted');
 
-      return () => {
-        if (motionListenerAttachedRef.current) {
-          window.removeEventListener(
-            'devicemotion',
-            handleDeviceMotion
-          );
-          motionListenerAttachedRef.current = false;
-        }
-      };
+      return cleanupMotionListener;
     }
 
-    /*
-     * iPhone / iPad Safari:
-     * Apple requires requestPermission() to run from a user gesture.
-     * We request it only once, on the first normal interaction with the app.
+    /**
+     * iPhone / iPad:
+     *
+     * If this device has already granted motion permission once for this app,
+     * NEVER call requestPermission() again automatically on future launches.
+     * Attach the listener directly and let Safari deliver events if the
+     * origin-level permission is still valid.
      */
+    const storedPermission = readStoredMotionPermission();
+
+    if (storedPermission === 'granted') {
+      setMotionPermission('granted');
+      attachMotionListener();
+
+      return cleanupMotionListener;
+    }
+
+    /**
+     * Respect a previous denial too. The old implementation would keep asking
+     * again after every new app launch. We deliberately do not do that.
+     */
+    if (storedPermission === 'denied') {
+      setMotionPermission('denied');
+
+      return cleanupMotionListener;
+    }
+
+    /**
+     * First time only:
+     * Apple requires requestPermission() to run from a real user gesture.
+     * We keep the existing invisible Easter-egg behavior: the first normal
+     * pointer-up in the app requests access once, then stores the decision.
+     */
+    let permissionRequestStarted = false;
+
     const requestIOSMotionPermission = async () => {
+      if (permissionRequestStarted) {
+        return;
+      }
+
+      permissionRequestStarted = true;
+
       try {
         const result =
           await MotionEvent.requestPermission?.();
 
         if (result === 'granted') {
+          storeMotionPermission('granted');
+          setMotionPermission('granted');
           attachMotionListener();
         } else {
+          storeMotionPermission('denied');
           setMotionPermission('denied');
         }
       } catch (error) {
@@ -311,7 +424,15 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
           'Không thể xin quyền cảm biến chuyển động:',
           error
         );
-        setMotionPermission('denied');
+
+        /**
+         * A thrown error can happen if Safari loses transient activation.
+         * Do not permanently store "denied" for that technical failure,
+         * otherwise the user would never get another legitimate first-time
+         * request.
+         */
+        permissionRequestStarted = false;
+        setMotionPermission('unknown');
       }
     };
 
@@ -327,13 +448,7 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
         requestIOSMotionPermission
       );
 
-      if (motionListenerAttachedRef.current) {
-        window.removeEventListener(
-          'devicemotion',
-          handleDeviceMotion
-        );
-        motionListenerAttachedRef.current = false;
-      }
+      cleanupMotionListener();
     };
   }, [
     attachMotionListener,
@@ -345,11 +460,14 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
   }
 
   const media = getJournalMedia(selectedJournal);
+
   const safeMediaIndex = Math.min(
     Math.max(0, selectedMediaIndex),
     Math.max(0, media.length - 1)
   );
+
   const activeMedia = media[safeMediaIndex];
+
   const mediaIsVideo =
     Boolean(activeMedia) && isVideoUrl(activeMedia);
 
@@ -392,6 +510,7 @@ export const ShakeRandomMemory: React.FC<ShakeRandomMemoryProps> = ({
                 Random Memory
               </span>
             </div>
+
             <p className="text-[10px] text-slate-400 mt-0.5">
               Một kỷ niệm bất ngờ của hai đứa
             </p>
