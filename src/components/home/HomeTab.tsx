@@ -8,7 +8,7 @@ import {
 import { CoupleData, JournalEntry, UserProfile, WakeUpLog } from '../../types';
 import { formatDateVN } from '../../utils/formatDate';
 import { WakeUpChallengeCard } from '../WakeUpChallengeCard';
-import { CharacterState, PixelCharacter } from '../character/PixelCharacter';
+import { InteractivePixelCharacter } from '../character/InteractivePixelCharacter';
 import { MemoryOfTheDayCard } from './MemoryOfTheDayCard';
 import { SecretStatsModal } from './SecretStatsModal';
 import { useHomeSecretStats } from './hooks/useHomeSecretStats';
@@ -22,18 +22,6 @@ interface HomeTabProps {
   onOpenJournal: (journal: JournalEntry) => void;
 }
 
-const DUONG_STATE_OPTIONS: Array<{
-  state: CharacterState;
-  label: string;
-}> = [
-  { state: 'idle', label: 'Bình thường' },
-  { state: 'happy', label: 'Vui' },
-  { state: 'love', label: 'Yêu' },
-  { state: 'hungry', label: 'Đói' },
-  { state: 'sleepy', label: 'Buồn ngủ' },
-  { state: 'sad', label: 'Buồn' },
-];
-
 export const HomeTab: React.FC<HomeTabProps> = ({
   userProfile,
   coupleData,
@@ -43,7 +31,6 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   onOpenJournal,
 }) => {
   const [showSecretStats, setShowSecretStats] = React.useState(false);
-  const [duongState, setDuongState] = React.useState<CharacterState>('idle');
   const secretPressTimerRef = React.useRef<number | null>(null);
   const secretPressTriggeredRef = React.useRef(false);
 
@@ -133,52 +120,15 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-md space-y-6">
-        {/* Partners Cards */}
+        {/* Partners */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
-          {/* Dương Pixel Character */}
-          <div className="p-4 rounded-2xl border border-rose-100/80 bg-rose-50/40 relative overflow-hidden">
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <span className="font-bold text-slate-800 text-base sm:text-lg truncate">
-                {u1Name}
-              </span>
+          <InteractivePixelCharacter
+            name={u1Name}
+            isCurrentUser={isU1}
+          />
 
-              <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
-                  isU1
-                    ? 'bg-rose-500 text-white shadow-xs'
-                    : 'bg-slate-200 text-slate-700'
-                }`}
-              >
-                {isU1 ? 'Bạn' : 'Nửa kia'}
-              </span>
-            </div>
-
-            <PixelCharacter
-              state={duongState}
-              name={u1Name}
-              className="h-44 sm:h-52 w-full"
-            />
-
-            <div className="mt-3 grid grid-cols-3 gap-1.5">
-              {DUONG_STATE_OPTIONS.map((option) => (
-                <button
-                  key={option.state}
-                  type="button"
-                  onClick={() => setDuongState(option.state)}
-                  className={`rounded-lg px-2 py-1.5 text-[10px] sm:text-[11px] font-semibold transition ${
-                    duongState === option.state
-                      ? 'bg-rose-500 text-white shadow-xs'
-                      : 'bg-white text-slate-600 border border-slate-200 hover:border-rose-300 hover:text-rose-600'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Chúc Gà - giữ avatar cũ ở V1 */}
-          <div className="p-4 rounded-2xl border border-rose-100/80 bg-rose-50/40 hover:bg-rose-50/70 transition flex items-center gap-3.5 relative overflow-hidden group">
+          {/* Chúc Gà giữ avatar cũ cho tới khi có bộ pixel nữ */}
+          <div className="min-h-[300px] p-4 rounded-2xl border border-rose-100/80 bg-rose-50/40 flex items-center justify-center gap-3.5 relative overflow-hidden">
             <div className="relative shrink-0">
               <div className="w-14 h-14 rounded-full border-2 border-rose-300 p-0.5 overflow-hidden block shadow-xs bg-white">
                 <img
@@ -189,7 +139,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               </div>
             </div>
 
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-slate-800 text-base sm:text-lg truncate">
                   {u2Name}
@@ -207,7 +157,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               </div>
 
               <p className="text-xs text-slate-500 mt-1">
-                Pixel nữ sẽ gắn ở bước tiếp theo.
+                Chờ bộ pixel nữ.
               </p>
             </div>
           </div>
