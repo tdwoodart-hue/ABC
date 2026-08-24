@@ -38,7 +38,7 @@ import {
 } from 'lucide-react';
 import L from 'leaflet';
 import { db, collection, addDoc, doc, deleteDoc, updateDoc, onSnapshot, query, orderBy } from '../lib/firebase';
-import { UserProfile, CoupleData, JournalEntry, VisitedPlace, TaggedPerson } from '../types';
+import { UserProfile, CoupleData, JournalEntry, VisitedPlace, TaggedPerson, SavedPlace } from '../types';
 import { JournalMusicPlayer } from './JournalMusicPlayer';
 import { MapLocationPickerModal, SelectedLocationResult } from './MapLocationPickerModal';
 import { formatCoordinates, getDeviceHighAccuracyGPS, reverseGeocodeGPS } from '../utils/geolocation';
@@ -76,6 +76,7 @@ interface LoveFootprintMapProps {
   userProfile: UserProfile;
   coupleData?: CoupleData | null;
   journals?: JournalEntry[];
+  savedPlaces?: SavedPlace[];
   onOpenJournalLightbox?: (journal: JournalEntry, imageIndex?: number) => void;
   onNavigateToJournal?: () => void;
 }
@@ -85,6 +86,7 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
   userProfile,
   coupleData,
   journals = [],
+  savedPlaces = [],
   onOpenJournalLightbox,
   onNavigateToJournal
 }) => {
@@ -1280,6 +1282,10 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
         initialAddress={newSpotAddress}
         title="Ghim tọa độ điểm hẹn hò"
         subtitle="Kéo thả ghim hoặc lấy GPS thiết bị trực tiếp để có tọa độ chính xác."
+        savedPlaces={savedPlaces}
+        journals={journals}
+        coupleId={coupleId}
+        userProfile={userProfile}
         onSelectLocation={(data) => {
           setNewSpotLat(data.lat);
           setNewSpotLng(data.lng);
@@ -1303,6 +1309,10 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
           initialAddress={fixingJournal.locationAddress || fixingJournal.location}
           title={`Ghim vị trí GPS cho: "${fixingJournal.title}"`}
           subtitle="Tọa độ GPS sẽ được lưu vĩnh viễn vào nhật ký và ghim lên Bản đồ tình yêu."
+          savedPlaces={savedPlaces}
+          journals={journals}
+          coupleId={coupleId}
+          userProfile={userProfile}
           onSelectLocation={handleSaveFixingLocation}
         />
       )}

@@ -1,16 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   UserProfile,
   CoupleData,
   Companion,
   TaggedPerson,
   JournalExpense,
+  SavedPlace,
+  JournalEntry
 } from '../types';
 import { CameraLocationMetadata } from './CameraCaptureModal';
 import { TagPeopleSelector } from './TagPeopleSelector';
 import { JournalMusicPlayer } from './JournalMusicPlayer';
 import { VoiceMemoRecorder } from './journal/VoiceMemoRecorder';
 import { isVideoUrl } from '../utils/mediaHelper';
+import { extractLocationHistory, LocationHistoryItem } from '../utils/locationHistory';
+import { SavedLocationSelectorModal, SelectedLocationData } from './SavedLocationSelectorModal';
 import {
   Sparkles,
   MapPin,
@@ -31,7 +35,8 @@ import {
   Image as ImageIcon,
   Heart,
   ChevronRight,
-  ChevronDown
+  ChevronDown,
+  Check
 } from 'lucide-react';
 
 export interface JournalFormData {
@@ -68,6 +73,8 @@ interface JournalFormProps {
   isLoading: boolean;
   imageUploading: boolean;
   autoLocatingGPS: boolean;
+  savedPlaces?: SavedPlace[];
+  journals?: JournalEntry[];
   onFormChange: (updated: Partial<JournalFormData>) => void;
   onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
@@ -88,6 +95,8 @@ export const JournalForm: React.FC<JournalFormProps> = ({
   isLoading,
   imageUploading,
   autoLocatingGPS,
+  savedPlaces = [],
+  journals = [],
   onFormChange,
   onSubmit,
   onCancel,
@@ -100,6 +109,39 @@ export const JournalForm: React.FC<JournalFormProps> = ({
   const [newExpTitle, setNewExpTitle] = useState('');
   const [newExpAmount, setNewExpAmount] = useState('');
   const [activeSection, setActiveSection] = useState<'info' | 'media' | 'location' | 'music_expense'>('info');
+  const [isSavedPlacesModalOpen, setIsSavedPlacesModalOpen] = useState(false);
+  const [selectedPlaceNotice, setSelectedPlaceNotice] = useState<string | null>(null);
+
+  // Top quick suggestions (saved places + high photo count places)
+  const quickPlaces = useMemo(() => {
+    const history = extractLocationHistory(journals, savedPlaces);
+    return history.slice(0, 5);
+  }, [journals, savedPlaces]);
+
+  const handleSelectQuickLocation = (place: LocationHistoryItem | SelectedLocationData) => {
+    const locName =
+      ('customNickname' in place && place.customNickname)
+        ? place.customNickname
+        : ('locationName' in place && place.locationName)
+          ? place.locationName
+          : ('name' in place && place.name)
+            ? place.name
+            : '';
+    const locAddress = place.address || locName;
+    
+    onFormChange({
+      location: locName,
+      locationAddress: locAddress,
+      lat: place.lat ?? null,
+      lng: place.lng ?? null,
+      accuracy: place.accuracy ?? null,
+      placeId: place.placeId ?? null,
+      locationTimestamp: 'lastVisited' in place && place.lastVisited ? place.lastVisited : new Date().toISOString()
+    });
+
+    setSelectedPlaceNotice(`Đã chọn: ${locName}`);
+    setTimeout(() => setSelectedPlaceNotice(null), 3000);
+  };
 
   const handleAddExpense = () => {
     if (!newExpTitle.trim() || !newExpAmount) return;
@@ -429,14 +471,29 @@ export const JournalForm: React.FC<JournalFormProps> = ({
       {/* SECTION 3: KHÔNG GIAN & ĐỒNG HÀNH (Địa điểm, GPS, Ghim Map, Gắn thẻ người) */}
       {activeSection === 'location' && (
         <div className="space-y-4 animate-in fade-in duration-150">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-1">
+          <div className="space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-1.5">
               <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-rose-500" />
-                Địa điểm ghé thăm
+                <span>Địa điểm ghé thăm</span>
               </label>
               {(isAuthor || mode === 'create') && (
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setIsSavedPlacesModalOpen(true)}
+                    className="text-[11px] text-rose-700 hover:text-rose-900 font-bold flex items-center gap-1 cursor-pointer bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-xl border border-rose-200/90 transition shadow-2xs"
+                    title="Chọn từ địa điểm đã lưu hoặc các góc quen chụp nhiều ảnh"
+                  >
+                    <Star className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
+                    <span>Địa điểm thân quen</span>
+                    {savedPlaces.length > 0 && (
+                      <span className="text-[10px] bg-rose-200 text-rose-800 px-1.5 py-0.2 rounded-full font-bold">
+                        {savedPlaces.length}
+                      </span>
+                    )}
+                  </button>
+
                   <button
                     type="button"
                     onClick={onAutoDetectGPS}
@@ -455,23 +512,93 @@ export const JournalForm: React.FC<JournalFormProps> = ({
                   <button
                     type="button"
                     onClick={onOpenMapPicker}
-                    className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 cursor-pointer bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-xl border border-rose-200/80 transition shadow-2xs"
+                    className="text-[11px] text-slate-700 hover:text-slate-900 font-semibold flex items-center gap-1 cursor-pointer bg-slate-50 hover:bg-slate-100 px-2.5 py-1 rounded-xl border border-slate-200 transition shadow-2xs"
                   >
-                    <MapPin className="w-3 h-3" />
+                    <MapPin className="w-3 h-3 text-rose-500" />
                     <span>Ghim Bản đồ</span>
                   </button>
                 </div>
               )}
             </div>
 
-            <input
-              type="text"
-              disabled={!isAuthor && mode === 'edit'}
-              placeholder="VD: Đà Lạt - Thung lũng Tình Yêu, Hồ Tây, Phố cổ Hội An, Landmark 81..."
-              value={formData.location}
-              onChange={(e) => onFormChange({ location: e.target.value })}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white transition disabled:bg-slate-100"
-            />
+            {/* Quick Frequent & Saved Places Pills */}
+            {quickPlaces.length > 0 && (
+              <div className="space-y-1 bg-slate-50/80 p-2.5 rounded-2xl border border-slate-200/70">
+                <div className="flex items-center justify-between text-[11px] text-slate-500 font-semibold">
+                  <span className="flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-amber-500" />
+                    <span>Góc quen hay ghé & chụp nhiều ảnh:</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsSavedPlacesModalOpen(true)}
+                    className="text-rose-600 hover:text-rose-700 font-bold flex items-center gap-0.5 text-[10px]"
+                  >
+                    <span>Xem tất cả ({quickPlaces.length})</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+                  {quickPlaces.map((qp) => {
+                    const isSelected = formData.location === (qp.customNickname || qp.name);
+                    return (
+                      <button
+                        key={qp.id}
+                        type="button"
+                        onClick={() => handleSelectQuickLocation(qp)}
+                        className={`px-2.5 py-1 rounded-xl text-xs font-semibold shrink-0 transition flex items-center gap-1.5 border ${
+                          isSelected
+                            ? 'bg-rose-500 text-white border-rose-600 shadow-2xs'
+                            : 'bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 border-slate-200/90'
+                        }`}
+                        title={qp.address || qp.name}
+                      >
+                        <span>{qp.emoji || (qp.isSaved ? '⭐' : '📍')}</span>
+                        <span className="font-bold max-w-[130px] truncate">{qp.customNickname || qp.name}</span>
+                        {qp.photoCount > 0 && (
+                          <span className={`text-[10px] px-1 py-0.2 rounded font-sans ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                            {qp.photoCount} ảnh
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Location Name Input */}
+            <div className="relative">
+              <input
+                type="text"
+                disabled={!isAuthor && mode === 'edit'}
+                placeholder="VD: Tổ ấm của chúng mình, Cafe Giảng, Phố cổ Hội An, Landmark 81..."
+                value={formData.location}
+                onChange={(e) => onFormChange({ location: e.target.value })}
+                className="w-full pl-3.5 pr-28 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white transition disabled:bg-slate-100"
+              />
+
+              {/* Quick Save / Nickname Button */}
+              {formData.location.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setIsSavedPlacesModalOpen(true)}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] font-bold border border-rose-200 flex items-center gap-1 transition cursor-pointer"
+                  title="Đặt tên riêng & Lưu vào danh sách địa điểm thân quen"
+                >
+                  <Star className="w-3 h-3 fill-rose-500 text-rose-500" />
+                  <span>Lưu / Đặt tên</span>
+                </button>
+              )}
+            </div>
+
+            {selectedPlaceNotice && (
+              <div className="text-xs text-rose-600 font-semibold flex items-center gap-1 animate-in fade-in">
+                <Check className="w-3.5 h-3.5" />
+                <span>{selectedPlaceNotice}</span>
+              </div>
+            )}
 
             {/* GPS Metadata Badge */}
             {formData.lat !== null && formData.lng !== null && (
@@ -511,6 +638,28 @@ export const JournalForm: React.FC<JournalFormProps> = ({
               onOpenCompanionManager={onOpenCompanionManager}
             />
           </div>
+
+          {/* Saved Locations Modal */}
+          {isSavedPlacesModalOpen && coupleData?.id && (
+            <SavedLocationSelectorModal
+              isOpen={isSavedPlacesModalOpen}
+              onClose={() => setIsSavedPlacesModalOpen(false)}
+              onSelectLocation={handleSelectQuickLocation}
+              journals={journals}
+              savedPlaces={savedPlaces}
+              coupleId={coupleData.id}
+              userProfile={userProfile}
+              currentDraftLocation={{
+                name: formData.location,
+                address: formData.locationAddress || formData.location,
+                lat: formData.lat ?? undefined,
+                lng: formData.lng ?? undefined,
+                accuracy: formData.accuracy ?? undefined,
+                placeId: formData.placeId ?? undefined
+              }}
+              onOpenMapPicker={onOpenMapPicker}
+            />
+          )}
         </div>
       )}
 

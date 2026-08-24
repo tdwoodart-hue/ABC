@@ -215,6 +215,24 @@ export interface NutritionRecipe {
   createdAt: string;
 }
 
+export interface SavedPlace {
+  id: string;
+  name: string; // Tên riêng/Nickname: VD "Tổ ấm của chúng mình", "Góc cafe quen", "Nhà Dương", "Nhà Chúc Gà"
+  address?: string; // Địa chỉ chi tiết
+  lat?: number;
+  lng?: number;
+  accuracy?: number;
+  placeId?: string;
+  emoji?: string; // 🏡, ☕, ❤️, 🌴, 🏢, 🍽️, 🌸, ⛺...
+  category?: 'home' | 'cafe' | 'date' | 'travel' | 'work' | 'other';
+  notes?: string;
+  visitCount?: number;
+  addedByUid?: string;
+  addedByName?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface VisitedPlace {
   id: string;
   name: string;

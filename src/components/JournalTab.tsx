@@ -4,6 +4,7 @@ import {
   CoupleData,
   Companion,
   JournalEntry,
+  SavedPlace,
 } from '../types';
 import { JournalHeader } from './journal/JournalHeader';
 import { JournalFilters } from './journal/JournalFilters';
@@ -19,6 +20,7 @@ export interface JournalTabProps {
   coupleData: CoupleData | null;
   journals: JournalEntry[];
   companions: Companion[];
+  savedPlaces?: SavedPlace[];
   targetJournalId?: string | null;
   journalViewTab: 'feed' | 'love_map' | 'places';
   setJournalViewTab: (tab: 'feed' | 'love_map' | 'places') => void;
@@ -99,6 +101,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
   coupleData,
   journals,
   companions,
+  savedPlaces = [],
   targetJournalId,
   journalViewTab,
   setJournalViewTab,
@@ -211,6 +214,8 @@ export const JournalTab: React.FC<JournalTabProps> = ({
             isLoading={savingEdit}
             imageUploading={editImageLoading}
             autoLocatingGPS={autoLocatingGPS}
+            savedPlaces={savedPlaces}
+            journals={journals}
             onFormChange={onEditFormChange}
             onSubmit={(event) =>
               onSaveEditJournalSubmit(item.id, event)
@@ -261,6 +266,8 @@ export const JournalTab: React.FC<JournalTabProps> = ({
       savingEdit,
       editImageLoading,
       autoLocatingGPS,
+      savedPlaces,
+      journals,
       onEditFormChange,
       onSaveEditJournalSubmit,
       onCancelEditJournal,
@@ -309,6 +316,8 @@ export const JournalTab: React.FC<JournalTabProps> = ({
             isLoading={addingJournal}
             imageUploading={journalImageLoading}
             autoLocatingGPS={autoLocatingGPS}
+            savedPlaces={savedPlaces}
+            journals={journals}
             onFormChange={onCreateFormChange}
             onSubmit={onAddJournalSubmit}
             onCancel={() => setShowAddJournal(false)}
@@ -355,6 +364,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
           userProfile={userProfile}
           coupleData={coupleData}
           journals={journals}
+          savedPlaces={savedPlaces}
           onOpenJournalLightbox={(journal, imageIndex) =>
             onOpenLightbox(journal, imageIndex ?? 0)
           }

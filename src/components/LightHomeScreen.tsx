@@ -1,6 +1,6 @@
 // LIGHT_HOME_LOCAL_IMPORT_FIX_V3
 import React, { useState, useEffect } from 'react';
-import { UserProfile, CoupleData, MemoryItem, JournalEntry, JournalComment, JournalExpense, ImageComment, WakeUpLog, Companion, TaggedPerson, DeletedCommentRecord } from '../types';
+import { UserProfile, CoupleData, MemoryItem, JournalEntry, JournalComment, JournalExpense, ImageComment, WakeUpLog, Companion, TaggedPerson, DeletedCommentRecord, SavedPlace } from '../types';
 import { FinanceTab } from './FinanceTab';
 import { NutritionTab } from './NutritionTab';
 import { AchievementsTab } from './AchievementsTab';
@@ -387,6 +387,9 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   // Companions / Special members (Pets, Friends...) State
   const [companions, setCompanions] = useState<Companion[]>([]);
   const [isCompanionManagerOpen, setIsCompanionManagerOpen] = useState(false);
+
+  // Saved / Favorite Locations State
+  const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
 
   // Device Manager & Device Identification State
   const [isDeviceManagerOpen, setIsDeviceManagerOpen] = useState(false);
@@ -1208,6 +1211,19 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       console.warn('Error listening to deleted comments:', err);
     });
 
+    // Subscribe to saved_places collection (User Saved / Favorite Locations)
+    const savedPlacesRef = collection(db, 'couples', userProfile.coupleId, 'saved_places');
+    const qSavedPlaces = query(savedPlacesRef, orderBy('createdAt', 'desc'));
+    const unsubscribeSavedPlaces = onSnapshot(qSavedPlaces, (snapshot) => {
+      const items: SavedPlace[] = [];
+      snapshot.forEach((d) => {
+        items.push({ id: d.id, ...d.data() } as SavedPlace);
+      });
+      setSavedPlaces(items);
+    }, (err) => {
+      console.warn('Error listening to saved places:', err);
+    });
+
     return () => {
       unsubscribeCouple();
       unsubscribeJournals();
@@ -1215,6 +1231,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       unsubscribeWakeUp();
       unsubscribeComp();
       unsubscribeDeleted();
+      unsubscribeSavedPlaces();
     };
   }, [userProfile.coupleId]);
 
@@ -2305,6 +2322,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             coupleData={coupleData}
             journals={journals}
             companions={companions}
+            savedPlaces={savedPlaces}
             targetJournalId={notificationTargetJournalId}
             journalViewTab={journalViewTab}
             setJournalViewTab={setJournalViewTab}
@@ -2569,6 +2587,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         onSelectLocation={handleSelectMapLocation}
         initialAddress={mapModalTarget === 'address' ? editAddress : editFavoritePlaces}
         title={mapModalTarget === 'address' ? 'Chọn Địa Chỉ & Nơi Ở Trên Bản Đồ' : 'Chọn Địa Điểm Hẹn Hò Yêu Thích'}
+        savedPlaces={savedPlaces}
+        journals={journals}
+        coupleId={userProfile.coupleId}
+        userProfile={userProfile}
       />
 
       {/* Journal Google Maps Location Picker Modal */}
@@ -2607,6 +2629,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         }
         title="Chọn Vị Trí Kỷ Niệm Trên Bản Đồ"
         subtitle="Tọa độ GPS độ chính xác cao sẽ được lưu làm nguồn dữ liệu chuẩn cho Bản đồ tình yêu."
+        savedPlaces={savedPlaces}
+        journals={journals}
+        coupleId={userProfile.coupleId}
+        userProfile={userProfile}
       />
 
       {/* Fullscreen Lightbox with Zoom & Photo Comments */}
