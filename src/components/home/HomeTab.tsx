@@ -8,6 +8,7 @@ import {
 import { CoupleData, JournalEntry, UserProfile, WakeUpLog } from '../../types';
 import { formatDateVN } from '../../utils/formatDate';
 import { WakeUpChallengeCard } from '../WakeUpChallengeCard';
+import { ChucPixelCharacter } from '../character/ChucPixelCharacter';
 import { InteractivePixelCharacter } from '../character/InteractivePixelCharacter';
 import { MemoryOfTheDayCard } from './MemoryOfTheDayCard';
 import { SecretStatsModal } from './SecretStatsModal';
@@ -51,11 +52,6 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   const u2Name = isU2
     ? userProfile.displayName || coupleData?.user2Name || 'Chúc Gà'
     : coupleData?.user2Name || 'Chúc Gà';
-
-  const u2Avatar =
-    (isU2 ? userProfile.avatarUrl : coupleData?.user2Avatar) ||
-    coupleData?.user2Avatar ||
-    'https://api.dicebear.com/7.x/micah/svg?seed=chucga_female&hair=donna,straight&eyes=eyes&mouth=smile';
 
   const getDaysTogether = (): number => {
     if (!coupleData?.anniversaryDate) return 1;
@@ -127,40 +123,10 @@ export const HomeTab: React.FC<HomeTabProps> = ({
             isCurrentUser={isU1}
           />
 
-          {/* Chúc Gà giữ avatar cũ cho tới khi có bộ pixel nữ */}
-          <div className="min-h-[300px] p-4 rounded-2xl border border-rose-100/80 bg-rose-50/40 flex items-center justify-center gap-3.5 relative overflow-hidden">
-            <div className="relative shrink-0">
-              <div className="w-14 h-14 rounded-full border-2 border-rose-300 p-0.5 overflow-hidden block shadow-xs bg-white">
-                <img
-                  src={u2Avatar}
-                  alt={u2Name}
-                  className="w-full h-full object-cover rounded-full"
-                />
-              </div>
-            </div>
-
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-slate-800 text-base sm:text-lg truncate">
-                  {u2Name}
-                </span>
-
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
-                    isU2
-                      ? 'bg-rose-500 text-white shadow-xs'
-                      : 'bg-slate-200 text-slate-700'
-                  }`}
-                >
-                  {isU2 ? 'Bạn' : 'Nửa kia'}
-                </span>
-              </div>
-
-              <p className="text-xs text-slate-500 mt-1">
-                Chờ bộ pixel nữ.
-              </p>
-            </div>
-          </div>
+          <ChucPixelCharacter
+            name={u2Name}
+            isCurrentUser={isU2}
+          />
         </div>
 
         {/* Days Together Counter */}
