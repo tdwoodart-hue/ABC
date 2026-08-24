@@ -1,4 +1,5 @@
 import React from 'react';
+import { auth } from '../../lib/firebase';
 import { CharacterState, PixelCharacter } from './PixelCharacter';
 
 interface InteractivePixelCharacterProps {
@@ -7,11 +8,14 @@ interface InteractivePixelCharacterProps {
 }
 
 const STORAGE_KEY = 'us:duong-pixel-character:v1';
-const WELCOME_SESSION_KEY = 'us:duong-wave-welcome:v1';
 const HUNGRY_AFTER_MS = 6 * 60 * 60 * 1000;
 const REACTION_DURATION_MS = 4200;
-const WELCOME_DELAY_MS = 350;
 const WELCOME_ANIMATION_MS = 2150;
+
+// Module-level guard:
+// - resets on a real page/app reload
+// - does NOT replay just because the user changes tabs inside the app
+let welcomePlayedThisPageLoad = false;
 
 interface StoredCharacterState {
   lastFedAt?: number;
@@ -60,6 +64,11 @@ const getAutomaticState = (
   return 'idle';
 };
 
+const isChucAccount = () =>
+  auth.currentUser?.email
+    ?.toLowerCase()
+    .trim() === 'chucga@gmail.com';
+
 export const InteractivePixelCharacter: React.FC<
   InteractivePixelCharacterProps
 > = ({
@@ -75,8 +84,8 @@ export const InteractivePixelCharacter: React.FC<
   const [clock, setClock] = React.useState(() => Date.now());
 
   const reactionTimerRef = React.useRef<number | null>(null);
-  const welcomeStartTimerRef = React.useRef<number | null>(null);
   const welcomeEndTimerRef = React.useRef<number | null>(null);
+  const welcomeStartTimerRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     const interval = window.setInterval(() => {
@@ -86,34 +95,85 @@ export const InteractivePixelCharacter: React.FC<
     return () => window.clearInterval(interval);
   }, []);
 
-  // Dương is this component. If isCurrentUser is false, Chúc is viewing.
-  // Greet once per browser-tab session, then return to the normal state.
+  /*
+   * IMPORTANT:
+   * Home is already mounted UNDER LoadingSplash.
+   * Starting wave on component mount means the animation can finish
+   * while the intro is still covering the page.
+   *
+   * Instead, wait until `.us-snake-loader` is physically removed.
+   * That is the exact moment the intro has finished.
+   */
   React.useEffect(() => {
-    if (isCurrentUser || typeof window === 'undefined') return;
-
-    try {
-      if (window.sessionStorage.getItem(WELCOME_SESSION_KEY)) {
-        return;
-      }
-      window.sessionStorage.setItem(WELCOME_SESSION_KEY, '1');
-    } catch {
-      // If sessionStorage is blocked, the greeting still works.
+    if (
+      typeof window === 'undefined' ||
+      typeof document === 'undefined' ||
+      isCurrentUser ||
+      !isChucAccount() ||
+      welcomePlayedThisPageLoad
+    ) {
+      return;
     }
 
-    welcomeStartTimerRef.current = window.setTimeout(() => {
-      setShowActions(false);
-      setTemporaryState('wave');
-    }, WELCOME_DELAY_MS);
+    let disposed = false;
+    let observer: MutationObserver | null = null;
 
-    welcomeEndTimerRef.current = window.setTimeout(() => {
-      setTemporaryState(null);
-      setClock(Date.now());
-    }, WELCOME_DELAY_MS + WELCOME_ANIMATION_MS);
+    const playWelcome = () => {
+      if (
+        disposed ||
+        welcomePlayedThisPageLoad ||
+        !isChucAccount()
+      ) {
+        return;
+      }
+
+      welcomePlayedThisPageLoad = true;
+
+      // A tiny post-intro delay lets Home become visually stable first.
+      welcomeStartTimerRef.current = window.setTimeout(() => {
+        if (disposed) return;
+
+        setShowActions(false);
+        setTemporaryState('wave');
+
+        welcomeEndTimerRef.current = window.setTimeout(() => {
+          if (disposed) return;
+
+          setTemporaryState(null);
+          setClock(Date.now());
+        }, WELCOME_ANIMATION_MS);
+      }, 120);
+    };
+
+    const introIsGone = () =>
+      !document.querySelector('.us-snake-loader');
+
+    if (introIsGone()) {
+      playWelcome();
+    } else {
+      observer = new MutationObserver(() => {
+        if (introIsGone()) {
+          observer?.disconnect();
+          observer = null;
+          playWelcome();
+        }
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+    }
 
     return () => {
+      disposed = true;
+
+      observer?.disconnect();
+
       if (welcomeStartTimerRef.current !== null) {
         window.clearTimeout(welcomeStartTimerRef.current);
       }
+
       if (welcomeEndTimerRef.current !== null) {
         window.clearTimeout(welcomeEndTimerRef.current);
       }

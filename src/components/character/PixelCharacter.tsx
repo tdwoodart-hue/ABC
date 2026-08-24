@@ -26,12 +26,14 @@ const DUONG_STATE_IMAGES: Record<
   sad: '/characters/male_sad.png',
 };
 
+const SPRITE_ASPECT_RATIO = '5 / 8';
+
 const IdleSprite: React.FC<{ name: string }> = ({ name }) => {
   return (
     <div
       className="relative h-full max-h-full overflow-hidden shrink-0"
       style={{
-        aspectRatio: '1 / 2',
+        aspectRatio: SPRITE_ASPECT_RATIO,
         maxWidth: '100%',
       }}
       role="img"
@@ -80,7 +82,7 @@ const WaveSprite: React.FC<{ name: string }> = ({ name }) => {
     <div
       className="relative h-full max-h-full overflow-hidden shrink-0"
       style={{
-        aspectRatio: '1 / 2',
+        aspectRatio: SPRITE_ASPECT_RATIO,
         maxWidth: '100%',
       }}
       role="img"
