@@ -131,79 +131,75 @@ export const CouplePixelCard: React.FC<
 
   return (
     <div className="relative min-h-[340px] rounded-2xl border border-rose-100/80 bg-gradient-to-b from-rose-50/70 to-white overflow-hidden">
-      <div className="absolute inset-x-0 top-0 z-10 p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <span className="font-bold text-slate-800 text-base sm:text-lg truncate block">
+      <div className="absolute inset-0 pt-6 pb-8 px-4 sm:px-6">
+        <div className="h-full w-full flex items-end justify-center gap-2 sm:gap-8">
+          <div className="w-[42%] sm:w-[38%] max-w-[240px] flex flex-col items-center justify-end">
+            <div className="h-56 sm:h-64 w-full flex items-end justify-center">
+              <PixelCharacter
+                state={duongState}
+                name={duongName}
+                className="h-full w-full"
+              />
+            </div>
+
+            <span className="mt-2 text-sm sm:text-base font-semibold text-slate-700 text-center leading-none">
               {duongName}
             </span>
           </div>
 
-          <div className="min-w-0 text-right">
-            <span className="font-bold text-slate-800 text-base sm:text-lg truncate block">
+          <div className="w-[38%] sm:w-[34%] max-w-[210px] flex flex-col items-center justify-end">
+            <div className="h-52 sm:h-60 w-full flex items-end justify-center pointer-events-none">
+              <div
+                className="relative h-full max-h-full overflow-hidden shrink-0"
+                style={{
+                  aspectRatio: '5 / 8',
+                  maxWidth: '100%',
+                }}
+                role="img"
+                aria-label={`${chucName} pixel character`}
+              >
+                <style>{`
+                  @keyframes chuc-idle-blink {
+                    0%, 79% {
+                      background-position: 0% 50%;
+                    }
+                    80%, 85% {
+                      background-position: 66.6666667% 50%;
+                    }
+                    86%, 100% {
+                      background-position: 0% 50%;
+                    }
+                  }
+
+                  .chuc-idle-frame {
+                    width: 100%;
+                    height: 100%;
+                    background-image: url('/characters/chuc_idle_strip.png');
+                    background-repeat: no-repeat;
+                    background-size: 400% 100%;
+                    background-position: 0% 50%;
+                    image-rendering: pixelated;
+                    animation: chuc-idle-blink 3.5s steps(1, end) infinite;
+                    will-change: background-position;
+                    transform: translateZ(0);
+                    backface-visibility: hidden;
+                  }
+
+                  @media (prefers-reduced-motion: reduce) {
+                    .chuc-idle-frame {
+                      animation: none;
+                      background-position: 0% 50%;
+                    }
+                  }
+                `}</style>
+
+                <div className="chuc-idle-frame" />
+              </div>
+            </div>
+
+            <span className="mt-2 text-sm sm:text-base font-semibold text-slate-700 text-center leading-none">
               {chucName}
             </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="absolute inset-0 pt-16 pb-8 px-4 sm:px-6">
-        <div className="h-full w-full flex items-end justify-center gap-2 sm:gap-8">
-          <div className="h-56 sm:h-64 w-[42%] sm:w-[38%] max-w-[240px] flex items-end justify-center">
-            <PixelCharacter
-              state={duongState}
-              name={duongName}
-              className="h-full w-full"
-            />
-          </div>
-
-          <div className="h-52 sm:h-60 w-[38%] sm:w-[34%] max-w-[210px] flex items-end justify-center pointer-events-none">
-            <div
-              className="relative h-full max-h-full overflow-hidden shrink-0"
-              style={{
-                aspectRatio: '5 / 8',
-                maxWidth: '100%',
-              }}
-              role="img"
-              aria-label={`${chucName} pixel character`}
-            >
-              <style>{`
-                @keyframes chuc-idle-blink {
-                  0%, 79% {
-                    background-position: 0% 50%;
-                  }
-                  80%, 85% {
-                    background-position: 66.6666667% 50%;
-                  }
-                  86%, 100% {
-                    background-position: 0% 50%;
-                  }
-                }
-
-                .chuc-idle-frame {
-                  width: 100%;
-                  height: 100%;
-                  background-image: url('/characters/chuc_idle_strip.png');
-                  background-repeat: no-repeat;
-                  background-size: 400% 100%;
-                  background-position: 0% 50%;
-                  image-rendering: pixelated;
-                  animation: chuc-idle-blink 3.5s steps(1, end) infinite;
-                  will-change: background-position;
-                  transform: translateZ(0);
-                  backface-visibility: hidden;
-                }
-
-                @media (prefers-reduced-motion: reduce) {
-                  .chuc-idle-frame {
-                    animation: none;
-                    background-position: 0% 50%;
-                  }
-                }
-              `}</style>
-
-              <div className="chuc-idle-frame" />
-            </div>
           </div>
         </div>
       </div>
