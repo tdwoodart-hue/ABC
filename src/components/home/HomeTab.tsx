@@ -7,9 +7,8 @@ import {
 
 import { CoupleData, JournalEntry, UserProfile, WakeUpLog } from '../../types';
 import { formatDateVN } from '../../utils/formatDate';
+import { CouplePixelCard } from '../character/CouplePixelCard';
 import { WakeUpChallengeCard } from '../WakeUpChallengeCard';
-import { ChucPixelCharacter } from '../character/ChucPixelCharacter';
-import { InteractivePixelCharacter } from '../character/InteractivePixelCharacter';
 import { MemoryOfTheDayCard } from './MemoryOfTheDayCard';
 import { SecretStatsModal } from './SecretStatsModal';
 import { useHomeSecretStats } from './hooks/useHomeSecretStats';
@@ -116,20 +115,13 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-md space-y-6">
-        {/* Partners */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
-          <InteractivePixelCharacter
-            name={u1Name}
-            isCurrentUser={isU1}
-          />
+        <CouplePixelCard
+          duongName={u1Name}
+          chucName={u2Name}
+          isDuongCurrentUser={isU1}
+          isChucCurrentUser={isU2}
+        />
 
-          <ChucPixelCharacter
-            name={u2Name}
-            isCurrentUser={isU2}
-          />
-        </div>
-
-        {/* Days Together Counter */}
         <div className="bg-gradient-to-br from-rose-50 to-pink-50/50 rounded-2xl p-6 border border-rose-100/80 text-center">
           <span className="text-xs font-bold text-rose-500 uppercase tracking-wider block mb-1">
             Số Ngày Bên Nhau
