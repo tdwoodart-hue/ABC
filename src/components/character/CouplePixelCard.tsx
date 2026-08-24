@@ -8,24 +8,132 @@ interface CouplePixelCardProps {
   isChucCurrentUser: boolean;
 }
 
-const WELCOME_ANIMATION_MS = 2050;
+const DUONG_WELCOME_MS = 2050;
+const CHUC_WELCOME_MS = 2050;
 
-let welcomePlayedThisPageLoad = false;
+let duongWelcomePlayedThisPageLoad = false;
+let chucWelcomePlayedThisPageLoad = false;
+
+type ChucVisualState = 'idle' | 'wave';
+
+const ChucAnimatedSprite: React.FC<{
+  name: string;
+  state: ChucVisualState;
+}> = ({ name, state }) => {
+  return (
+    <div
+      className="relative h-full max-h-full overflow-hidden shrink-0"
+      style={{
+        aspectRatio: '5 / 8',
+        maxWidth: '100%',
+      }}
+      role="img"
+      aria-label={
+        state === 'wave'
+          ? `${name} đang vẫy chào`
+          : `${name} pixel character`
+      }
+    >
+      <style>{`
+        @keyframes chuc-atlas-idle {
+          0%, 79% {
+            background-position: 0% 50%;
+          }
+          80%, 85% {
+            background-position: 22.2222222% 50%;
+          }
+          86%, 100% {
+            background-position: 0% 50%;
+          }
+        }
+
+        @keyframes chuc-atlas-wave {
+          0%, 10% {
+            background-position: 44.4444444% 50%;
+          }
+          11%, 27% {
+            background-position: 55.5555556% 50%;
+          }
+          28%, 44% {
+            background-position: 66.6666667% 50%;
+          }
+          45%, 62% {
+            background-position: 77.7777778% 50%;
+          }
+          63%, 80% {
+            background-position: 88.8888889% 50%;
+          }
+          81%, 100% {
+            background-position: 100% 50%;
+          }
+        }
+
+        .chuc-character-atlas {
+          width: 100%;
+          height: 100%;
+          background-image: url('/characters/chuc_character_atlas.png');
+          background-repeat: no-repeat;
+          background-size: 1000% 100%;
+          background-position: 0% 50%;
+          image-rendering: pixelated;
+          will-change: background-position;
+          transform: translateZ(0);
+          backface-visibility: hidden;
+        }
+
+        .chuc-character-atlas--idle {
+          animation: chuc-atlas-idle 3.5s steps(1, end) infinite;
+        }
+
+        .chuc-character-atlas--wave {
+          animation: chuc-atlas-wave 2.05s steps(1, end) 1 forwards;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .chuc-character-atlas--idle,
+          .chuc-character-atlas--wave {
+            animation: none;
+          }
+
+          .chuc-character-atlas--idle {
+            background-position: 0% 50%;
+          }
+
+          .chuc-character-atlas--wave {
+            background-position: 77.7777778% 50%;
+          }
+        }
+      `}</style>
+
+      <div
+        className={`chuc-character-atlas ${
+          state === 'wave'
+            ? 'chuc-character-atlas--wave'
+            : 'chuc-character-atlas--idle'
+        }`}
+      />
+    </div>
+  );
+};
 
 export const CouplePixelCard: React.FC<
   CouplePixelCardProps
 > = ({
   duongName,
   chucName,
-  isDuongCurrentUser: _isDuongCurrentUser,
+  isDuongCurrentUser,
   isChucCurrentUser,
 }) => {
   const [duongState, setDuongState] =
     React.useState<CharacterState>('idle');
+  const [chucState, setChucState] =
+    React.useState<ChucVisualState>('idle');
   const [clock, setClock] = React.useState(() => Date.now());
 
-  const welcomeEndTimerRef = React.useRef<number | null>(null);
-  const welcomeStartTimerRef = React.useRef<number | null>(null);
+  const duongWelcomeStartTimerRef = React.useRef<number | null>(null);
+  const duongWelcomeEndTimerRef = React.useRef<number | null>(null);
+  const chucWelcomeStartTimerRef = React.useRef<number | null>(null);
+  const chucWelcomeEndTimerRef = React.useRef<number | null>(null);
 
   const getAutomaticState = React.useCallback(
     (now = Date.now()): CharacterState => {
@@ -54,15 +162,15 @@ export const CouplePixelCard: React.FC<
   }, [getAutomaticState]);
 
   React.useEffect(() => {
-    setDuongState(getAutomaticState(clock));
+    setDuongState((prev) =>
+      prev === 'wave' ? prev : getAutomaticState(clock)
+    );
   }, [clock, getAutomaticState]);
 
   React.useEffect(() => {
     if (
       typeof window === 'undefined' ||
-      typeof document === 'undefined' ||
-      !isChucCurrentUser ||
-      welcomePlayedThisPageLoad
+      typeof document === 'undefined'
     ) {
       return;
     }
@@ -70,48 +178,62 @@ export const CouplePixelCard: React.FC<
     let disposed = false;
     let observer: MutationObserver | null = null;
 
-    const playWelcome = () => {
-      if (
-        disposed ||
-        welcomePlayedThisPageLoad ||
-        !isChucCurrentUser
-      ) {
-        return;
-      }
-
-      welcomePlayedThisPageLoad = true;
-
-      welcomeStartTimerRef.current = window.setTimeout(() => {
-        if (disposed) return;
-
-        setDuongState('wave');
-
-        welcomeEndTimerRef.current = window.setTimeout(() => {
-          if (disposed) return;
-
-          setDuongState(getAutomaticState());
-          setClock(Date.now());
-        }, WELCOME_ANIMATION_MS);
-      }, 120);
-    };
-
     const introIsGone = () =>
       !document.querySelector('.us-snake-loader');
 
-    if (introIsGone()) {
-      playWelcome();
-    } else {
-      observer = new MutationObserver(() => {
-        if (introIsGone()) {
-          observer?.disconnect();
-          observer = null;
-          playWelcome();
-        }
-      });
+    const runAfterIntro = (callback: () => void) => {
+      if (introIsGone()) {
+        callback();
+      } else {
+        observer = new MutationObserver(() => {
+          if (introIsGone()) {
+            observer?.disconnect();
+            observer = null;
+            callback();
+          }
+        });
 
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true,
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true,
+        });
+      }
+    };
+
+    if (isChucCurrentUser && !duongWelcomePlayedThisPageLoad) {
+      runAfterIntro(() => {
+        if (disposed || duongWelcomePlayedThisPageLoad) return;
+
+        duongWelcomePlayedThisPageLoad = true;
+
+        duongWelcomeStartTimerRef.current = window.setTimeout(() => {
+          if (disposed) return;
+          setDuongState('wave');
+
+          duongWelcomeEndTimerRef.current = window.setTimeout(() => {
+            if (disposed) return;
+            setDuongState(getAutomaticState());
+            setClock(Date.now());
+          }, DUONG_WELCOME_MS);
+        }, 120);
+      });
+    }
+
+    if (isDuongCurrentUser && !chucWelcomePlayedThisPageLoad) {
+      runAfterIntro(() => {
+        if (disposed || chucWelcomePlayedThisPageLoad) return;
+
+        chucWelcomePlayedThisPageLoad = true;
+
+        chucWelcomeStartTimerRef.current = window.setTimeout(() => {
+          if (disposed) return;
+          setChucState('wave');
+
+          chucWelcomeEndTimerRef.current = window.setTimeout(() => {
+            if (disposed) return;
+            setChucState('idle');
+          }, CHUC_WELCOME_MS);
+        }, 120);
       });
     }
 
@@ -119,15 +241,20 @@ export const CouplePixelCard: React.FC<
       disposed = true;
       observer?.disconnect();
 
-      if (welcomeStartTimerRef.current !== null) {
-        window.clearTimeout(welcomeStartTimerRef.current);
+      if (duongWelcomeStartTimerRef.current !== null) {
+        window.clearTimeout(duongWelcomeStartTimerRef.current);
       }
-
-      if (welcomeEndTimerRef.current !== null) {
-        window.clearTimeout(welcomeEndTimerRef.current);
+      if (duongWelcomeEndTimerRef.current !== null) {
+        window.clearTimeout(duongWelcomeEndTimerRef.current);
+      }
+      if (chucWelcomeStartTimerRef.current !== null) {
+        window.clearTimeout(chucWelcomeStartTimerRef.current);
+      }
+      if (chucWelcomeEndTimerRef.current !== null) {
+        window.clearTimeout(chucWelcomeEndTimerRef.current);
       }
     };
-  }, [getAutomaticState, isChucCurrentUser]);
+  }, [getAutomaticState, isChucCurrentUser, isDuongCurrentUser]);
 
   return (
     <div className="relative min-h-[340px] rounded-2xl border border-rose-100/80 bg-gradient-to-b from-rose-50/70 to-white overflow-hidden">
@@ -148,53 +275,11 @@ export const CouplePixelCard: React.FC<
           </div>
 
           <div className="w-[38%] sm:w-[34%] max-w-[210px] flex flex-col items-center justify-end">
-            <div className="h-52 sm:h-60 w-full flex items-end justify-center pointer-events-none">
-              <div
-                className="relative h-full max-h-full overflow-hidden shrink-0"
-                style={{
-                  aspectRatio: '5 / 8',
-                  maxWidth: '100%',
-                }}
-                role="img"
-                aria-label={`${chucName} pixel character`}
-              >
-                <style>{`
-                  @keyframes chuc-idle-blink {
-                    0%, 79% {
-                      background-position: 0% 50%;
-                    }
-                    80%, 85% {
-                      background-position: 66.6666667% 50%;
-                    }
-                    86%, 100% {
-                      background-position: 0% 50%;
-                    }
-                  }
-
-                  .chuc-idle-frame {
-                    width: 100%;
-                    height: 100%;
-                    background-image: url('/characters/chuc_idle_strip.png');
-                    background-repeat: no-repeat;
-                    background-size: 400% 100%;
-                    background-position: 0% 50%;
-                    image-rendering: pixelated;
-                    animation: chuc-idle-blink 3.5s steps(1, end) infinite;
-                    will-change: background-position;
-                    transform: translateZ(0);
-                    backface-visibility: hidden;
-                  }
-
-                  @media (prefers-reduced-motion: reduce) {
-                    .chuc-idle-frame {
-                      animation: none;
-                      background-position: 0% 50%;
-                    }
-                  }
-                `}</style>
-
-                <div className="chuc-idle-frame" />
-              </div>
+            <div className="h-52 sm:h-60 w-full flex items-end justify-center">
+              <ChucAnimatedSprite
+                state={chucState}
+                name={chucName}
+              />
             </div>
 
             <span className="mt-2 text-sm sm:text-base font-semibold text-slate-700 text-center leading-none">
