@@ -7,8 +7,11 @@ interface InteractivePixelCharacterProps {
 }
 
 const STORAGE_KEY = 'us:duong-pixel-character:v1';
+const WELCOME_SESSION_KEY = 'us:duong-wave-welcome:v1';
 const HUNGRY_AFTER_MS = 6 * 60 * 60 * 1000;
 const REACTION_DURATION_MS = 4200;
+const WELCOME_DELAY_MS = 350;
+const WELCOME_ANIMATION_MS = 2150;
 
 interface StoredCharacterState {
   lastFedAt?: number;
@@ -33,7 +36,7 @@ const writeStoredState = (state: StoredCharacterState) => {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
-    // localStorage is only a lightweight V1 persistence layer.
+    // localStorage chỉ là persistence nhẹ cho V1.
   }
 };
 
@@ -57,15 +60,6 @@ const getAutomaticState = (
   return 'idle';
 };
 
-const STATE_COPY: Record<CharacterState, string> = {
-  idle: 'Đang chill thôi ✨',
-  happy: 'No bụng rồi, vui ghê!',
-  love: 'Đang ngập trong tình yêu ❤️',
-  hungry: 'Hình như đang đói...',
-  sleepy: 'Muộn rồi, buồn ngủ quá...',
-  sad: 'Hôm nay hơi buồn một chút.',
-};
-
 export const InteractivePixelCharacter: React.FC<
   InteractivePixelCharacterProps
 > = ({
@@ -79,7 +73,10 @@ export const InteractivePixelCharacter: React.FC<
     React.useState<CharacterState | null>(null);
   const [showActions, setShowActions] = React.useState(false);
   const [clock, setClock] = React.useState(() => Date.now());
+
   const reactionTimerRef = React.useRef<number | null>(null);
+  const welcomeStartTimerRef = React.useRef<number | null>(null);
+  const welcomeEndTimerRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     const interval = window.setInterval(() => {
@@ -88,6 +85,40 @@ export const InteractivePixelCharacter: React.FC<
 
     return () => window.clearInterval(interval);
   }, []);
+
+  // Dương is this component. If isCurrentUser is false, Chúc is viewing.
+  // Greet once per browser-tab session, then return to the normal state.
+  React.useEffect(() => {
+    if (isCurrentUser || typeof window === 'undefined') return;
+
+    try {
+      if (window.sessionStorage.getItem(WELCOME_SESSION_KEY)) {
+        return;
+      }
+      window.sessionStorage.setItem(WELCOME_SESSION_KEY, '1');
+    } catch {
+      // If sessionStorage is blocked, the greeting still works.
+    }
+
+    welcomeStartTimerRef.current = window.setTimeout(() => {
+      setShowActions(false);
+      setTemporaryState('wave');
+    }, WELCOME_DELAY_MS);
+
+    welcomeEndTimerRef.current = window.setTimeout(() => {
+      setTemporaryState(null);
+      setClock(Date.now());
+    }, WELCOME_DELAY_MS + WELCOME_ANIMATION_MS);
+
+    return () => {
+      if (welcomeStartTimerRef.current !== null) {
+        window.clearTimeout(welcomeStartTimerRef.current);
+      }
+      if (welcomeEndTimerRef.current !== null) {
+        window.clearTimeout(welcomeEndTimerRef.current);
+      }
+    };
+  }, [isCurrentUser]);
 
   React.useEffect(() => {
     return () => {
@@ -170,22 +201,14 @@ export const InteractivePixelCharacter: React.FC<
       <button
         type="button"
         onClick={() => setShowActions((value) => !value)}
-        className="absolute inset-0 pt-12 pb-16 w-full flex flex-col items-center justify-end cursor-pointer touch-manipulation"
+        className="absolute inset-0 pt-14 pb-6 w-full flex items-center justify-center cursor-pointer touch-manipulation"
         aria-label={`Tương tác với ${name}`}
       >
-        <div className="mb-1 rounded-full bg-white/90 border border-rose-100 px-3 py-1 text-[11px] font-medium text-slate-600 shadow-xs backdrop-blur-sm">
-          {STATE_COPY[state]}
-        </div>
-
         <PixelCharacter
           state={state}
           name={name}
           className="h-48 sm:h-56 w-full transition-transform duration-200 active:scale-95"
         />
-
-        <span className="mt-1 text-[10px] text-slate-400">
-          Chạm vào nhân vật
-        </span>
       </button>
 
       <div
