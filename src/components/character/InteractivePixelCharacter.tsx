@@ -10,7 +10,7 @@ interface InteractivePixelCharacterProps {
 const STORAGE_KEY = 'us:duong-pixel-character:v1';
 const HUNGRY_AFTER_MS = 6 * 60 * 60 * 1000;
 const REACTION_DURATION_MS = 4200;
-const WELCOME_ANIMATION_MS = 2150;
+const WELCOME_ANIMATION_MS = 2050;
 
 // Module-level guard:
 // - resets on a real page/app reload
