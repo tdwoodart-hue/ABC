@@ -9,7 +9,7 @@ interface CouplePixelCardProps {
 }
 
 const DUONG_WELCOME_MS = 2050;
-const CHUC_WELCOME_MS = 2050;
+const CHUC_WELCOME_MS = 2640;
 
 let duongWelcomePlayedThisPageLoad = false;
 let chucWelcomePlayedThisPageLoad = false;
@@ -35,37 +35,32 @@ const ChucAnimatedSprite: React.FC<{
       }
     >
       <style>{`
+        /*
+         * Atlas layout = 14 equal cells:
+         * 0..3  : Chúc idle
+         * 4..13 : Chúc wave (10 frames)
+         */
         @keyframes chuc-atlas-idle {
-          0%, 79% {
-            background-position: 0% 50%;
-          }
-          80%, 85% {
-            background-position: 22.2222222% 50%;
-          }
-          86%, 100% {
-            background-position: 0% 50%;
-          }
+          0%, 79% { background-position: 0% 50%; }
+          80%, 85% { background-position: 15.3846154% 50%; }
+          86%, 100% { background-position: 0% 50%; }
         }
 
+        /*
+         * Slower first lift: frame 4->5->6 get more time,
+         * then the wave can move more freely.
+         */
         @keyframes chuc-atlas-wave {
-          0%, 10% {
-            background-position: 44.4444444% 50%;
-          }
-          11%, 27% {
-            background-position: 55.5555556% 50%;
-          }
-          28%, 44% {
-            background-position: 66.6666667% 50%;
-          }
-          45%, 62% {
-            background-position: 77.7777778% 50%;
-          }
-          63%, 80% {
-            background-position: 88.8888889% 50%;
-          }
-          81%, 100% {
-            background-position: 100% 50%;
-          }
+          0%, 12%   { background-position: 30.7692308% 50%; }
+          13%, 24%  { background-position: 38.4615385% 50%; }
+          25%, 35%  { background-position: 46.1538462% 50%; }
+          36%, 45%  { background-position: 53.8461538% 50%; }
+          46%, 54%  { background-position: 61.5384615% 50%; }
+          55%, 63%  { background-position: 69.2307692% 50%; }
+          64%, 71%  { background-position: 76.9230769% 50%; }
+          72%, 79%  { background-position: 84.6153846% 50%; }
+          80%, 89%  { background-position: 92.3076923% 50%; }
+          90%, 100% { background-position: 100% 50%; }
         }
 
         .chuc-character-atlas {
@@ -73,7 +68,7 @@ const ChucAnimatedSprite: React.FC<{
           height: 100%;
           background-image: url('/characters/chuc_character_atlas.png');
           background-repeat: no-repeat;
-          background-size: 1000% 100%;
+          background-size: 1400% 100%;
           background-position: 0% 50%;
           image-rendering: pixelated;
           will-change: background-position;
@@ -86,7 +81,7 @@ const ChucAnimatedSprite: React.FC<{
         }
 
         .chuc-character-atlas--wave {
-          animation: chuc-atlas-wave 2.05s steps(1, end) 1 forwards;
+          animation: chuc-atlas-wave 2.64s steps(1, end) 1 forwards;
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -100,7 +95,7 @@ const ChucAnimatedSprite: React.FC<{
           }
 
           .chuc-character-atlas--wave {
-            background-position: 77.7777778% 50%;
+            background-position: 69.2307692% 50%;
           }
         }
       `}</style>
