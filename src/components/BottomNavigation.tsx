@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TabType } from './LightHomeScreen';
 import { MoreMenuSheet } from './MoreMenuSheet';
 import {
@@ -18,6 +18,72 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   onNavigate,
 }) => {
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+
+  // Detect when virtual keyboard opens or user is typing in an input/textarea to avoid blocking the UI
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let timeoutId: number | null = null;
+
+    const checkInputFocus = () => {
+      const activeEl = document.activeElement;
+      if (!activeEl) return false;
+      const tagName = activeEl.tagName.toLowerCase();
+      const isInput = tagName === 'input' || tagName === 'textarea';
+      const isContentEditable = (activeEl as HTMLElement).isContentEditable;
+      if (tagName === 'input') {
+        const type = (activeEl as HTMLInputElement).type?.toLowerCase();
+        if (['checkbox', 'radio', 'range', 'color', 'file', 'button', 'submit', 'reset'].includes(type)) {
+          return false;
+        }
+      }
+      return isInput || isContentEditable;
+    };
+
+    const handleFocusIn = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      if (checkInputFocus()) {
+        setIsKeyboardOpen(true);
+      }
+    };
+
+    const handleFocusOut = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => {
+        if (!checkInputFocus()) {
+          setIsKeyboardOpen(false);
+        }
+      }, 120);
+    };
+
+    const handleViewportResize = () => {
+      if (window.visualViewport) {
+        const heightDiff = window.innerHeight - window.visualViewport.height;
+        if (heightDiff > 140 && checkInputFocus()) {
+          setIsKeyboardOpen(true);
+        } else if (heightDiff < 60 && !checkInputFocus()) {
+          setIsKeyboardOpen(false);
+        }
+      }
+    };
+
+    document.addEventListener('focusin', handleFocusIn);
+    document.addEventListener('focusout', handleFocusOut);
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleViewportResize);
+    }
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      document.removeEventListener('focusin', handleFocusIn);
+      document.removeEventListener('focusout', handleFocusOut);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleViewportResize);
+      }
+    };
+  }, []);
 
   // More is active if current tab is in the secondary set (achievements, nutrition, profile) or if sheet is open
   const isMoreActive =
@@ -38,7 +104,9 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   return (
     <>
       <nav
-        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-rose-100/90 shadow-[0_-4px_20px_rgba(0,0,0,0.04)] px-2 sm:px-4 pt-1.5"
+        className={`fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-rose-100/90 shadow-[0_-4px_20px_rgba(0,0,0,0.04)] px-2 sm:px-4 pt-1.5 transition-all duration-200 ease-in-out ${
+          isKeyboardOpen ? 'translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
+        }`}
         style={{
           paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',
         }}

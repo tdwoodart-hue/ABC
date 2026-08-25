@@ -150,6 +150,12 @@ export const JournalComments: React.FC<JournalCommentsProps> = ({
             placeholder={isAuthor ? 'Viết bình luận kỷ niệm...' : 'Gửi lời nhắn cho nửa kia...'}
             value={commentInput || ''}
             onChange={(e) => onCommentInputChange(item.id, e.target.value)}
+            onFocus={(e) => {
+              const el = e.currentTarget;
+              setTimeout(() => {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }, 250);
+            }}
             className="flex-1 px-3.5 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-slate-800 text-xs focus:outline-none focus:ring-1.5 focus:ring-rose-400 focus:bg-white transition placeholder:text-slate-400"
           />
 
