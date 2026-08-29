@@ -140,7 +140,7 @@ export const SavedLocationSelectorModal: React.FC<SavedLocationSelectorModalProp
 
   if (!isOpen) return null;
 
-  const handleOpenAddForm = (initialItem?: LocationHistoryItem | { name?: string; address?: string; lat?: number; lng?: number }) => {
+  const handleOpenAddForm = (initialItem?: LocationHistoryItem | { name?: string; address?: string; lat?: number; lng?: number; accuracy?: number }) => {
     if (initialItem) {
       setEditingPlaceId(initialItem && 'savedPlaceId' in initialItem && initialItem.savedPlaceId ? initialItem.savedPlaceId : null);
       setFormName(initialItem.name || '');
@@ -149,6 +149,7 @@ export const SavedLocationSelectorModal: React.FC<SavedLocationSelectorModalProp
       setFormCategory(initialItem && 'category' in initialItem && initialItem.category ? (initialItem.category as any) : 'home');
       setFormLat(initialItem.lat);
       setFormLng(initialItem.lng);
+      setFormAccuracy(initialItem.accuracy);
       setFormNotes(initialItem && 'notes' in initialItem && initialItem.notes ? initialItem.notes : '');
     } else if (currentDraftLocation && (currentDraftLocation.name || currentDraftLocation.lat)) {
       setEditingPlaceId(null);
@@ -206,17 +207,24 @@ export const SavedLocationSelectorModal: React.FC<SavedLocationSelectorModalProp
     setIsSaving(true);
     try {
       const placesCol = collection(db, 'couples', coupleId, 'saved_places');
-      const payload: Partial<SavedPlace> = {
+      const payload: Record<string, any> = {
         name: formName.trim(),
         address: formAddress.trim(),
         emoji: formEmoji || '🏡',
         category: formCategory,
-        lat: formLat ?? undefined,
-        lng: formLng ?? undefined,
-        accuracy: formAccuracy ?? undefined,
         notes: formNotes.trim(),
         updatedAt: new Date().toISOString()
       };
+
+      if (typeof formLat === 'number' && !isNaN(formLat)) {
+        payload.lat = formLat;
+      }
+      if (typeof formLng === 'number' && !isNaN(formLng)) {
+        payload.lng = formLng;
+      }
+      if (typeof formAccuracy === 'number' && !isNaN(formAccuracy)) {
+        payload.accuracy = formAccuracy;
+      }
 
       if (editingPlaceId) {
         const placeDoc = doc(db, 'couples', coupleId, 'saved_places', editingPlaceId);

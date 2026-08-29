@@ -343,7 +343,7 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
               </div>
             ` : `
               <svg style="transform: rotate(45deg); width: ${isSelected ? '20px' : '16px'}; height: ${isSelected ? '20px' : '16px'}; fill: white; color: white;" viewBox="0 0 24 24">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3c3.08 0 5.5 2.42 5.5 5.5 0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
               </svg>
             `}
           </div>
@@ -612,9 +612,9 @@ export const LoveFootprintMap: React.FC<LoveFootprintMapProps> = ({
         locationTimestamp: newSpotTimestamp || new Date().toISOString(),
         placeId: newSpotPlaceId || null,
         dateVisited: newSpotDate,
-        note: newSpotStory.trim() || undefined,
+        note: newSpotStory.trim() || '',
         rating: newSpotRating,
-        imageUrl: newSpotImages.length > 0 ? newSpotImages[0] : undefined,
+        imageUrl: newSpotImages.length > 0 ? newSpotImages[0] : '',
         images: newSpotImages,
         addedByUid: userProfile.uid,
         addedByName: userProfile.displayName,

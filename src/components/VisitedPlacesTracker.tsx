@@ -718,7 +718,7 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
           dateVisited: placeDate,
           note: placeNote.trim(),
           rating: placeRating,
-          imageUrl: placeImageUrl || undefined,
+          imageUrl: placeImageUrl || null,
           addedByUid: userProfile.uid,
           addedByName: userProfile.displayName,
           createdAt: new Date().toISOString()
