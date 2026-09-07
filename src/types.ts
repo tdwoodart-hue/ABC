@@ -159,6 +159,7 @@ export interface JournalEntry {
   placeId?: string; // Google Places or OSM place_id if picked from map
   location?: string; // Tên địa điểm/Nơi đã đi
   locationAddress?: string; // Địa chỉ chi tiết từ reverse geocoding
+  rating?: number; // Điểm 0.5–5 cho địa điểm gắn với bài Nhật ký
   mood?: string;
   imageUrl?: string; // Ảnh / Video chính / Bìa
   images?: string[]; // Tất cả ảnh & video đính kèm

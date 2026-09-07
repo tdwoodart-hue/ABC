@@ -357,28 +357,38 @@ export const JournalForm: React.FC<JournalFormProps> = ({
       {activeSection === 'media' && (
         <div className="space-y-4 animate-in fade-in duration-150">
           {(isAuthor || mode === 'create') && (
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={onOpenCamera}
-                className="flex items-center justify-center gap-2 py-3 px-3.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-2xl text-xs text-rose-700 font-bold cursor-pointer transition shadow-2xs"
-              >
-                <Camera className="w-4 h-4 text-rose-600" />
-                <span>Chụp ảnh ngay</span>
-              </button>
-
-              <label className="flex items-center justify-center gap-2 py-3 px-3.5 bg-slate-50 hover:bg-slate-100 border border-dashed border-slate-300 hover:border-slate-400 rounded-2xl text-xs text-slate-700 font-semibold cursor-pointer transition">
-                <Upload className="w-4 h-4 text-slate-500" />
-                <span>{imageUploading ? 'Đang tải lên...' : 'Tải ảnh / video'}</span>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif,image/heic,video/mp4,video/quicktime,video/webm,video/x-m4v,video/*,image/*"
-                  multiple
-                  onChange={onFilesSelected}
-                  className="hidden"
+            <div className="space-y-2.5">
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={onOpenCamera}
                   disabled={imageUploading}
-                />
-              </label>
+                  className="flex items-center justify-center gap-2 py-3 px-3.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-2xl text-xs text-rose-700 font-bold cursor-pointer transition shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Camera className="w-4 h-4 text-rose-600" />
+                  <span>Chụp ảnh ngay</span>
+                </button>
+
+                <label className={`flex items-center justify-center gap-2 py-3 px-3.5 bg-slate-50 hover:bg-slate-100 border border-dashed border-slate-300 hover:border-slate-400 rounded-2xl text-xs text-slate-700 font-semibold cursor-pointer transition ${imageUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                  <Upload className="w-4 h-4 text-slate-500" />
+                  <span>{imageUploading ? 'Đang tải lên...' : 'Tải ảnh / video'}</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif,image/heic,video/mp4,video/quicktime,video/webm,video/x-m4v,video/*,image/*"
+                    multiple
+                    onChange={onFilesSelected}
+                    className="hidden"
+                    disabled={imageUploading}
+                  />
+                </label>
+              </div>
+
+              {imageUploading && (
+                <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-rose-50/80 border border-rose-100 rounded-2xl text-xs text-rose-700 font-medium animate-pulse">
+                  <Loader2 className="w-4 h-4 animate-spin text-rose-500 shrink-0" />
+                  <span>Đang tải phương tiện lên, vui lòng chờ trong giây lát...</span>
+                </div>
+              )}
             </div>
           )}
 

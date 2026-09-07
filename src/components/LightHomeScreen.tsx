@@ -496,6 +496,8 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
   const [cameraModalTarget, setCameraModalTarget] = useState<'journal_create' | 'journal_edit' | 'memory'>('journal_create');
   const [autoLocatingGPS, setAutoLocatingGPS] = useState(false);
   const [gpsToast, setGpsToast] = useState<string | null>(null);
+  const isCameraUploadingRef = React.useRef(false);
+  const isCameraMediaUploadingRef = React.useRef(false);
 
   const [isRestoreCommentOpen, setIsRestoreCommentOpen] = useState(false);
   const [deletedCommentsList, setDeletedCommentsList] = useState<DeletedCommentRecord[]>([]);
@@ -822,6 +824,12 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     autoLocation?: string,
     meta?: CameraLocationMetadata
   ) => {
+    if (isCameraUploadingRef.current) {
+      console.warn('Camera upload already in progress, ignoring duplicate call');
+      return;
+    }
+    isCameraUploadingRef.current = true;
+
     const target = cameraModalTarget;
 
     if (target === 'journal_create') {
@@ -839,7 +847,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       );
 
       if (target === 'journal_create') {
-        setJournalImages(prev => [...prev, uploadedUrl]);
+        setJournalImages(prev => (prev.includes(uploadedUrl) ? prev : [...prev, uploadedUrl]));
 
         if (meta) {
           setJournalLat(meta.lat);
@@ -864,7 +872,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
               : 'Đã upload ảnh Camera lên Firebase Storage!'
         );
       } else if (target === 'journal_edit') {
-        setEditImages(prev => [...prev, uploadedUrl]);
+        setEditImages(prev => (prev.includes(uploadedUrl) ? prev : [...prev, uploadedUrl]));
 
         if (meta) {
           setEditLat(meta.lat);
@@ -895,6 +903,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
         (err?.message || 'Vui lòng kiểm tra Firebase Storage Rules.')
       );
     } finally {
+      isCameraUploadingRef.current = false;
       setJournalImageLoading(false);
       setEditImageLoading(false);
       setMemoryImageLoading(false);
@@ -909,6 +918,11 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     meta?: CameraLocationMetadata
   ) => {
     if (media.kind !== 'video') return;
+    if (isCameraMediaUploadingRef.current) {
+      console.warn('Camera media upload already in progress, ignoring duplicate call');
+      return;
+    }
+    isCameraMediaUploadingRef.current = true;
 
     const target = cameraModalTarget;
 
@@ -1052,6 +1066,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             'Vui lòng kiểm tra Firebase Storage Rules hoặc kết nối mạng.')
       );
     } finally {
+      isCameraMediaUploadingRef.current = false;
       setJournalImageLoading(false);
       setEditImageLoading(false);
       setMemoryImageLoading(false);

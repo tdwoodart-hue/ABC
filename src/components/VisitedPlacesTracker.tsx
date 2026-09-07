@@ -102,6 +102,89 @@ const PlaceMediaThumbnail: React.FC<{
   );
 };
 
+// RATING_FEATURE_V1 — interactive 0.5-star rating shared by custom places and journal places.
+const RatingStars: React.FC<{
+  value?: number;
+  onChange?: (value: number) => void;
+  size?: number;
+}> = ({ value = 0, onChange, size = 14 }) => {
+  const safeValue = Math.max(0, Math.min(5, value || 0));
+
+  return (
+    <div
+      className="inline-flex items-center gap-0.5"
+      role={onChange ? 'radiogroup' : undefined}
+      aria-label={onChange ? 'Chấm điểm địa điểm' : `Điểm ${safeValue.toFixed(1)} trên 5`}
+    >
+      {[1, 2, 3, 4, 5].map((star) => {
+        const fillRatio = Math.max(0, Math.min(1, safeValue - (star - 1)));
+
+        return (
+          <div
+            key={star}
+            className="relative shrink-0"
+            style={{ width: size, height: size }}
+          >
+            <Star
+              className="absolute inset-0 text-slate-200"
+              style={{ width: size, height: size }}
+            />
+            <div
+              className="absolute inset-y-0 left-0 overflow-hidden pointer-events-none"
+              style={{ width: `${fillRatio * 100}%` }}
+            >
+              <Star
+                className="absolute left-0 top-0 fill-amber-400 text-amber-400"
+                style={{ width: size, height: size }}
+              />
+            </div>
+
+            {onChange && (
+              <>
+                <button
+                  type="button"
+                  aria-label={`Chấm ${star - 0.5} sao`}
+                  title={`${star - 0.5} sao`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onChange(star - 0.5);
+                  }}
+                  className="absolute inset-y-0 left-0 z-10 w-1/2 cursor-pointer"
+                />
+                <button
+                  type="button"
+                  aria-label={`Chấm ${star} sao`}
+                  title={`${star} sao`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onChange(star);
+                  }}
+                  className="absolute inset-y-0 right-0 z-10 w-1/2 cursor-pointer"
+                />
+              </>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const formatVisitedDate = (value?: string) => {
+  if (!value) return '';
+  const parts = value.split('-');
+  if (parts.length !== 3) return value;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+};
+
+const getRatingLabel = (value: number) => {
+  if (value >= 5) return 'Muốn quay lại ngay';
+  if (value >= 4) return 'Rất thích';
+  if (value >= 3) return 'Khá ổn';
+  if (value >= 2) return 'Bình thường';
+  return 'Không hợp lắm';
+};
+
 export interface ProvinceInfo {
   name: string;
   region: 'bac' | 'trung' | 'nam';
@@ -331,8 +414,12 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
 }) => {
   const [visitedProvinces, setVisitedProvinces] = useState<Record<string, VisitedProvinceRecord>>({});
   const [visitedPlaces, setVisitedPlaces] = useState<VisitedPlace[]>([]);
-  const [activeSubView, setActiveSubView] = useState<'provinces' | 'places'>('provinces');
+  const [activeSubView, setActiveSubView] = useState<'provinces' | 'places'>('places');
   const [placeOriginFilter, setPlaceOriginFilter] = useState<'all' | 'journal' | 'custom'>('all');
+  const [placeSort, setPlaceSort] = useState<'latest' | 'rating_desc' | 'rating_asc' | 'name'>('latest');
+  const [ratingSavingId, setRatingSavingId] = useState<string | null>(null);
+  const [ratingPlace, setRatingPlace] = useState<UnifiedPlaceItem | null>(null);
+  const [ratingDraft, setRatingDraft] = useState(5);
   const [regionFilter, setRegionFilter] = useState<'all' | 'visited' | 'bac' | 'trung' | 'nam'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [isExpanded, setIsExpanded] = useState(!defaultCollapsed);
@@ -460,6 +547,7 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
           isVideo: isVid,
           images: j.images,
           note: j.content || j.title,
+          rating: j.rating,
           authorName: j.authorName,
           authorUid: j.authorUid,
           isFromJournal: true,
@@ -491,6 +579,30 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
 
     return [...journalPlaces, ...custom];
   }, [visitedPlaces, journalPlaces]);
+
+  const ratingStats = useMemo(() => {
+    const ratedPlaces = allUnifiedPlaces.filter(
+      (place) => typeof place.rating === 'number' && place.rating > 0
+    );
+
+    const average = ratedPlaces.length > 0
+      ? ratedPlaces.reduce((sum, place) => sum + (place.rating || 0), 0) / ratedPlaces.length
+      : 0;
+
+    const topPlaces = [...ratedPlaces]
+      .sort((a, b) => {
+        const ratingDiff = (b.rating || 0) - (a.rating || 0);
+        if (ratingDiff !== 0) return ratingDiff;
+        return (b.dateVisited || '').localeCompare(a.dateVisited || '');
+      })
+      .slice(0, 3);
+
+    return {
+      ratedCount: ratedPlaces.length,
+      average,
+      topPlaces
+    };
+  }, [allUnifiedPlaces]);
 
   // Group places & journals by province
   const provinceDetailsMap = useMemo(() => {
@@ -758,6 +870,45 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
     }
   };
 
+  const handleRatePlace = async (place: UnifiedPlaceItem, nextRating: number) => {
+    if (!coupleId || ratingSavingId) return;
+
+    const normalizedRating = Math.max(0.5, Math.min(5, Math.round(nextRating * 2) / 2));
+    setRatingSavingId(place.id);
+
+    try {
+      if (place.isFromJournal) {
+        const journalId = place.journalRef?.id || place.id.replace(/^journal_/, '');
+        if (!journalId) return;
+
+        await updateDoc(doc(db, 'couples', coupleId, 'journals', journalId), {
+          rating: normalizedRating,
+          updatedAt: new Date().toISOString()
+        });
+      } else {
+        await updateDoc(doc(db, 'couples', coupleId, 'visited_places', place.id), {
+          rating: normalizedRating
+        });
+      }
+    } catch (err) {
+      console.error('Lỗi lưu điểm địa điểm:', err);
+      window.alert('Không thể lưu điểm địa điểm. Vui lòng thử lại.');
+    } finally {
+      setRatingSavingId(null);
+    }
+  };
+
+  const handleOpenRating = (place: UnifiedPlaceItem) => {
+    setRatingPlace(place);
+    setRatingDraft(place.rating || 5);
+  };
+
+  const handleSaveRating = async () => {
+    if (!ratingPlace) return;
+    await handleRatePlace(ratingPlace, ratingDraft);
+    setRatingPlace(null);
+  };
+
   // Filtered provinces
   const filteredProvinces = useMemo(() => {
     return VIETNAM_PROVINCES.filter((p) => {
@@ -771,9 +922,9 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
     });
   }, [searchTerm, regionFilter, visitedProvinces, provinceDetailsMap]);
 
-  // Filtered places
+  // Filtered + sorted places
   const filteredPlaces = useMemo(() => {
-    return allUnifiedPlaces.filter((place) => {
+    const next = allUnifiedPlaces.filter((place) => {
       const matchSearch = place.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           place.province.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (place.note && place.note.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -785,82 +936,117 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
       if (regionFilter === 'all' || regionFilter === 'visited') return true;
       return place.region === regionFilter;
     });
-  }, [allUnifiedPlaces, searchTerm, placeOriginFilter, regionFilter]);
+
+    return next.sort((a, b) => {
+      if (placeSort === 'rating_desc') {
+        return (b.rating || 0) - (a.rating || 0);
+      }
+
+      if (placeSort === 'rating_asc') {
+        const aRating = typeof a.rating === 'number' && a.rating > 0 ? a.rating : Number.POSITIVE_INFINITY;
+        const bRating = typeof b.rating === 'number' && b.rating > 0 ? b.rating : Number.POSITIVE_INFINITY;
+        return aRating - bRating;
+      }
+
+      if (placeSort === 'name') {
+        return a.name.localeCompare(b.name, 'vi');
+      }
+
+      return (b.dateVisited || '').localeCompare(a.dateVisited || '');
+    });
+  }, [allUnifiedPlaces, searchTerm, placeOriginFilter, regionFilter, placeSort]);
 
   return (
-    <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-3">
+    <div className="bg-white rounded-[28px] p-3.5 sm:p-5 border border-slate-200/70 shadow-[0_10px_36px_rgba(15,23,42,0.06)] space-y-4">
 
-      {/* Compact journey header */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
-              <Compass className="w-4 h-4" />
+      {/* Journey overview */}
+      <div className="rounded-2xl border border-slate-200/70 bg-slate-50/60 p-3.5 sm:p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-rose-500 text-white shadow-sm shadow-rose-200/70">
+              <Compass className="h-5 w-5" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-black text-slate-900 tracking-tight truncate">
+                <h3 className="truncate text-[15px] font-black tracking-tight text-slate-900 sm:text-base">
                   Hành trình Việt Nam
                 </h3>
-                <span className="shrink-0 text-[11px] px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 font-black border border-rose-100">
-                  {totalVisitedProvincesCount}/63
+                <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-rose-600 ring-1 ring-rose-100">
+                  {totalVisitedProvincesCount}/63 tỉnh
                 </span>
               </div>
-              <p className="mt-0.5 text-[11px] text-slate-500 font-medium">
-                {allUnifiedPlaces.length} địa điểm · {percentage}% Việt Nam
+              <p className="mt-0.5 text-[10px] font-medium text-slate-500 sm:text-[11px]">
+                {getMilestoneTitle()}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleSyncMemoriesToProvinces}
+              disabled={isAutoSyncing}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
+              title="Đồng bộ từ Nhật ký"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isAutoSyncing ? 'animate-spin text-rose-500' : ''}`} />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleOpenAddPlace()}
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-rose-500 px-3 text-[11px] font-black text-white shadow-sm shadow-rose-200/60 transition hover:bg-rose-600"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Thêm nơi</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              title={isExpanded ? 'Thu gọn' : 'Mở rộng'}
+            >
+              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <div className="rounded-xl bg-white px-2.5 py-2 ring-1 ring-slate-200/70">
+            <p className="text-[9px] font-semibold text-slate-400">Địa điểm</p>
+            <p className="mt-0.5 text-sm font-black text-slate-900">{allUnifiedPlaces.length}</p>
+          </div>
+          <div className="rounded-xl bg-white px-2.5 py-2 ring-1 ring-slate-200/70">
+            <p className="text-[9px] font-semibold text-slate-400">Đã chấm</p>
+            <p className="mt-0.5 text-sm font-black text-slate-900">
+              {ratingStats.ratedCount}<span className="text-[10px] font-semibold text-slate-400">/{allUnifiedPlaces.length}</span>
+            </p>
+          </div>
+          <div className="rounded-xl bg-white px-2.5 py-2 ring-1 ring-slate-200/70">
+            <p className="text-[9px] font-semibold text-slate-400">Điểm trung bình</p>
+            <div className="mt-0.5 flex items-center gap-1">
+              <Star className={`h-3.5 w-3.5 ${ratingStats.ratedCount > 0 ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}`} />
+              <p className="text-sm font-black text-slate-900">
+                {ratingStats.ratedCount > 0 ? ratingStats.average.toFixed(1) : '—'}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            type="button"
-            onClick={handleSyncMemoriesToProvinces}
-            disabled={isAutoSyncing}
-            className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer border border-slate-200"
-            title="Đồng bộ từ Nhật ký"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isAutoSyncing ? 'animate-spin text-rose-500' : ''}`} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleOpenAddPlace()}
-            className="h-8 px-3 flex items-center gap-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-[11px] font-bold shadow-2xs transition cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Thêm nơi</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer border border-slate-200"
-            title={isExpanded ? 'Thu gọn' : 'Mở rộng'}
-          >
-            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Compact progress */}
-      <div>
-        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-rose-500 rounded-full transition-all duration-500"
-            style={{ width: `${Math.max(percentage, totalVisitedProvincesCount > 0 ? 3 : 0)}%` }}
-          />
-        </div>
-        <div className="mt-1.5 flex items-center justify-between gap-2">
-          <span className="text-[10px] text-slate-500 font-medium truncate">
-            {getMilestoneTitle()}
-          </span>
-          {journalPlaces.length > 0 && (
-            <span className="text-[10px] text-rose-500 font-semibold shrink-0">
-              {journalPlaces.length} từ Nhật ký
-            </span>
-          )}
+        <div className="mt-3">
+          <div className="h-1.5 overflow-hidden rounded-full bg-slate-200/70">
+            <div
+              className="h-full rounded-full bg-rose-500 transition-all duration-500"
+              style={{ width: `${Math.max(percentage, totalVisitedProvincesCount > 0 ? 3 : 0)}%` }}
+            />
+          </div>
+          <div className="mt-1.5 flex items-center justify-between gap-2 text-[9px] font-semibold">
+            <span className="text-slate-400">{percentage}% Việt Nam</span>
+            {journalPlaces.length > 0 && (
+              <span className="text-rose-500">{journalPlaces.length} nơi từ Nhật ký</span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -875,115 +1061,136 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
         <div className="space-y-3 pt-2 border-t border-slate-100 animate-in fade-in duration-200">
 
           {/* Main switch */}
-          <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-100">
+          <div className="grid grid-cols-2 gap-1 rounded-2xl border border-slate-200/80 bg-slate-50 p-1">
             <button
               type="button"
               onClick={() => setActiveSubView('provinces')}
-              className={`py-1.5 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+              className={`flex h-9 items-center justify-center gap-1.5 rounded-xl text-[11px] font-black transition ${
                 activeSubView === 'provinces'
-                  ? 'bg-white text-rose-600 shadow-2xs'
-                  : 'text-slate-500 hover:text-slate-700'
+                  ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/60'
+                  : 'text-slate-400 hover:text-slate-700'
               }`}
             >
-              <Map className="w-3.5 h-3.5" />
+              <Map className={`h-3.5 w-3.5 ${activeSubView === 'provinces' ? 'text-rose-500' : ''}`} />
               Tỉnh thành
             </button>
             <button
               type="button"
               onClick={() => setActiveSubView('places')}
-              className={`py-1.5 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+              className={`flex h-9 items-center justify-center gap-1.5 rounded-xl text-[11px] font-black transition ${
                 activeSubView === 'places'
-                  ? 'bg-white text-rose-600 shadow-2xs'
-                  : 'text-slate-500 hover:text-slate-700'
+                  ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/60'
+                  : 'text-slate-400 hover:text-slate-700'
               }`}
             >
-              <Navigation className="w-3.5 h-3.5" />
+              <Navigation className={`h-3.5 w-3.5 ${activeSubView === 'places' ? 'text-rose-500' : ''}`} />
               Địa điểm
             </button>
           </div>
 
-          {/* Compact filters */}
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setRegionFilter('all')}
-              className={`h-8 px-2.5 rounded-xl text-[10px] font-bold transition shrink-0 cursor-pointer ${
-                regionFilter === 'all'
-                  ? 'bg-slate-800 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              Tất cả
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setRegionFilter('visited')}
-              className={`h-8 px-2.5 rounded-xl text-[10px] font-bold transition shrink-0 cursor-pointer flex items-center gap-1 ${
-                regionFilter === 'visited'
-                  ? 'bg-rose-500 text-white'
-                  : 'bg-rose-50 text-rose-600 hover:bg-rose-100'
-              }`}
-            >
-              <Check className="w-3 h-3" />
-              Đã đi
-            </button>
-
-            <select
-              value={regionFilter === 'bac' || regionFilter === 'trung' || regionFilter === 'nam' ? regionFilter : ''}
-              onChange={(e) => {
-                const value = e.target.value as 'bac' | 'trung' | 'nam' | '';
-                setRegionFilter(value || 'all');
-              }}
-              className="h-8 min-w-0 rounded-xl bg-white border border-slate-200 px-2 text-[10px] font-semibold text-slate-600 outline-none focus:ring-1 focus:ring-rose-400 cursor-pointer"
-              aria-label="Lọc theo miền"
-            >
-              <option value="">Miền</option>
-              <option value="bac">Miền Bắc</option>
-              <option value="trung">Trung & Tây Nguyên</option>
-              <option value="nam">Miền Nam</option>
-            </select>
-
-            <div className="relative flex-1 min-w-0">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          {/* Search + region filters */}
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder={activeSubView === 'provinces' ? 'Tìm tỉnh...' : 'Tìm địa điểm...'}
+                placeholder={activeSubView === 'provinces' ? 'Tìm tỉnh, thành phố...' : 'Tìm quán, địa điểm, ghi chú...'}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-8 w-full pl-8 pr-7 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-400 focus:bg-white"
+                className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-9 pr-9 text-[11px] font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-rose-200 focus:bg-white focus:ring-2 focus:ring-rose-100"
               />
               {searchTerm && (
                 <button
                   type="button"
                   onClick={() => setSearchTerm('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="h-3 w-3" />
                 </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <button
+                type="button"
+                onClick={() => setRegionFilter('all')}
+                className={`h-8 shrink-0 rounded-xl px-3 text-[10px] font-black transition ${
+                  regionFilter === 'all'
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'border border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                }`}
+              >
+                Tất cả
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setRegionFilter('visited')}
+                className={`flex h-8 shrink-0 items-center gap-1 rounded-xl px-3 text-[10px] font-black transition ${
+                  regionFilter === 'visited'
+                    ? 'bg-rose-500 text-white shadow-sm shadow-rose-100'
+                    : 'border border-rose-100 bg-rose-50/70 text-rose-600 hover:bg-rose-100'
+                }`}
+              >
+                <Check className="h-3 w-3" />
+                Đã đi
+              </button>
+
+              <select
+                value={regionFilter === 'bac' || regionFilter === 'trung' || regionFilter === 'nam' ? regionFilter : ''}
+                onChange={(e) => {
+                  const value = e.target.value as 'bac' | 'trung' | 'nam' | '';
+                  setRegionFilter(value || 'all');
+                }}
+                className="h-8 shrink-0 rounded-xl border border-slate-200 bg-white px-2.5 text-[10px] font-bold text-slate-600 outline-none focus:border-rose-200 focus:ring-2 focus:ring-rose-100"
+                aria-label="Lọc theo miền"
+              >
+                <option value="">Tất cả miền</option>
+                <option value="bac">Miền Bắc</option>
+                <option value="trung">Trung & Tây Nguyên</option>
+                <option value="nam">Miền Nam</option>
+              </select>
+
+              {activeSubView === 'places' && (
+                <select
+                  value={placeSort}
+                  onChange={(event) => setPlaceSort(event.target.value as typeof placeSort)}
+                  className="ml-auto h-8 shrink-0 rounded-xl border border-slate-200 bg-white px-2.5 text-[10px] font-bold text-slate-600 outline-none focus:border-rose-200 focus:ring-2 focus:ring-rose-100"
+                  aria-label="Sắp xếp địa điểm"
+                >
+                  <option value="latest">Mới đi gần đây</option>
+                  <option value="rating_desc">Điểm cao nhất</option>
+                  <option value="rating_asc">Điểm thấp nhất</option>
+                  <option value="name">Tên A → Z</option>
+                </select>
               )}
             </div>
           </div>
 
           {/* Source filter only for places */}
           {activeSubView === 'places' && (
-            <div className="flex items-center gap-1">
+            <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-50 p-1 ring-1 ring-slate-200/70">
               {[
-                { id: 'all', label: `Tất cả ${allUnifiedPlaces.length}` },
-                { id: 'journal', label: `Nhật ký ${journalPlaces.length}` },
-                { id: 'custom', label: `Tự thêm ${visitedPlaces.length}` },
+                { id: 'all', label: 'Tất cả', count: allUnifiedPlaces.length },
+                { id: 'journal', label: 'Nhật ký', count: journalPlaces.length },
+                { id: 'custom', label: 'Tự thêm', count: visitedPlaces.length },
               ].map((item) => (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => setPlaceOriginFilter(item.id as 'all' | 'journal' | 'custom')}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition cursor-pointer ${
+                  className={`flex h-8 items-center justify-center gap-1 rounded-lg text-[10px] font-black transition ${
                     placeOriginFilter === item.id
-                      ? 'bg-rose-50 text-rose-600 border border-rose-100'
-                      : 'text-slate-500 hover:bg-slate-50 border border-transparent'
+                      ? 'bg-white text-rose-600 shadow-sm ring-1 ring-slate-200/50'
+                      : 'text-slate-400 hover:text-slate-700'
                   }`}
                 >
-                  {item.label}
+                  <span>{item.label}</span>
+                  <span className={`rounded-full px-1.5 py-0.5 text-[8px] ${
+                    placeOriginFilter === item.id ? 'bg-rose-50 text-rose-500' : 'bg-slate-200/60 text-slate-500'
+                  }`}>
+                    {item.count}
+                  </span>
                 </button>
               ))}
             </div>
@@ -1114,135 +1321,226 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
             </div>
           )}
 
-          {/* PLACES — compact rows, no nested scroll */}
+          {activeSubView === 'places' && ratingStats.topPlaces.length > 0 && (
+            <div className="rounded-2xl border border-slate-200/70 bg-slate-50/50 p-3">
+              <div className="mb-2.5 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                    <Award className="h-3.5 w-3.5" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-black text-slate-800">Top của chúng mình</p>
+                    <p className="text-[9px] font-medium text-slate-400">Những nơi đang được chấm cao nhất</p>
+                  </div>
+                </div>
+                <span className="text-[9px] font-bold text-slate-400">{ratingStats.ratedCount} nơi đã chấm</span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+                {ratingStats.topPlaces.map((place, index) => (
+                  <button
+                    key={`top_${place.id}`}
+                    type="button"
+                    onClick={() => handleOpenRating(place)}
+                    className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200/70 bg-white px-2.5 py-2 text-left transition hover:border-rose-100 hover:shadow-sm"
+                  >
+                    <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[10px] font-black ${
+                      index === 0
+                        ? 'bg-amber-50 text-amber-600'
+                        : index === 1
+                          ? 'bg-slate-100 text-slate-600'
+                          : 'bg-orange-50 text-orange-600'
+                    }`}>
+                      {index + 1}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[10px] font-black text-slate-800">{place.name}</p>
+                      <div className="mt-0.5 flex items-center gap-1">
+                        <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                        <span className="text-[9px] font-black text-amber-700">{place.rating?.toFixed(1)}</span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* PLACES — review cards */}
           {activeSubView === 'places' && (
-            <div className="space-y-2">
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between px-0.5">
+                <div>
+                  <p className="text-[11px] font-black text-slate-800">{filteredPlaces.length} địa điểm</p>
+                  <p className="text-[9px] font-medium text-slate-400">
+                    Chạm vào Chấm điểm để lưu cảm nhận của hai đứa
+                  </p>
+                </div>
+                {ratingStats.ratedCount > 0 && (
+                  <div className="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-[9px] font-black text-amber-700">
+                    <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                    {ratingStats.average.toFixed(1)} TB
+                  </div>
+                )}
+              </div>
+
               {filteredPlaces.length === 0 ? (
-                <div className="py-8 text-center text-xs text-slate-400 space-y-2">
-                  <p>Chưa có địa điểm hoặc kỷ niệm theo bộ lọc.</p>
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-10 text-center">
+                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-slate-300 shadow-sm ring-1 ring-slate-200/70">
+                    <MapPin className="h-4 w-4" />
+                  </div>
+                  <p className="mt-3 text-xs font-black text-slate-700">Không tìm thấy địa điểm</p>
+                  <p className="mt-1 text-[10px] text-slate-400">Thử đổi bộ lọc hoặc thêm một nơi mới.</p>
                   <button
                     type="button"
                     onClick={() => handleOpenAddPlace()}
-                    className="px-3 py-1.5 bg-rose-500 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1 shadow-2xs cursor-pointer"
+                    className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-xl bg-rose-500 px-3 text-[11px] font-black text-white shadow-sm shadow-rose-100 transition hover:bg-rose-600"
                   >
-                    <Plus className="w-3 h-3" />
+                    <Plus className="h-3.5 w-3.5" />
                     Thêm nơi đã đi
                   </button>
                 </div>
               ) : (
                 filteredPlaces.map((place) => (
-                  <div
+                  <article
                     key={place.id}
-                    className={`p-2.5 rounded-2xl border bg-white transition flex items-center gap-2.5 ${
-                      place.isFromJournal
-                        ? 'border-rose-100 hover:border-rose-200'
-                        : 'border-slate-200/80 hover:border-slate-300'
-                    }`}
+                    className="group rounded-2xl border border-slate-200/75 bg-white p-2.5 transition duration-200 hover:border-slate-300 hover:shadow-[0_8px_24px_rgba(15,23,42,0.06)] sm:p-3"
                   >
-                    {place.imageUrl ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (place.journalRef && onOpenJournalLightbox) {
-                            onOpenJournalLightbox(place.journalRef, place.journalRef.mainImageIndex || 0);
-                          }
-                        }}
-                        className={`w-[68px] h-[68px] rounded-xl overflow-hidden bg-slate-100 shrink-0 border border-slate-100 ${
-                          place.journalRef && onOpenJournalLightbox ? 'cursor-pointer' : 'cursor-default'
-                        }`}
-                      >
-                        <PlaceMediaThumbnail
-                          url={place.imageUrl}
-                          thumbnailUrl={place.thumbnailUrl}
-                          alt={place.name}
-                          className="w-full h-full object-cover"
-                          showPlayBadge={true}
-                        />
-                      </button>
-                    ) : (
-                      <div className="w-[54px] h-[54px] rounded-xl bg-slate-50 border border-slate-100 shrink-0 flex items-center justify-center">
-                        <MapPin className="w-4 h-4 text-slate-300" />
-                      </div>
-                    )}
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <h4 className="font-bold text-xs text-slate-900 truncate">
-                          {place.name}
-                        </h4>
-                        {place.isFromJournal && (
-                          <span className="shrink-0 text-[8px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md">
-                            Nhật ký
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="mt-1 flex items-center gap-1.5 text-[10px] text-slate-500 min-w-0">
-                        <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
-                        <span className="truncate">{place.province}</span>
-                        {place.dateVisited && (
-                          <>
-                            <span className="text-slate-300">·</span>
-                            <span className="shrink-0">{place.dateVisited}</span>
-                          </>
-                        )}
-                      </div>
-
-                      {(place.authorName || place.note) && (
-                        <p className="mt-1 text-[9px] text-slate-400 truncate">
-                          {place.authorName ? `${place.authorName}` : ''}
-                          {place.authorName && place.note ? ' · ' : ''}
-                          {place.note || ''}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-1 shrink-0">
-                      {place.isFromJournal ? (
+                    <div className="flex items-start gap-3">
+                      {place.imageUrl ? (
                         <button
                           type="button"
                           onClick={() => {
                             if (place.journalRef && onOpenJournalLightbox) {
-                              onOpenJournalLightbox(place.journalRef, 0);
+                              onOpenJournalLightbox(place.journalRef, place.journalRef.mainImageIndex || 0);
                             }
                           }}
-                          className="h-8 px-2.5 rounded-xl text-[10px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 transition flex items-center gap-1 cursor-pointer"
+                          className={`h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200/70 sm:h-[78px] sm:w-[78px] ${
+                            place.journalRef && onOpenJournalLightbox ? 'cursor-pointer' : 'cursor-default'
+                          }`}
                         >
-                          <ExternalLink className="w-3 h-3" />
-                          <span className="hidden sm:inline">Xem</span>
+                          <PlaceMediaThumbnail
+                            url={place.imageUrl}
+                            thumbnailUrl={place.thumbnailUrl}
+                            alt={place.name}
+                            className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+                            showPlayBadge={true}
+                          />
                         </button>
                       ) : (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditPlace(place)}
-                            className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition flex items-center justify-center cursor-pointer"
-                            title="Sửa địa điểm"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeletePlace(place.id)}
-                            className="w-8 h-8 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition flex items-center justify-center cursor-pointer"
-                            title="Xóa địa điểm"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </>
+                        <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-300 ring-1 ring-slate-200/70 sm:h-[78px] sm:w-[78px]">
+                          <MapPin className="h-5 w-5" />
+                        </div>
                       )}
 
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name} ${place.province}`)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-8 h-8 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition flex items-center justify-center"
-                        title="Chỉ đường"
-                      >
-                        <Navigation className="w-3.5 h-3.5" />
-                      </a>
+                      <div className="min-w-0 flex-1 pt-0.5">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <h4 className="truncate text-[12px] font-black text-slate-900 sm:text-[13px]">
+                            {place.name}
+                          </h4>
+                          {place.isFromJournal && (
+                            <span className="shrink-0 rounded-md bg-rose-50 px-1.5 py-0.5 text-[8px] font-black text-rose-500">
+                              Nhật ký
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[9px] font-medium text-slate-400 sm:text-[10px]">
+                          <span className="inline-flex min-w-0 items-center gap-1">
+                            <MapPin className="h-3 w-3 shrink-0 text-rose-400" />
+                            <span className="truncate">{place.province}</span>
+                          </span>
+                          {place.dateVisited && (
+                            <>
+                              <span className="text-slate-300">•</span>
+                              <span className="shrink-0">{formatVisitedDate(place.dateVisited)}</span>
+                            </>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenRating(place)}
+                          className="mt-1.5 flex max-w-full items-center gap-1.5 rounded-lg text-left"
+                          title="Chấm điểm địa điểm"
+                        >
+                          <RatingStars value={place.rating || 0} size={14} />
+                          <span className={`truncate text-[9px] font-black ${place.rating ? 'text-amber-700' : 'text-slate-400'}`}>
+                            {place.rating ? `${place.rating.toFixed(1)} · ${getRatingLabel(place.rating)}` : 'Chưa chấm điểm'}
+                          </span>
+                        </button>
+
+                        {(place.authorName || place.note) && (
+                          <p className="mt-1.5 line-clamp-1 text-[9px] leading-relaxed text-slate-400">
+                            {place.authorName ? <span className="font-bold text-slate-500">{place.authorName}</span> : null}
+                            {place.authorName && place.note ? ' · ' : ''}
+                            {place.note || ''}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
+
+                    <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-slate-100 pt-2.5">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenRating(place)}
+                        className={`inline-flex h-8 items-center gap-1.5 rounded-xl px-3 text-[10px] font-black transition ${
+                          place.rating
+                            ? 'border border-slate-200 bg-white text-slate-700 hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700'
+                            : 'bg-rose-500 text-white shadow-sm shadow-rose-100 hover:bg-rose-600'
+                        }`}
+                      >
+                        <Star className={`h-3.5 w-3.5 ${place.rating ? 'fill-amber-400 text-amber-400' : 'fill-white text-white'}`} />
+                        <span>{place.rating ? `Sửa điểm ${place.rating.toFixed(1)}` : 'Chấm điểm'}</span>
+                      </button>
+
+                      <div className="flex items-center gap-1">
+                        {place.isFromJournal ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (place.journalRef && onOpenJournalLightbox) {
+                                onOpenJournalLightbox(place.journalRef, 0);
+                              }
+                            }}
+                            className="inline-flex h-8 items-center gap-1 rounded-xl bg-slate-50 px-2.5 text-[10px] font-bold text-slate-600 transition hover:bg-rose-50 hover:text-rose-600"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            <span>Xem</span>
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditPlace(place)}
+                              className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                              title="Sửa địa điểm"
+                            >
+                              <Edit3 className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePlace(place.id)}
+                              className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                              title="Xóa địa điểm"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </>
+                        )}
+
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name} ${place.province}`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 transition hover:bg-sky-50 hover:text-sky-600"
+                          title="Chỉ đường"
+                        >
+                          <Navigation className="h-3.5 w-3.5" />
+                        </a>
+                      </div>
+                    </div>
+                  </article>
                 ))
               )}
             </div>
@@ -1369,6 +1667,77 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
         </div>
       )}
 
+      {/* MODAL: RATE PLACE */}
+      {ratingPlace && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-[2px]">
+          <div className="w-full max-w-sm overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.22)] animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 pb-4 pt-5">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-500 ring-1 ring-amber-100">
+                    <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">Đánh giá địa điểm</p>
+                    <h3 className="mt-0.5 truncate text-sm font-black text-slate-900">{ratingPlace.name}</h3>
+                    <p className="mt-0.5 flex items-center gap-1 text-[9px] font-medium text-slate-400">
+                      <MapPin className="h-3 w-3 text-rose-400" />
+                      <span className="truncate">{ratingPlace.province}</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRatingPlace(null)}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Đóng bảng chấm điểm"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="px-5 py-5">
+              <div className="text-center">
+                <p className="text-[11px] font-bold text-slate-500">Hai đứa thấy nơi này thế nào?</p>
+                <div className="mt-4 flex justify-center">
+                  <RatingStars value={ratingDraft} onChange={setRatingDraft} size={38} />
+                </div>
+
+                <div className="mt-4 flex items-end justify-center gap-1">
+                  <span className="text-4xl font-black tracking-tight text-slate-900 tabular-nums">{ratingDraft.toFixed(1)}</span>
+                  <span className="mb-1 text-xs font-bold text-slate-400">/5</span>
+                </div>
+                <div className="mt-2 inline-flex rounded-full bg-amber-50 px-3 py-1 text-[10px] font-black text-amber-700">
+                  {getRatingLabel(ratingDraft)}
+                </div>
+                <p className="mt-3 text-[9px] leading-relaxed text-slate-400">
+                  Có thể chấm theo bước 0.5 bằng cách chạm nửa trái hoặc nửa phải của mỗi sao.
+                </p>
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRatingPlace(null)}
+                  className="h-10 rounded-xl border border-slate-200 bg-white text-xs font-black text-slate-600 transition hover:bg-slate-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleSaveRating()}
+                  disabled={ratingSavingId === ratingPlace.id}
+                  className="h-10 rounded-xl bg-rose-500 text-xs font-black text-white shadow-sm shadow-rose-100 transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {ratingSavingId === ratingPlace.id ? 'Đang lưu...' : 'Lưu đánh giá'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL: ADD / EDIT VISITED PLACE */}
       {showPlaceModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
@@ -1434,6 +1803,21 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-rose-400 focus:bg-white"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Hai đứa chấm nơi này bao nhiêu?
+                </label>
+                <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-amber-50/70 border border-amber-100">
+                  <RatingStars value={placeRating} onChange={setPlaceRating} size={24} />
+                  <span className="text-sm font-black text-amber-700 tabular-nums">
+                    {placeRating.toFixed(1)}/5
+                  </span>
+                </div>
+                <p className="mt-1 text-[9px] text-slate-400">
+                  Chạm nửa trái/phải của mỗi sao để chấm theo bước 0.5.
+                </p>
               </div>
 
               <div>

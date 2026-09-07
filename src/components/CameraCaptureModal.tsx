@@ -253,6 +253,19 @@ export const CameraCaptureModal: React.FC<
   const [locationError, setLocationError] =
     useState<string | null>(null);
 
+  const [isSaving, setIsSaving] =
+    useState(false);
+  const isSavingRef =
+    useRef(false);
+
+  const [isCapturingSnapshot, setIsCapturingSnapshot] =
+    useState(false);
+  const isCapturingSnapshotRef =
+    useRef(false);
+
+  const [shutterFlash, setShutterFlash] =
+    useState(false);
+
   const clearRecordingTimer = () => {
     if (recordingTimerRef.current !== null) {
       window.clearInterval(recordingTimerRef.current);
@@ -310,6 +323,10 @@ export const CameraCaptureModal: React.FC<
   };
 
   const resetCapturedMedia = () => {
+    setIsSaving(false);
+    isSavingRef.current = false;
+    setIsCapturingSnapshot(false);
+    isCapturingSnapshotRef.current = false;
     setCapturedImage(null);
     discardRecordedVideo();
     setVideoError(null);
@@ -598,6 +615,8 @@ export const CameraCaptureModal: React.FC<
    */
   useEffect(() => {
     if (!isOpen) {
+      setIsSaving(false);
+      isSavingRef.current = false;
       stopRecording();
       stopCamera();
       return;
@@ -748,6 +767,7 @@ export const CameraCaptureModal: React.FC<
 
   const handleTakeSnapshot =
     async () => {
+      if (isCapturingSnapshotRef.current) return;
       const video =
         videoRef.current;
 
@@ -760,92 +780,97 @@ export const CameraCaptureModal: React.FC<
         return;
       }
 
-      const canvas =
-        canvasRef.current ||
-        document.createElement(
-          'canvas'
-        );
-
-      const maxDimension = 1600;
-
-      const ratio =
-        Math.min(
-          1,
-          maxDimension /
-            Math.max(
-              video.videoWidth,
-              video.videoHeight
-            )
-        );
-
-      canvas.width =
-        Math.max(
-          1,
-          Math.round(
-            video.videoWidth *
-              ratio
-          )
-        );
-
-      canvas.height =
-        Math.max(
-          1,
-          Math.round(
-            video.videoHeight *
-              ratio
-          )
-        );
-
-      const context =
-        canvas.getContext('2d');
-
-      if (!context) return;
-
-      context.save();
-
-      if (
-        facingMode === 'user'
-      ) {
-        context.translate(
-          canvas.width,
-          0
-        );
-
-        context.scale(
-          -1,
-          1
-        );
-      }
-
-      context.drawImage(
-        video,
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
-
-      context.restore();
-
-      const blob =
-        await new Promise<
-          Blob | null
-        >((resolve) => {
-          canvas.toBlob(
-            resolve,
-            'image/jpeg',
-            0.86
-          );
-        });
-
-      if (!blob) {
-        setCameraError(
-          'Không thể tạo ảnh vừa chụp. Hãy thử lại.'
-        );
-        return;
-      }
+      isCapturingSnapshotRef.current = true;
+      setIsCapturingSnapshot(true);
+      setShutterFlash(true);
+      window.setTimeout(() => setShutterFlash(false), 120);
 
       try {
+        const canvas =
+          canvasRef.current ||
+          document.createElement(
+            'canvas'
+          );
+
+        const maxDimension = 1600;
+
+        const ratio =
+          Math.min(
+            1,
+            maxDimension /
+              Math.max(
+                video.videoWidth,
+                video.videoHeight
+              )
+          );
+
+        canvas.width =
+          Math.max(
+            1,
+            Math.round(
+              video.videoWidth *
+                ratio
+            )
+          );
+
+        canvas.height =
+          Math.max(
+            1,
+            Math.round(
+              video.videoHeight *
+                ratio
+            )
+          );
+
+        const context =
+          canvas.getContext('2d');
+
+        if (!context) return;
+
+        context.save();
+
+        if (
+          facingMode === 'user'
+        ) {
+          context.translate(
+            canvas.width,
+            0
+          );
+
+          context.scale(
+            -1,
+            1
+          );
+        }
+
+        context.drawImage(
+          video,
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+
+        context.restore();
+
+        const blob =
+          await new Promise<
+            Blob | null
+          >((resolve) => {
+            canvas.toBlob(
+              resolve,
+              'image/jpeg',
+              0.86
+            );
+          });
+
+        if (!blob) {
+          setCameraError(
+            'Không thể tạo ảnh vừa chụp. Hãy thử lại.'
+          );
+          return;
+        }
+
         const dataUrl =
           await blobToDataUrl(
             blob
@@ -861,6 +886,9 @@ export const CameraCaptureModal: React.FC<
           error?.message ||
             'Không thể xử lý ảnh vừa chụp.'
         );
+      } finally {
+        isCapturingSnapshotRef.current = false;
+        setIsCapturingSnapshot(false);
       }
     };
 
@@ -1061,6 +1089,7 @@ export const CameraCaptureModal: React.FC<
     };
 
   const handleRetake = () => {
+    if (isSavingRef.current) return;
     resetCapturedMedia();
 
     void startCamera(
@@ -1071,60 +1100,76 @@ export const CameraCaptureModal: React.FC<
 
   const handleConfirm =
     async () => {
-      if (capturedImage) {
-        await onCapture(
-          capturedImage,
-          undefined,
-          gpsMetadata || undefined
-        );
+      if (isSavingRef.current) return;
+      isSavingRef.current = true;
+      setIsSaving(true);
 
-        onClose();
-        return;
-      }
-
-      if (
-        captureMode === 'video' &&
-        recordedVideo
-      ) {
-        if (!onCaptureMedia) {
-          /**
-           * Safe incremental rollout:
-           * do NOT feed a video blob into the old JPEG upload handler.
-           * File #2 wires this callback to uploadMediaFile(), which stores
-           * video in the existing /videos/ Firebase Storage path.
-           */
-          setVideoError(
-            'Video đã quay xong. Hãy cài file LightHomeScreen tiếp theo để bật lưu video.'
+      try {
+        if (capturedImage) {
+          await onCapture(
+            capturedImage,
+            undefined,
+            gpsMetadata || undefined
           );
+
+          onClose();
           return;
         }
 
-        const extension =
-          extensionForMimeType(
-            recordedVideo.mimeType
+        if (
+          captureMode === 'video' &&
+          recordedVideo
+        ) {
+          if (!onCaptureMedia) {
+            /**
+             * Safe incremental rollout:
+             * do NOT feed a video blob into the old JPEG upload handler.
+             * File #2 wires this callback to uploadMediaFile(), which stores
+             * video in the existing /videos/ Firebase Storage path.
+             */
+            setVideoError(
+              'Video đã quay xong. Hãy cài file LightHomeScreen tiếp theo để bật lưu video.'
+            );
+            setIsSaving(false);
+            isSavingRef.current = false;
+            return;
+          }
+
+          const extension =
+            extensionForMimeType(
+              recordedVideo.mimeType
+            );
+
+          await onCaptureMedia(
+            {
+              kind: 'video',
+              blob:
+                recordedVideo.blob,
+              mimeType:
+                recordedVideo.mimeType,
+              fileName:
+                `camera-${Date.now()}.${extension}`,
+              durationSeconds:
+                recordedVideo.durationSeconds,
+            },
+            gpsMetadata ||
+              undefined
           );
 
-        await onCaptureMedia(
-          {
-            kind: 'video',
-            blob:
-              recordedVideo.blob,
-            mimeType:
-              recordedVideo.mimeType,
-            fileName:
-              `camera-${Date.now()}.${extension}`,
-            durationSeconds:
-              recordedVideo.durationSeconds,
-          },
-          gpsMetadata ||
-            undefined
+          onClose();
+        }
+      } catch (error: any) {
+        console.error('Lỗi khi lưu phương tiện camera:', error);
+        setCameraError(
+          error?.message || 'Có lỗi khi lưu ảnh/video. Vui lòng thử lại.'
         );
-
-        onClose();
+        setIsSaving(false);
+        isSavingRef.current = false;
       }
     };
 
   const handleClose = () => {
+    if (isSavingRef.current) return;
     stopRecording();
     stopCamera();
     resetCapturedMedia();
@@ -1240,7 +1285,8 @@ export const CameraCaptureModal: React.FC<
           <button
             type="button"
             onClick={handleClose}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md transition active:scale-95"
+            disabled={isSaving}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md transition active:scale-95 disabled:opacity-35 disabled:cursor-not-allowed"
             aria-label="Đóng Camera"
           >
             <X className="h-5 w-5" />
@@ -1279,7 +1325,7 @@ export const CameraCaptureModal: React.FC<
             onClick={() =>
               void fetchCurrentLocation()
             }
-            disabled={locating}
+            disabled={locating || isSaving}
             className={`flex max-w-[88vw] items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-semibold backdrop-blur-xl transition active:scale-[0.98] ${
               gpsMetadata
                 ? 'border-white/20 bg-black/45 text-white'
@@ -1315,6 +1361,30 @@ export const CameraCaptureModal: React.FC<
           </button>
         </div>
 
+        {/* SHUTTER FLASH EFFECT */}
+        {shutterFlash && (
+          <div className="pointer-events-none absolute inset-0 z-50 bg-white opacity-85 transition-opacity duration-150" />
+        )}
+
+        {/* SAVING OVERLAY FEEDBACK */}
+        {isSaving && (
+          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/60 backdrop-blur-xs">
+            <div className="flex flex-col items-center gap-3 rounded-3xl bg-white/95 px-7 py-6 text-slate-900 shadow-2xl backdrop-blur-md animate-in zoom-in-95 duration-150">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-500 shadow-inner">
+                <Loader2 className="h-7 w-7 animate-spin" />
+              </div>
+              <div className="text-center">
+                <p className="text-base font-black text-slate-900">
+                  Đang lưu {capturedImage ? 'ảnh' : 'video'}...
+                </p>
+                <p className="mt-1 text-xs font-medium text-slate-500">
+                  Đang tải lên hệ thống, vui lòng chờ trong giây lát
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* VIDEO STATUS */}
         {captureMode === 'video' &&
           !hasCapturedMedia &&
@@ -1349,7 +1419,8 @@ export const CameraCaptureModal: React.FC<
               <button
                 type="button"
                 onClick={handleRetake}
-                className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-white/15 text-sm font-bold text-white backdrop-blur-md transition active:scale-[0.98]"
+                disabled={isSaving}
+                className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-white/15 text-sm font-bold text-white backdrop-blur-md transition active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <RefreshCw className="h-4 w-4" />
                 {capturedImage
@@ -1359,16 +1430,27 @@ export const CameraCaptureModal: React.FC<
 
               <button
                 type="button"
+                disabled={isSaving}
                 onClick={() =>
                   void handleConfirm()
                 }
-                className="flex h-12 flex-[1.2] items-center justify-center gap-2 rounded-full bg-white text-sm font-black text-black transition active:scale-[0.98]"
+                className={`flex h-12 flex-[1.2] items-center justify-center gap-2 rounded-full text-sm font-black transition active:scale-[0.98] ${
+                  isSaving
+                    ? 'bg-white/80 text-black/60 cursor-not-allowed'
+                    : 'bg-white text-black hover:bg-white/95'
+                }`}
               >
-                <Check className="h-4 w-4" />
-                Dùng{' '}
-                {capturedImage
-                  ? 'ảnh'
-                  : 'video'}
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin text-rose-500" />
+                    <span>Đang lưu {capturedImage ? 'ảnh' : 'video'}...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4 text-emerald-600" />
+                    <span>Lưu {capturedImage ? 'ảnh' : 'video'}</span>
+                  </>
+                )}
               </button>
             </div>
           ) : (
@@ -1427,6 +1509,7 @@ export const CameraCaptureModal: React.FC<
                   }
                   disabled={
                     !isCameraActive ||
+                    isCapturingSnapshot ||
                     Boolean(
                       cameraError
                     )
