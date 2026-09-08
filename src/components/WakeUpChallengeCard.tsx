@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { runTransaction } from 'firebase/firestore';
 
 import { UserProfile, CoupleData, WakeUpLog } from '../types';
-import { db, doc, collection, setDoc } from '../lib/firebase';
+import { db, doc, collection, setDoc, auth } from '../lib/firebase';
 import {
   Sun,
   Award,
@@ -20,9 +20,15 @@ import {
   Check,
   Loader2,
   Volume2,
+  Zap,
 } from 'lucide-react';
 import { formatDateShortVN } from '../utils/formatDate';
-import { sendPartnerNotification, showLocalWakeUpReminderNotification } from '../utils/notifications';
+import {
+  sendPartnerNotification,
+  showLocalWakeUpReminderNotification,
+  cacheAuthForServiceWorker,
+  getConfirmedWakeUpFromCta,
+} from '../utils/notifications';
 import { buildWakeUpNotification, buildWakeUpReminderNotification } from '../utils/notificationEvents';
 
 export interface WakeUpReminderSettings {
@@ -263,7 +269,9 @@ export const WakeUpChallengeCard: React.FC<
   };
 
   const performWakeUpCheckIn = async (
-    source: 'auto' | 'manual'
+    source: 'auto' | 'manual',
+    customTimeFormatted?: string,
+    customDateKey?: string
   ): Promise<WakeCheckInResult | null> => {
     if (
       !userProfile.coupleId ||
@@ -281,6 +289,7 @@ export const WakeUpChallengeCard: React.FC<
      */
     if (
       source === 'manual' &&
+      !customTimeFormatted &&
       isBeforeWakeStart(now)
     ) {
       alert(
@@ -292,9 +301,10 @@ export const WakeUpChallengeCard: React.FC<
     setLoading(true);
 
     try {
-      const localDate = getLocalDateKey(now);
+      const localDate = customDateKey || getLocalDateKey(now);
 
       const timeFormatted =
+        customTimeFormatted ||
         now.toLocaleTimeString('vi-VN', {
           hour: '2-digit',
           minute: '2-digit',
@@ -653,7 +663,14 @@ export const WakeUpChallengeCard: React.FC<
       window.setTimeout(() => {
         void showLocalWakeUpReminderNotification(
           partnerName || 'Us 💕',
-          'Đã hết 10 phút ngủ nướng rồi nè! ☀️ Mau dậy bấm "Đã dậy rồi" thôi nào!'
+          'Đã hết 10 phút ngủ nướng rồi nè! ☀️ Mau bấm "Đã dậy" thôi nào!',
+          {
+            coupleId: userProfile.coupleId,
+            myUid,
+            myName,
+            partnerUid,
+            partnerName,
+          }
         );
       }, 10 * 60 * 1000);
     }
@@ -665,6 +682,15 @@ export const WakeUpChallengeCard: React.FC<
         } else if (event.data.action === 'snooze') {
           setNotificationToast('😴 Đã báo lại sau 10 phút nhé!');
         }
+      } else if (event.data?.type === 'US_WAKE_UP_CONFIRMED_VIA_CTA') {
+        const { dateKey, timeFormatted } = event.data;
+        void performWakeUpCheckIn('manual', timeFormatted, dateKey).then((res) => {
+          if (res === 'winner') {
+            setNotificationToast(`🎉 Đã xác nhận từ nút thông báo: Dậy lúc ${timeFormatted}!`);
+          } else if (res === 'second') {
+            setNotificationToast(`☀️ Đã xác nhận từ nút thông báo: Dậy lúc ${timeFormatted}!`);
+          }
+        });
       }
     };
 
@@ -672,7 +698,61 @@ export const WakeUpChallengeCard: React.FC<
     return () => {
       navigator.serviceWorker?.removeEventListener('message', handleSWMessage);
     };
-  }, [userProfile.coupleId, myUid, partnerName]);
+  }, [userProfile.coupleId, myUid, partnerName, partnerUid, myName]);
+
+  /*
+   * Keep Auth token cached in Service Worker cache so background CTA can call API
+   */
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (user && userProfile.coupleId) {
+      user.getIdToken().then((idToken) => {
+        void cacheAuthForServiceWorker({
+          idToken,
+          uid: myUid,
+          displayName: myName,
+          email: userProfile.email || user.email || '',
+          coupleId: userProfile.coupleId,
+          partnerUid,
+          partnerName,
+        });
+      }).catch(() => {});
+    }
+  }, [userProfile.coupleId, myUid, myName, partnerUid, partnerName, userProfile.email]);
+
+  /*
+   * Check for any confirmed wake-up from the CTA button (clicked while app was closed)
+   */
+  useEffect(() => {
+    const checkCtaConfirmedWakeUp = async () => {
+      if (!userProfile.coupleId || !myUid) return;
+      const now = new Date();
+      const localDate = getLocalDateKey(now);
+      const ctaRecord = await getConfirmedWakeUpFromCta(localDate);
+      if (ctaRecord && ctaRecord.confirmed) {
+        const myAlreadyRecorded =
+          todayLog?.winnerUid === myUid ||
+          Boolean(todayLog && todayLog.winnerUid !== myUid && todayLog.loserWokeUpAt);
+
+        if (!myAlreadyRecorded) {
+          console.log('[WakeUp CTA] Found uncommitted wake up from notification CTA:', ctaRecord);
+          void performWakeUpCheckIn('manual', ctaRecord.timeFormatted, ctaRecord.dateKey).then((res) => {
+            if (res === 'winner' || res === 'second') {
+              setNotificationToast(`🎉 Đã đồng bộ điểm danh lúc ${ctaRecord.timeFormatted} từ nút thông báo!`);
+            }
+          });
+        }
+      }
+    };
+
+    void checkCtaConfirmedWakeUp();
+    window.addEventListener('focus', checkCtaConfirmedWakeUp);
+    document.addEventListener('visibilitychange', checkCtaConfirmedWakeUp);
+    return () => {
+      window.removeEventListener('focus', checkCtaConfirmedWakeUp);
+      document.removeEventListener('visibilitychange', checkCtaConfirmedWakeUp);
+    };
+  }, [todayLog, myUid, userProfile.coupleId]);
 
   /*
    * Daily scheduled reminder trigger:
@@ -701,7 +781,14 @@ export const WakeUpChallengeCard: React.FC<
             const timeStr = formatMinutesToTime(schedMin);
             void showLocalWakeUpReminderNotification(
               partnerName,
-              `Đã ${timeStr} rồi nè! ☀️ Bấm nút "Đã dậy rồi" để điểm danh cùng người ấy nha!`
+              `Đã ${timeStr} rồi nè! ☀️ Bấm nút "Đã dậy" ngay bên dưới để điểm danh mà không cần mở app!`,
+              {
+                coupleId: userProfile.coupleId,
+                myUid,
+                myName,
+                partnerUid,
+                partnerName,
+              }
             );
           }
         }
@@ -711,7 +798,7 @@ export const WakeUpChallengeCard: React.FC<
     checkReminderTime();
     const interval = window.setInterval(checkReminderTime, 60000);
     return () => window.clearInterval(interval);
-  }, [reminderSettings, todayLog, myUid, partnerName]);
+  }, [reminderSettings, todayLog, myUid, partnerName, userProfile.coupleId, myName, partnerUid]);
 
   const handleSaveSettings = async () => {
     setReminderSettings(tempSettings);
@@ -737,10 +824,17 @@ export const WakeUpChallengeCard: React.FC<
     try {
       const ok = await showLocalWakeUpReminderNotification(
         partnerName,
-        `Chào buổi sáng ${myName}! ☀️ Bấm nút "Đã dậy rồi" bên dưới xem sao nha!`
+        `Chào buổi sáng ${myName}! ☀️ Bấm nút "Đã dậy" bên dưới để xác nhận mà không cần mở app nha!`,
+        {
+          coupleId: userProfile.coupleId,
+          myUid,
+          myName,
+          partnerUid,
+          partnerName,
+        }
       );
       if (ok) {
-        setNotificationToast('🔔 Đã bắn thông báo có nút "Đã dậy rồi" lên màn hình!');
+        setNotificationToast('🔔 Đã bắn thông báo có nút "Đã dậy" (bấm là xong, không mở app)!');
       } else {
         alert('Chưa thể hiển thị thông báo. Hãy cho phép quyền Thông Báo (Notifications) trong cài đặt trình duyệt nhé!');
       }
@@ -959,6 +1053,21 @@ export const WakeUpChallengeCard: React.FC<
               </label>
             </div>
 
+            {/* CTA Direct Confirmation Highlight */}
+            <div className="p-3 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl flex items-start gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+                <Zap className="w-4 h-4" />
+              </div>
+              <div className="text-xs">
+                <p className="font-bold text-emerald-900">
+                  ⚡ Xác nhận trực tiếp trên thông báo (Không cần mở app)
+                </p>
+                <p className="text-[11px] text-emerald-700/90 mt-0.5 leading-relaxed">
+                  Khi thông báo xuất hiện (kể cả trên màn hình khóa), bạn chỉ cần chạm nút <b>"☀️ Đã dậy"</b> ngay dưới thông báo. Hệ thống sẽ xác nhận ngay lập tức mà không phải mở vào app!
+                </p>
+              </div>
+            </div>
+
             {/* Test & Nudge actions */}
             <div className="pt-1 flex flex-col gap-2">
               <button
@@ -972,7 +1081,7 @@ export const WakeUpChallengeCard: React.FC<
                 ) : (
                   <Bell className="w-4 h-4 text-amber-600" />
                 )}
-                <span>🔔 Bấm thử để nhận thông báo có nút "Đã dậy rồi" ngay</span>
+                <span>🔔 Thử thông báo có nút "Đã dậy" (bấm là xong, không mở app)</span>
               </button>
 
               <button
@@ -1200,14 +1309,14 @@ export const WakeUpChallengeCard: React.FC<
               onClick={handleTestReminderNotification}
               disabled={testingNotification}
               className="text-amber-700 hover:text-amber-800 font-semibold px-2 py-0.5 bg-amber-50 hover:bg-amber-100 border border-amber-200/70 rounded-lg transition cursor-pointer flex items-center gap-1"
-              title="Bắn thử thông báo có nút 'Đã dậy rồi' lên máy của bạn"
+              title="Bắn thử thông báo có nút CTA 'Đã dậy' (bấm xác nhận ngay, không mở app)"
             >
               {testingNotification ? (
                 <Loader2 className="w-3 h-3 animate-spin" />
               ) : (
                 <Smartphone className="w-3 h-3" />
               )}
-              <span>Thử báo</span>
+              <span>Thử nút Đã dậy</span>
             </button>
 
             {partnerUid && (
@@ -1300,9 +1409,10 @@ export const WakeUpChallengeCard: React.FC<
             onClick={handleTestReminderNotification}
             disabled={testingNotification}
             className="px-2.5 py-1 bg-white hover:bg-amber-50 border border-slate-200 hover:border-amber-300 text-amber-800 rounded-lg text-xs font-medium flex items-center gap-1 cursor-pointer transition shadow-2xs"
+            title="Bắn thử thông báo có nút CTA 'Đã dậy' (bấm xác nhận ngay mà không cần mở app)"
           >
             {testingNotification ? <Loader2 className="w-3 h-3 animate-spin" /> : <Smartphone className="w-3 h-3" />}
-            <span>Thử thông báo</span>
+            <span>Thử nút "Đã dậy"</span>
           </button>
 
           {partnerUid && (

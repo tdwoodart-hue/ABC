@@ -61,7 +61,8 @@ export async function showForegroundSystemNotification(
   title: string,
   body: string,
   url: string = '/',
-  type?: string
+  type?: string,
+  extraData?: Record<string, any>
 ): Promise<void> {
   if (
     typeof window === 'undefined' ||
@@ -87,12 +88,12 @@ export async function showForegroundSystemNotification(
         : `us-foreground-${Date.now()}`,
       renotify: true,
       requireInteraction: isWakeUp ? true : false,
-      data: { url, type, autoCheckIn: isWakeUp },
+      data: { url, type, autoCheckIn: isWakeUp, ...extraData },
     };
 
     if (isWakeUp) {
       options.actions = [
-        { action: 'wake_up', title: '☀️ Đã dậy rồi' },
+        { action: 'wake_up', title: '☀️ Đã dậy' },
         { action: 'snooze', title: '😴 10 phút nữa' },
       ];
     }
@@ -103,9 +104,53 @@ export async function showForegroundSystemNotification(
   }
 }
 
+export async function cacheAuthForServiceWorker(authData: {
+  idToken?: string;
+  uid?: string;
+  email?: string;
+  displayName?: string;
+  coupleId?: string;
+  partnerUid?: string;
+  partnerName?: string;
+}): Promise<void> {
+  if (typeof window === 'undefined' || !('caches' in window)) return;
+  try {
+    const cache = await caches.open('us-auth-cache');
+    await cache.put(
+      new Request('/us-auth-token'),
+      new Response(JSON.stringify(authData), {
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+  } catch (err) {
+    console.warn('[CacheAuth] Error caching auth for SW:', err);
+  }
+}
+
+export async function getConfirmedWakeUpFromCta(dateKey: string): Promise<any | null> {
+  if (typeof window === 'undefined' || !('caches' in window)) return null;
+  try {
+    const cache = await caches.open('us-wake-up-store');
+    const response = await cache.match(`/wake-up-cta-${dateKey}`);
+    if (response) {
+      return await response.json();
+    }
+  } catch (err) {
+    console.warn('[CacheAuth] Error getting confirmed wake-up from SW cache:', err);
+  }
+  return null;
+}
+
 export async function showLocalWakeUpReminderNotification(
   senderName: string = 'Us 💕',
-  message?: string
+  message?: string,
+  extraData?: {
+    coupleId?: string;
+    myUid?: string;
+    myName?: string;
+    partnerUid?: string;
+    partnerName?: string;
+  }
 ): Promise<boolean> {
   if (typeof window === 'undefined' || !('Notification' in window)) {
     return false;
@@ -120,9 +165,10 @@ export async function showLocalWakeUpReminderNotification(
 
     await showForegroundSystemNotification(
       `⏰ ${senderName} nhắc bạn thức dậy nè!`,
-      message || 'Chào buổi sáng bạn yêu ☀️ Bấm nút "Đã dậy rồi" bên dưới để điểm danh ngay nha!',
+      message || 'Chào buổi sáng bạn yêu ☀️ Bấm nút "Đã dậy" ngay bên dưới để xác nhận mà không cần mở app nha!',
       '/?action=wake_up',
-      'wake_up_reminder'
+      'wake_up_reminder',
+      extraData
     );
     return true;
   } catch (e) {

@@ -5,6 +5,7 @@ import multer from "multer";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import sendPushHandler from "./api/send-push";
+import wakeUpConfirmHandler from "./api/wake-up-confirm";
 
 // Ensure uploads folder exists
 const uploadsDir = path.join(process.cwd(), "public", "uploads");
@@ -200,6 +201,11 @@ Quy tắc phân loại mealType:
   // Web Push FCM dispatch endpoint
   app.post("/api/send-push", (req, res) => {
     return sendPushHandler(req, res);
+  });
+
+  // Background Wake-Up Confirm endpoint (called from Service Worker Notification CTA without opening app)
+  app.post("/api/wake-up-confirm", (req, res) => {
+    return wakeUpConfirmHandler(req, res);
   });
 
   // Vite middleware for development
