@@ -75,6 +75,12 @@ export interface WakeUpNotificationArgs {
   fineAmount?: number;
 }
 
+export interface WakeUpReminderNotificationArgs {
+  senderName: string;
+  recipientName: string;
+  customMessage?: string;
+}
+
 export interface FinanceNotificationArgs {
   actorName: string;
   title?: string;
@@ -183,6 +189,34 @@ export const buildWakeUpNotification = ({
       : `${loser} đóng ${formatMoney(fineAmount)} vào quỹ 😴`,
     url: notificationRoutes.wakeUp(),
     tag: 'wake-up-today',
+  };
+};
+
+export const buildWakeUpReminderNotification = ({
+  senderName,
+  recipientName,
+  customMessage,
+}: WakeUpReminderNotificationArgs): PartnerNotificationPayload => {
+  const sender = cleanText(senderName) || 'Người ấy';
+  const recipient = cleanText(recipientName) || 'Bạn ơi';
+
+  const defaultMessages = [
+    `Dậy thôi ${recipient} ơi, trời sáng rồi! ☀️ Bấm nút "Đã dậy rồi" để điểm danh ngay nha!`,
+    `Chào buổi sáng ${recipient} iu 💕 ${sender} đang chờ bạn thức dậy nè!`,
+    `Ghé mắt nhìn bình minh nào 🌅 Đã thức dậy chưa bạn yêu ơi?`,
+    `Hôm nay dậy sớm cùng nhau nhé! ☀️ Nhớ bấm Đã dậy nha!`,
+  ];
+
+  const body =
+    customMessage?.trim() ||
+    defaultMessages[Math.floor(Math.random() * defaultMessages.length)];
+
+  return {
+    type: 'wake_up_reminder',
+    title: `⏰ ${sender} nhắc bạn thức dậy nè!`,
+    body,
+    url: '/?action=wake_up',
+    tag: `wake-up-reminder-${new Date().toISOString().slice(0, 10)}`,
   };
 };
 

@@ -35,6 +35,7 @@ export type PartnerNotificationType =
   | 'status_note'
   | 'finance'
   | 'wake_up'
+  | 'wake_up_reminder'
   | 'anniversary'
   | 'custom';
 
@@ -56,10 +57,11 @@ const PUSH_FID_RESET_MIGRATION_KEY =
 let foregroundListenerStarted = false;
 let automaticPushBootstrapStarted = false;
 
-async function showForegroundSystemNotification(
+export async function showForegroundSystemNotification(
   title: string,
   body: string,
-  url: string = '/'
+  url: string = '/',
+  type?: string
 ): Promise<void> {
   if (
     typeof window === 'undefined' ||
@@ -71,16 +73,61 @@ async function showForegroundSystemNotification(
 
   try {
     const registration = await getNotificationRegistration();
+    const isWakeUp =
+      type === 'wake_up' ||
+      type === 'wake_up_reminder' ||
+      url.includes('action=wake_up');
 
-    await registration.showNotification(title || 'Us 💕', {
+    const options: any = {
       body,
       icon: '/icons/icon.png',
       badge: '/icons/icon.png',
-      tag: `us-foreground-${Date.now()}`,
-      data: { url },
-    });
+      tag: isWakeUp
+        ? `us-wake-up-${new Date().toISOString().slice(0, 10)}`
+        : `us-foreground-${Date.now()}`,
+      renotify: true,
+      requireInteraction: isWakeUp ? true : false,
+      data: { url, type, autoCheckIn: isWakeUp },
+    };
+
+    if (isWakeUp) {
+      options.actions = [
+        { action: 'wake_up', title: '☀️ Đã dậy rồi' },
+        { action: 'snooze', title: '😴 10 phút nữa' },
+      ];
+    }
+
+    await registration.showNotification(title || 'Us 💕', options);
   } catch (error) {
     console.warn('Unable to show foreground notification:', error);
+  }
+}
+
+export async function showLocalWakeUpReminderNotification(
+  senderName: string = 'Us 💕',
+  message?: string
+): Promise<boolean> {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return false;
+  }
+
+  try {
+    let permission = Notification.permission;
+    if (permission !== 'granted') {
+      permission = await Notification.requestPermission();
+      if (permission !== 'granted') return false;
+    }
+
+    await showForegroundSystemNotification(
+      `⏰ ${senderName} nhắc bạn thức dậy nè!`,
+      message || 'Chào buổi sáng bạn yêu ☀️ Bấm nút "Đã dậy rồi" bên dưới để điểm danh ngay nha!',
+      '/?action=wake_up',
+      'wake_up_reminder'
+    );
+    return true;
+  } catch (e) {
+    console.warn('Could not show local wake-up reminder:', e);
+    return false;
   }
 }
 
@@ -107,10 +154,14 @@ async function startForegroundPushListener(): Promise<void> {
       const url =
         payload.data?.url || '/';
 
+      const type =
+        payload.data?.type || 'custom';
+
       void showForegroundSystemNotification(
         title,
         body,
-        url
+        url,
+        type
       );
     });
 

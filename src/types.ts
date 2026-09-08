@@ -42,6 +42,12 @@ export interface CoupleData {
   user1Birthday?: string;
   user2Birthday?: string;
   loveStory?: string;
+  wakeUpReminderSettings?: {
+    enabled?: boolean;
+    mode?: 'early_540' | 'random_morning' | 'fixed_630' | 'custom';
+    customTime?: string;
+    keepOnLockscreen?: boolean;
+  };
 }
 
 export interface MemoryItem {

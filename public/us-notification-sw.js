@@ -17,10 +17,21 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const targetUrl =
+  const action = event.action;
+  let targetUrl =
     event.notification?.data?.url ||
     event.notification?.data?.FCM_MSG?.data?.url ||
     '/';
+
+  const isWakeUpAction = action === 'wake_up' || event.notification?.data?.autoCheckIn;
+
+  if (action === 'wake_up') {
+    const sep = targetUrl.includes('?') ? '&' : '?';
+    targetUrl = `${targetUrl}${sep}action=wake_up&autolog=1&ts=${Date.now()}`;
+  } else if (action === 'snooze') {
+    const sep = targetUrl.includes('?') ? '&' : '?';
+    targetUrl = `${targetUrl}${sep}action=snooze&ts=${Date.now()}`;
+  }
 
   event.waitUntil(
     self.clients
@@ -30,6 +41,15 @@ self.addEventListener('notificationclick', (event) => {
       })
       .then(async (clientList) => {
         for (const client of clientList) {
+          // Notify active window client directly if possible
+          if (isWakeUpAction && client.postMessage) {
+            client.postMessage({
+              type: 'US_WAKE_UP_CLICKED',
+              action: action || 'wake_up',
+              timestamp: Date.now(),
+            });
+          }
+
           if ('navigate' in client) {
             try {
               await client.navigate(targetUrl);
@@ -89,13 +109,40 @@ messaging.onBackgroundMessage((payload) => {
     data.url ||
     '/';
 
-  return self.registration.showNotification(title, {
+  const isWakeUp =
+    data.type === 'wake_up' ||
+    data.type === 'wake_up_reminder' ||
+    String(data.tag || '').includes('wake-up');
+
+  const options = {
     body,
     icon: '/icons/icon.png',
     badge: '/icons/icon.png',
-    tag: data.tag || `us-${Date.now()}`,
+    tag: data.tag || (isWakeUp ? `us-wake-up-${new Date().toISOString().slice(0, 10)}` : `us-${Date.now()}`),
+    renotify: true,
+    // Keeps notification pinned on lock screen so it's the first thing seen when turning on the phone
+    requireInteraction: isWakeUp ? true : false,
+    vibrate: [200, 100, 200, 100, 200],
     data: {
       url: targetUrl,
+      type: data.type,
+      autoCheckIn: isWakeUp,
     },
-  });
+  };
+
+  if (isWakeUp) {
+    options.actions = [
+      {
+        action: 'wake_up',
+        title: '☀️ Đã dậy rồi',
+        icon: '/icons/icon.png',
+      },
+      {
+        action: 'snooze',
+        title: '😴 10 phút nữa',
+      },
+    ];
+  }
+
+  return self.registration.showNotification(title, options);
 });

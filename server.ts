@@ -4,6 +4,7 @@ import fs from "fs";
 import multer from "multer";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
+import sendPushHandler from "./api/send-push";
 
 // Ensure uploads folder exists
 const uploadsDir = path.join(process.cwd(), "public", "uploads");
@@ -194,6 +195,11 @@ Quy tắc phân loại mealType:
         error: error?.message || "Không thể phân tích món ăn bằng AI. Vui lòng thử lại.",
       });
     }
+  });
+
+  // Web Push FCM dispatch endpoint
+  app.post("/api/send-push", (req, res) => {
+    return sendPushHandler(req, res);
   });
 
   // Vite middleware for development
