@@ -19,6 +19,10 @@ import { JournalMusicPlayer } from './JournalMusicPlayer';
 import { BottomNavigation } from './BottomNavigation';
 import { JournalTab } from './JournalTab';
 import { HomeTab } from './home/HomeTab';
+import {
+  CompanionMessageNavigationIntent,
+  CompanionMessagesScreen,
+} from './character/CompanionMessagesScreen';
 import { ProfileTab } from './profile/ProfileTab';
 import { ProfileEditModal } from './profile/ProfileEditModal';
 import { RestoreCommentsModal } from './journal/RestoreCommentsModal';
@@ -130,11 +134,12 @@ interface LightHomeScreenProps {
   onRefreshProfile?: () => void;
 }
 
-export type TabType = 'home' | 'journal' | 'achievements' | 'nutrition' | 'finance' | 'profile' | 'admin';
+export type TabType = 'home' | 'messages' | 'journal' | 'achievements' | 'nutrition' | 'finance' | 'profile' | 'admin';
 
 const getTabFromUrl = (): TabType => {
   if (typeof window === 'undefined') return 'home';
   const cleanPath = window.location.pathname.toLowerCase().replace(/^\/+/, '').split('/')[0];
+  if (cleanPath === 'messages') return 'messages';
   if (cleanPath === 'journal') return 'journal';
   if (cleanPath === 'achievements') return 'achievements';
   if (cleanPath === 'nutrition') return 'nutrition';
@@ -288,11 +293,14 @@ const compressAndConvertToBase64 = (file: File): Promise<string> => {
 export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, onRefreshProfile }) => {
   const isAdminUser = checkIsAdmin(userProfile);
   const [activeTab, setActiveTabState] = useState<TabType>(() => getTabFromUrl());
+  const [companionMessageIntent, setCompanionMessageIntent] =
+    useState<CompanionMessageNavigationIntent | null>(null);
 
   // Keep each tab's reading position so switching tabs feels like a native app.
   const activeTabRef = React.useRef<TabType>(activeTab);
   const tabScrollPositionsRef = React.useRef<Record<TabType, number>>({
     home: 0,
+    messages: 0,
     journal: 0,
     achievements: 0,
     nutrition: 0,
@@ -323,6 +331,13 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     }
 
     restoreTabScroll(tab);
+  };
+
+  const handleOpenCompanionMessages = (
+    intent: CompanionMessageNavigationIntent
+  ) => {
+    setCompanionMessageIntent(intent);
+    handleNavigateTab('messages');
   };
 
   useEffect(() => {
@@ -2294,6 +2309,22 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
     journalSortOrder
   ]);
 
+  const isCurrentUserDuong =
+    coupleData?.user1Id === userProfile.uid ||
+    coupleData?.user1Uid === userProfile.uid ||
+    userProfile.email?.toLowerCase().includes('duong');
+  const isCurrentUserChuc =
+    coupleData?.user2Id === userProfile.uid ||
+    coupleData?.user2Uid === userProfile.uid ||
+    userProfile.email?.toLowerCase().includes('chucga');
+  const companionDuongName = isCurrentUserDuong
+    ? userProfile.displayName || coupleData?.user1Name || 'Dương'
+    : coupleData?.user1Name || 'Dương';
+  const companionChucName = isCurrentUserChuc
+    ? userProfile.displayName || coupleData?.user2Name || 'Chúc Gà'
+    : coupleData?.user2Name || 'Chúc Gà';
+  const currentCompanionCharacter = isCurrentUserChuc ? 'chuc' : 'duong';
+
   return (
     <div
       className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans pb-24"
@@ -2309,6 +2340,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             wakeUpLogs={wakeUpLogs}
             journals={journals}
             onNavigate={handleNavigateTab}
+            onOpenMessages={handleOpenCompanionMessages}
             onOpenJournal={(journal) => {
               handleNavigateTab('journal');
 
@@ -2321,6 +2353,24 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
                   });
               }, 80);
             }}
+          />
+        )}
+
+        {activeTab === 'messages' && (
+          <CompanionMessagesScreen
+            coupleId={coupleData?.id || userProfile.coupleId}
+            currentUserUid={userProfile.uid}
+            currentUserName={
+              userProfile.displayName ||
+              (currentCompanionCharacter === 'duong'
+                ? companionDuongName
+                : companionChucName)
+            }
+            currentCharacter={currentCompanionCharacter}
+            duongName={companionDuongName}
+            chucName={companionChucName}
+            intent={companionMessageIntent}
+            onBack={() => handleNavigateTab('home')}
           />
         )}
 

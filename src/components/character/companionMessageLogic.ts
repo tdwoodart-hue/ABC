@@ -16,6 +16,24 @@ export const normalizeCompanionMessage = (
   return normalized ? normalized.slice(0, MAX_MESSAGE_LENGTH) : null;
 };
 
+export const getCompanionMessagePreview = (
+  text: string,
+  limit = 56
+): string => {
+  const normalized = text.trim().replace(/\s+/g, ' ');
+  if (normalized.length <= limit) return normalized;
+  return `${normalized.slice(0, Math.max(1, limit - 1)).trimEnd()}…`;
+};
+
+export const sortCompanionMessageHistory = <T extends { createdAt: string }>(
+  messages: T[]
+): T[] => [...messages].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+export const canMarkCompanionMessageSeen = (
+  message: { senderUid: string; seenAt?: string | null },
+  currentUserUid: string
+): boolean => message.senderUid !== currentUserUid && !message.seenAt;
+
 export const formatCompanionDelivery = (
   message: DeliverableMessage
 ): string => {

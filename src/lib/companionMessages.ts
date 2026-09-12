@@ -7,6 +7,7 @@ import {
 } from 'firebase/firestore';
 
 import { CharacterId } from '../components/character/characterConfig';
+import { sortCompanionMessageHistory } from '../components/character/companionMessageLogic';
 import { db } from './firebase';
 
 export interface CompanionMessage {
@@ -84,6 +85,19 @@ export const subscribeToSentCompanionMessages = (
       .slice(0, 5);
 
     onChange(sent);
+  });
+
+export const subscribeToCompanionMessageHistory = (
+  coupleId: string,
+  onChange: (messages: CompanionMessage[]) => void
+): (() => void) =>
+  onSnapshot(messagesCollection(coupleId), (snapshot) => {
+    const messages = snapshot.docs.map((messageDoc) => ({
+      id: messageDoc.id,
+      ...messageDoc.data(),
+    }) as CompanionMessage);
+
+    onChange(sortCompanionMessageHistory(messages));
   });
 
 export const markCompanionMessageSeen = async (

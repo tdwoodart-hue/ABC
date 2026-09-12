@@ -8,6 +8,7 @@ import {
 import { CoupleData, JournalEntry, UserProfile, WakeUpLog } from '../../types';
 import { formatDateVN } from '../../utils/formatDate';
 import { CouplePixelCard } from '../character/CouplePixelCard';
+import { CompanionMessageNavigationIntent } from '../character/CompanionMessagesScreen';
 import { WakeUpChallengeCard } from '../WakeUpChallengeCard';
 import { MemoryOfTheDayCard } from './MemoryOfTheDayCard';
 import { SecretStatsModal } from './SecretStatsModal';
@@ -19,6 +20,7 @@ interface HomeTabProps {
   wakeUpLogs: WakeUpLog[];
   journals: JournalEntry[];
   onNavigate: (tab: 'achievements' | 'finance') => void;
+  onOpenMessages: (intent: CompanionMessageNavigationIntent) => void;
   onOpenJournal: (journal: JournalEntry) => void;
 }
 
@@ -28,6 +30,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   wakeUpLogs,
   journals,
   onNavigate,
+  onOpenMessages,
   onOpenJournal,
 }) => {
   const [showSecretStats, setShowSecretStats] = React.useState(false);
@@ -114,7 +117,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-md space-y-6">
+      <>
         <CouplePixelCard
           duongName={u1Name}
           chucName={u2Name}
@@ -122,7 +125,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           isChucCurrentUser={isU2}
           coupleId={coupleData?.id || userProfile.coupleId}
           currentUserUid={userProfile.uid}
-          currentUserName={userProfile.displayName || (isU1 ? u1Name : u2Name)}
+          onOpenMessages={onOpenMessages}
         />
 
         <div className="bg-gradient-to-br from-rose-50 to-pink-50/50 rounded-2xl p-6 border border-rose-100/80 text-center">
@@ -200,7 +203,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           allLogs={wakeUpLogs}
           onNavigateToFinance={() => onNavigate('finance')}
         />
-      </div>
+      </>
 
       <SecretStatsModal
         isOpen={showSecretStats}
