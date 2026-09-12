@@ -35,7 +35,6 @@ export type PartnerNotificationType =
   | 'status_note'
   | 'finance'
   | 'wake_up'
-  | 'wake_up_reminder'
   | 'anniversary'
   | 'custom';
 
@@ -57,12 +56,10 @@ const PUSH_FID_RESET_MIGRATION_KEY =
 let foregroundListenerStarted = false;
 let automaticPushBootstrapStarted = false;
 
-export async function showForegroundSystemNotification(
+async function showForegroundSystemNotification(
   title: string,
   body: string,
-  url: string = '/',
-  type?: string,
-  extraData?: Record<string, any>
+  url: string = '/'
 ): Promise<void> {
   if (
     typeof window === 'undefined' ||
@@ -74,106 +71,16 @@ export async function showForegroundSystemNotification(
 
   try {
     const registration = await getNotificationRegistration();
-    const isWakeUp =
-      type === 'wake_up' ||
-      type === 'wake_up_reminder' ||
-      url.includes('action=wake_up');
 
-    const options: any = {
+    await registration.showNotification(title || 'Us 💕', {
       body,
       icon: '/icons/icon.png',
       badge: '/icons/icon.png',
-      tag: isWakeUp
-        ? `us-wake-up-${new Date().toISOString().slice(0, 10)}`
-        : `us-foreground-${Date.now()}`,
-      renotify: true,
-      requireInteraction: isWakeUp ? true : false,
-      data: { url, type, autoCheckIn: isWakeUp, ...extraData },
-    };
-
-    if (isWakeUp) {
-      options.actions = [
-        { action: 'wake_up', title: '☀️ Đã dậy' },
-        { action: 'snooze', title: '😴 10 phút nữa' },
-      ];
-    }
-
-    await registration.showNotification(title || 'Us 💕', options);
+      tag: `us-foreground-${Date.now()}`,
+      data: { url },
+    });
   } catch (error) {
     console.warn('Unable to show foreground notification:', error);
-  }
-}
-
-export async function cacheAuthForServiceWorker(authData: {
-  idToken?: string;
-  uid?: string;
-  email?: string;
-  displayName?: string;
-  coupleId?: string;
-  partnerUid?: string;
-  partnerName?: string;
-}): Promise<void> {
-  if (typeof window === 'undefined' || !('caches' in window)) return;
-  try {
-    const cache = await caches.open('us-auth-cache');
-    await cache.put(
-      new Request('/us-auth-token'),
-      new Response(JSON.stringify(authData), {
-        headers: { 'Content-Type': 'application/json' },
-      })
-    );
-  } catch (err) {
-    console.warn('[CacheAuth] Error caching auth for SW:', err);
-  }
-}
-
-export async function getConfirmedWakeUpFromCta(dateKey: string): Promise<any | null> {
-  if (typeof window === 'undefined' || !('caches' in window)) return null;
-  try {
-    const cache = await caches.open('us-wake-up-store');
-    const response = await cache.match(`/wake-up-cta-${dateKey}`);
-    if (response) {
-      return await response.json();
-    }
-  } catch (err) {
-    console.warn('[CacheAuth] Error getting confirmed wake-up from SW cache:', err);
-  }
-  return null;
-}
-
-export async function showLocalWakeUpReminderNotification(
-  senderName: string = 'Us 💕',
-  message?: string,
-  extraData?: {
-    coupleId?: string;
-    myUid?: string;
-    myName?: string;
-    partnerUid?: string;
-    partnerName?: string;
-  }
-): Promise<boolean> {
-  if (typeof window === 'undefined' || !('Notification' in window)) {
-    return false;
-  }
-
-  try {
-    let permission = Notification.permission;
-    if (permission !== 'granted') {
-      permission = await Notification.requestPermission();
-      if (permission !== 'granted') return false;
-    }
-
-    await showForegroundSystemNotification(
-      `⏰ ${senderName} nhắc bạn thức dậy nè!`,
-      message || 'Chào buổi sáng bạn yêu ☀️ Bấm nút "Đã dậy" ngay bên dưới để xác nhận mà không cần mở app nha!',
-      '/?action=wake_up',
-      'wake_up_reminder',
-      extraData
-    );
-    return true;
-  } catch (e) {
-    console.warn('Could not show local wake-up reminder:', e);
-    return false;
   }
 }
 
@@ -200,14 +107,10 @@ async function startForegroundPushListener(): Promise<void> {
       const url =
         payload.data?.url || '/';
 
-      const type =
-        payload.data?.type || 'custom';
-
       void showForegroundSystemNotification(
         title,
         body,
-        url,
-        type
+        url
       );
     });
 
