@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TabType } from './LightHomeScreen';
 import { MoreMenuSheet } from './MoreMenuSheet';
-import {
-  Home,
-  BookOpen,
-  Wallet,
-  MoreHorizontal
-} from 'lucide-react';
 
 interface BottomNavigationProps {
   activeTab: TabType;
@@ -112,76 +106,92 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
         }}
         aria-label="Thanh điều hướng chính"
       >
-        <div className="max-w-md sm:max-w-lg md:max-w-xl mx-auto grid grid-cols-4 gap-1">
+        <div className="max-w-md sm:max-w-lg md:max-w-xl mx-auto grid grid-cols-4 gap-2">
           {/* Tab 1: Home (Trang chủ) */}
           <button
             type="button"
             onClick={() => handleTabClick('home')}
-            className={`flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-2xl transition cursor-pointer min-h-[50px] select-none ${
+            className={`flex items-center justify-center p-1 rounded-2xl transition cursor-pointer min-h-[52px] select-none ${
               activeTab === 'home'
                 ? 'text-rose-600 font-bold bg-rose-50 border border-rose-200/80 shadow-2xs'
                 : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/80 font-medium'
             }`}
+            aria-label="Trang chủ"
+            title="Trang chủ"
           >
-            <Home className="w-5 h-5 shrink-0" />
-            <span className="text-[11px] sm:text-xs leading-none truncate whitespace-nowrap">
-              Trang chủ
-            </span>
+            <img
+              src="/icons/navigation/home-clay.webp"
+              alt=""
+              aria-hidden="true"
+              className={`h-10 w-10 shrink-0 object-contain ${activeTab === 'home' ? 'home-tab-pop' : 'opacity-80'}`}
+            />
           </button>
 
           {/* Tab 2: Journal (Nhật ký) */}
           <button
             type="button"
             onClick={() => handleTabClick('journal')}
-            className={`flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-2xl transition cursor-pointer min-h-[50px] select-none ${
+            className={`flex items-center justify-center p-1 rounded-2xl transition cursor-pointer min-h-[52px] select-none ${
               activeTab === 'journal'
                 ? 'text-rose-600 font-bold bg-rose-50 border border-rose-200/80 shadow-2xs'
                 : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/80 font-medium'
             }`}
+            aria-label="Nhật ký"
+            title="Nhật ký"
           >
-            <BookOpen className="w-5 h-5 shrink-0" />
-            <span className="text-[11px] sm:text-xs leading-none truncate whitespace-nowrap">
-              Nhật ký
-            </span>
+            <img
+              src="/icons/navigation/journal-clay.webp"
+              alt=""
+              aria-hidden="true"
+              className={`h-10 w-10 shrink-0 object-contain ${activeTab === 'journal' ? 'home-tab-pop' : 'opacity-80'}`}
+            />
           </button>
 
           {/* Tab 3: Finance (Tài chính) */}
           <button
             type="button"
             onClick={() => handleTabClick('finance')}
-            className={`flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-2xl transition cursor-pointer min-h-[50px] select-none ${
+            className={`flex items-center justify-center p-1 rounded-2xl transition cursor-pointer min-h-[52px] select-none ${
               activeTab === 'finance'
                 ? 'text-rose-600 font-bold bg-rose-50 border border-rose-200/80 shadow-2xs'
                 : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/80 font-medium'
             }`}
+            aria-label="Tài chính"
+            title="Tài chính"
           >
-            <Wallet className="w-5 h-5 shrink-0" />
-            <span className="text-[11px] sm:text-xs leading-none truncate whitespace-nowrap">
-              Tài chính
-            </span>
+            <img
+              src="/icons/navigation/finance-clay.webp"
+              alt=""
+              aria-hidden="true"
+              className={`h-10 w-10 shrink-0 object-contain ${activeTab === 'finance' ? 'home-tab-pop' : 'opacity-80'}`}
+            />
           </button>
 
           {/* Tab 4: More (Thêm) */}
           <button
             type="button"
             onClick={() => handleTabClick('more')}
-            className={`flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-2xl transition cursor-pointer min-h-[50px] relative select-none ${
+            className={`flex items-center justify-center p-1 rounded-2xl transition cursor-pointer min-h-[52px] relative select-none ${
               isMoreActive
                 ? 'text-rose-600 font-bold bg-rose-50 border border-rose-200/80 shadow-2xs'
                 : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/80 font-medium'
             }`}
             aria-expanded={isMoreMenuOpen}
             aria-haspopup="dialog"
+            aria-label="Thêm"
+            title="Thêm"
           >
             <div className="relative">
-              <MoreHorizontal className="w-5 h-5 shrink-0" />
+              <img
+                src="/icons/navigation/more-clay.webp"
+                alt=""
+                aria-hidden="true"
+                className={`h-10 w-10 shrink-0 object-contain ${isMoreActive ? 'home-tab-pop' : 'opacity-80'}`}
+              />
               {(activeTab === 'achievements' || activeTab === 'nutrition' || activeTab === 'profile') && (
                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white" />
               )}
             </div>
-            <span className="text-[11px] sm:text-xs leading-none truncate whitespace-nowrap">
-              Thêm
-            </span>
           </button>
         </div>
       </nav>
