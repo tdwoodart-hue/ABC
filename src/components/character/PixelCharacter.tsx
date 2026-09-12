@@ -1,4 +1,9 @@
 import React from 'react';
+import {
+  CHARACTER_DEFINITIONS,
+  CharacterId,
+  getFramePosition,
+} from './characterConfig';
 
 export type CharacterState =
   | 'idle'
@@ -10,6 +15,7 @@ export type CharacterState =
   | 'sad';
 
 interface PixelCharacterProps {
+  character?: CharacterId;
   state?: CharacterState;
   name?: string;
   className?: string;
@@ -40,9 +46,17 @@ const SPRITE_ASPECT_RATIO = '5 / 8';
  * visible one-frame "giật" during the transition.
  */
 const AnimatedCharacterSprite: React.FC<{
+  character: CharacterId;
   name: string;
   state: 'idle' | 'wave';
-}> = ({ name, state }) => {
+}> = ({ character, name, state }) => {
+  const definition = CHARACTER_DEFINITIONS[character];
+  const animation = definition.animations[state];
+  const reducedPosition = getFramePosition(
+    animation.reducedMotionFrame,
+    definition.frameCount
+  );
+
   return (
     <div
       className="relative h-full max-h-full overflow-hidden shrink-0"
@@ -91,12 +105,29 @@ const AnimatedCharacterSprite: React.FC<{
           }
         }
 
-        .duong-character-atlas {
+        @keyframes chuc-atlas-idle {
+          0%, 79% { background-position: 0% 50%; }
+          80%, 85% { background-position: 15.3846154% 50%; }
+          86%, 100% { background-position: 0% 50%; }
+        }
+
+        @keyframes chuc-atlas-wave {
+          0%, 12%   { background-position: 30.7692308% 50%; }
+          13%, 24%  { background-position: 38.4615385% 50%; }
+          25%, 35%  { background-position: 46.1538462% 50%; }
+          36%, 45%  { background-position: 53.8461538% 50%; }
+          46%, 54%  { background-position: 61.5384615% 50%; }
+          55%, 63%  { background-position: 69.2307692% 50%; }
+          64%, 71%  { background-position: 76.9230769% 50%; }
+          72%, 79%  { background-position: 84.6153846% 50%; }
+          80%, 89%  { background-position: 92.3076923% 50%; }
+          90%, 100% { background-position: 100% 50%; }
+        }
+
+        .shared-pixel-character {
           width: 100%;
           height: 100%;
-          background-image: url('/characters/duong_character_atlas.png');
           background-repeat: no-repeat;
-          background-size: 1000% 100%;
           background-position: 0% 50%;
           image-rendering: pixelated;
           will-change: background-position;
@@ -104,42 +135,33 @@ const AnimatedCharacterSprite: React.FC<{
           backface-visibility: hidden;
         }
 
-        .duong-character-atlas--idle {
-          animation: duong-atlas-idle 3.2s steps(1, end) infinite;
-        }
-
-        .duong-character-atlas--wave {
-          animation: duong-atlas-wave 2.05s steps(1, end) 1 forwards;
-        }
-
         @media (prefers-reduced-motion: reduce) {
-          .duong-character-atlas--idle,
-          .duong-character-atlas--wave {
-            animation: none;
-          }
-
-          .duong-character-atlas--idle {
-            background-position: 0% 50%;
-          }
-
-          .duong-character-atlas--wave {
-            background-position: 66.6666667% 50%;
+          .shared-pixel-character {
+            animation: none !important;
+            background-position: var(--reduced-position) !important;
           }
         }
       `}</style>
 
       <div
-        className={`duong-character-atlas ${
-          state === 'wave'
-            ? 'duong-character-atlas--wave'
-            : 'duong-character-atlas--idle'
-        }`}
+        className="shared-pixel-character"
+        style={{
+          backgroundImage: `url('${definition.atlasUrl}')`,
+          backgroundSize: `${definition.frameCount * 100}% 100%`,
+          animationName: `${character}-atlas-${state}`,
+          animationDuration: `${animation.durationMs}ms`,
+          animationTimingFunction: 'steps(1, end)',
+          animationIterationCount: state === 'idle' ? 'infinite' : 1,
+          animationFillMode: state === 'wave' ? 'forwards' : 'none',
+          '--reduced-position': reducedPosition,
+        } as React.CSSProperties}
       />
     </div>
   );
 };
 
 export const PixelCharacter: React.FC<PixelCharacterProps> = ({
+  character = 'duong',
   state = 'idle',
   name = 'Dương',
   className = '',
@@ -151,6 +173,7 @@ export const PixelCharacter: React.FC<PixelCharacterProps> = ({
         aria-label={`${name} - ${state}`}
       >
         <AnimatedCharacterSprite
+          character={character}
           name={name}
           state={state}
         />
@@ -158,7 +181,7 @@ export const PixelCharacter: React.FC<PixelCharacterProps> = ({
     );
   }
 
-  return (
+  if (character === 'duong') return (
     <div
       className={`relative flex items-end justify-center overflow-hidden ${className}`}
       aria-label={`${name} - ${state}`}
@@ -171,5 +194,14 @@ export const PixelCharacter: React.FC<PixelCharacterProps> = ({
         style={{ imageRendering: 'pixelated' }}
       />
     </div>
+  );
+
+  return (
+    <PixelCharacter
+      character="chuc"
+      state="idle"
+      name={name}
+      className={className}
+    />
   );
 };

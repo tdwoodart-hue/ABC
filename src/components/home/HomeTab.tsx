@@ -120,6 +120,9 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           chucName={u2Name}
           isDuongCurrentUser={isU1}
           isChucCurrentUser={isU2}
+          coupleId={coupleData?.id || userProfile.coupleId}
+          currentUserUid={userProfile.uid}
+          currentUserName={userProfile.displayName || (isU1 ? u1Name : u2Name)}
         />
 
         <div className="bg-gradient-to-br from-rose-50 to-pink-50/50 rounded-2xl p-6 border border-rose-100/80 text-center">
