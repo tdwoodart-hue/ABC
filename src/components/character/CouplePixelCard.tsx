@@ -3,22 +3,18 @@ import { CharacterState, PixelCharacter } from './PixelCharacter';
 import { CharacterId } from './characterConfig';
 import {
   CompanionMessage,
-  decryptCompanionMessage,
-  markCompanionMessageDelivered,
+  markCompanionMessageSeen,
+  replyToCompanionMessage,
   sendCompanionMessage,
-  subscribeToPendingCompanionMessage,
+  subscribeToPendingCompanionMessages,
   subscribeToSentCompanionMessages,
 } from '../../lib/companionMessages';
 import {
   formatCompanionDelivery,
+  formatReplyInvitation,
+  getCompanionMessageStatus,
   normalizeCompanionMessage,
 } from './companionMessageLogic';
-import {
-  formatLocalDateTimeInput,
-  formatVietnamDateTime,
-  getSentMessageStatus,
-  summarizeSentMessages,
-} from '../../lib/companionMessageHistory';
 
 interface CouplePixelCardProps {
   duongName: string;
@@ -32,31 +28,14 @@ interface CouplePixelCardProps {
 
 const DUONG_WELCOME_MS = 2050;
 const CHUC_WELCOME_MS = 2640;
-const DELIVERY_VISIBLE_MS = 8000;
-const LOCK_CLOCK_MS = 5000;
+const SEEN_AFTER_MS = 2500;
+const DELIVERY_VISIBLE_MS = 10_000;
+const LONG_PRESS_MS = 600;
 
 let duongWelcomePlayedThisPageLoad = false;
 let chucWelcomePlayedThisPageLoad = false;
 
 type ChucVisualState = 'idle' | 'wave';
-
-const toLocalDateTimeInput = (date: Date): string => {
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return [
-    date.getFullYear(),
-    '-',
-    pad(date.getMonth() + 1),
-    '-',
-    pad(date.getDate()),
-    'T',
-    pad(date.getHours()),
-    ':',
-    pad(date.getMinutes()),
-  ].join('');
-};
-
-const formatUnlockTime = (iso: string): string =>
-  formatVietnamDateTime(iso);
 
 export const CouplePixelCard: React.FC<
   CouplePixelCardProps
@@ -77,34 +56,34 @@ export const CouplePixelCard: React.FC<
   const [composerTarget, setComposerTarget] =
     React.useState<CharacterId | null>(null);
   const [draft, setDraft] = React.useState('');
-  const [scheduleEnabled, setScheduleEnabled] = React.useState(false);
-  const [scheduledUnlockLocal, setScheduledUnlockLocal] = React.useState(
-    () => toLocalDateTimeInput(new Date(Date.now() + 60 * 60 * 1000))
-  );
   const [isSending, setIsSending] = React.useState(false);
   const [sendError, setSendError] = React.useState('');
-  const [pendingMessage, setPendingMessage] =
+  const [pendingMessages, setPendingMessages] =
+    React.useState<CompanionMessage[]>([]);
+  const [activeMessage, setActiveMessage] =
     React.useState<CompanionMessage | null>(null);
-  const [decryptedPendingText, setDecryptedPendingText] =
-    React.useState<string | null>(null);
-  const [isDecrypting, setIsDecrypting] = React.useState(false);
-  const [decryptError, setDecryptError] = React.useState('');
+  const [sentMessages, setSentMessages] =
+    React.useState<CompanionMessage[]>([]);
+  const [statusTarget, setStatusTarget] =
+    React.useState<CharacterId | null>(null);
+  const [replyingTo, setReplyingTo] =
+    React.useState<CompanionMessage | null>(null);
   const [sentNotice, setSentNotice] = React.useState<{
     speaker: CharacterId;
     text: string;
   } | null>(null);
-  const [sentMessages, setSentMessages] = React.useState<CompanionMessage[]>([]);
-  const [showSentHistory, setShowSentHistory] = React.useState(false);
-  const [historyPlaintexts, setHistoryPlaintexts] = React.useState<Record<string, string>>({});
-  const [historyOpeningId, setHistoryOpeningId] = React.useState<string | null>(null);
-  const [historyErrorId, setHistoryErrorId] = React.useState<string | null>(null);
+  const [cardIsVisible, setCardIsVisible] = React.useState(false);
 
   const duongWelcomeStartTimerRef = React.useRef<number | null>(null);
   const duongWelcomeEndTimerRef = React.useRef<number | null>(null);
   const chucWelcomeStartTimerRef = React.useRef<number | null>(null);
   const chucWelcomeEndTimerRef = React.useRef<number | null>(null);
   const deliveryTimerRef = React.useRef<number | null>(null);
+  const seenTimerRef = React.useRef<number | null>(null);
   const sentNoticeTimerRef = React.useRef<number | null>(null);
+  const longPressTimerRef = React.useRef<number | null>(null);
+  const suppressNextClickRef = React.useRef(false);
+  const cardRef = React.useRef<HTMLDivElement | null>(null);
 
   const currentCharacter: CharacterId | null = isDuongCurrentUser
     ? 'duong'
@@ -118,55 +97,71 @@ export const CouplePixelCard: React.FC<
     : null;
 
   const openComposer = (target: CharacterId) => {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      return;
+    }
     if (messageTarget !== target) return;
     setSendError('');
+    setReplyingTo(null);
+    setStatusTarget(null);
     setComposerTarget((current) => (current === target ? null : target));
+  };
+
+  const startLongPress = (target: CharacterId) => {
+    if (messageTarget !== target) return;
+    suppressNextClickRef.current = false;
+    longPressTimerRef.current = window.setTimeout(() => {
+      suppressNextClickRef.current = true;
+      setComposerTarget(null);
+      setReplyingTo(null);
+      setStatusTarget(target);
+      longPressTimerRef.current = null;
+      navigator.vibrate?.(25);
+    }, LONG_PRESS_MS);
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
   };
 
   const submitMessage = async (event: React.FormEvent) => {
     event.preventDefault();
     const text = normalizeCompanionMessage(draft);
-    if (!text || !composerTarget || !currentCharacter || !coupleId) return;
-
-    let unlockAt: string | null = null;
-
-    if (scheduleEnabled) {
-      const unlockDate = new Date(scheduledUnlockLocal);
-      if (
-        !Number.isFinite(unlockDate.getTime()) ||
-        unlockDate.getTime() < Date.now() + 30_000
-      ) {
-        setSendError('Chọn thời gian mở khóa ở tương lai ít nhất 30 giây nhé.');
-        return;
-      }
-      unlockAt = unlockDate.toISOString();
-    }
+    if (!text || !currentCharacter || !coupleId) return;
 
     setIsSending(true);
     setSendError('');
 
     try {
-      await sendCompanionMessage(coupleId, {
-        senderUid: currentUserUid,
-        senderName: currentUserName,
-        senderCharacter: currentCharacter,
-        recipientCharacter: composerTarget,
-        text,
-        unlockAt,
-      });
+      if (replyingTo) {
+        await replyToCompanionMessage(coupleId, replyingTo, {
+          senderUid: currentUserUid,
+          senderName: currentUserName,
+          text,
+        });
+      } else {
+        if (!composerTarget) return;
+        await sendCompanionMessage(coupleId, {
+          senderUid: currentUserUid,
+          senderName: currentUserName,
+          senderCharacter: currentCharacter,
+          recipientCharacter: composerTarget,
+          text,
+        });
+      }
 
-      const targetName = composerTarget === 'chuc' ? chucName : duongName;
-      const noticeText = scheduleEnabled && unlockAt
-        ? `Mình khóa lời nhắn rồi 🔒 ${targetName} chỉ mở được lúc ${formatUnlockTime(unlockAt)}.`
-        : `Đã cất lời nhắn bằng mã hóa rồi 🤫 ${targetName} sẽ nhận ngay sau khi khóa mở.`;
-
-      // Do not persist or retain the sender's plaintext copy after encryption.
+      const finalTarget = replyingTo?.senderCharacter || composerTarget;
+      const targetName = finalTarget === 'chuc' ? chucName : duongName;
       setDraft('');
-      setScheduleEnabled(false);
       setComposerTarget(null);
+      setReplyingTo(null);
       setSentNotice({
-        speaker: composerTarget,
-        text: noticeText,
+        speaker: finalTarget || currentCharacter,
+        text: `Yên tâm, khi ${targetName} vào mình sẽ kể lại nhé 🤫`,
       });
 
       if (sentNoticeTimerRef.current !== null) {
@@ -175,45 +170,12 @@ export const CouplePixelCard: React.FC<
       sentNoticeTimerRef.current = window.setTimeout(() => {
         setSentNotice(null);
         sentNoticeTimerRef.current = null;
-      }, 5000);
+      }, 4500);
     } catch (error) {
-      console.error('Không thể gửi lời nhắn mã hóa cho chibi:', error);
-      setSendError(
-        error instanceof Error
-          ? error.message
-          : 'Chưa mã hóa/gửi được, thử lại nhé.'
-      );
+      console.error('Không thể gửi lời nhắn cho chibi:', error);
+      setSendError('Chưa gửi được, thử lại nhé.');
     } finally {
       setIsSending(false);
-    }
-  };
-
-  const openSentMessage = async (message: CompanionMessage) => {
-    if (getSentMessageStatus(message, Date.now()) === 'locked') return;
-
-    if (historyPlaintexts[message.id]) {
-      setHistoryPlaintexts((current) => {
-        const next = { ...current };
-        delete next[message.id];
-        return next;
-      });
-      return;
-    }
-
-    setHistoryOpeningId(message.id);
-    setHistoryErrorId(null);
-
-    try {
-      const plaintext = await decryptCompanionMessage(message);
-      setHistoryPlaintexts((current) => ({
-        ...current,
-        [message.id]: plaintext,
-      }));
-    } catch (error) {
-      console.warn('Không thể xem lại lời nhắn đã gửi:', error);
-      setHistoryErrorId(message.id);
-    } finally {
-      setHistoryOpeningId(null);
     }
   };
 
@@ -226,7 +188,8 @@ export const CouplePixelCard: React.FC<
       }
 
       return 'idle';
-    }, []
+    },
+    []
   );
 
   React.useEffect(() => {
@@ -237,7 +200,7 @@ export const CouplePixelCard: React.FC<
       setDuongState((prev) =>
         prev === 'wave' ? prev : getAutomaticState(now)
       );
-    }, LOCK_CLOCK_MS);
+    }, 60_000);
 
     return () => window.clearInterval(interval);
   }, [getAutomaticState]);
@@ -250,14 +213,14 @@ export const CouplePixelCard: React.FC<
 
   React.useEffect(() => {
     if (!coupleId || !currentCharacter) {
-      setPendingMessage(null);
+      setPendingMessages([]);
       return;
     }
 
-    return subscribeToPendingCompanionMessage(
+    return subscribeToPendingCompanionMessages(
       coupleId,
       currentCharacter,
-      setPendingMessage
+      setPendingMessages
     );
   }, [coupleId, currentCharacter]);
 
@@ -275,90 +238,80 @@ export const CouplePixelCard: React.FC<
   }, [coupleId, currentUserUid]);
 
   React.useEffect(() => {
-    setDecryptedPendingText(null);
-    setDecryptError('');
-    setIsDecrypting(false);
-  }, [pendingMessage?.id]);
-
-  const pendingUnlockMs = pendingMessage
-    ? new Date(pendingMessage.unlockAt).getTime()
-    : Number.POSITIVE_INFINITY;
-  const pendingIsUnlockable =
-    Boolean(pendingMessage) &&
-    Number.isFinite(pendingUnlockMs) &&
-    clock >= pendingUnlockMs;
+    if (!activeMessage && pendingMessages.length > 0) {
+      setActiveMessage(pendingMessages[0]);
+    }
+  }, [activeMessage, pendingMessages]);
 
   React.useEffect(() => {
-    if (
-      !pendingMessage ||
-      !pendingIsUnlockable ||
-      decryptedPendingText ||
-      isDecrypting
-    ) {
+    const card = cardRef.current;
+    if (!card || typeof IntersectionObserver === 'undefined') {
+      setCardIsVisible(true);
       return;
     }
 
-    let disposed = false;
-    setIsDecrypting(true);
-    setDecryptError('');
-
-    decryptCompanionMessage(pendingMessage)
-      .then((text) => {
-        if (disposed) return;
-        setDecryptedPendingText(text);
-      })
-      .catch((error) => {
-        if (disposed) return;
-        console.warn('Timelock chưa mở được hoặc drand chưa sẵn sàng:', error);
-        // The ciphertext itself enforces the round. A client clock changed
-        // forward cannot bypass this; decryption still needs the future beacon.
-        setDecryptError('Khóa chưa mở được. Chibi sẽ tự thử lại.');
-      })
-      .finally(() => {
-        if (!disposed) setIsDecrypting(false);
-      });
-
-    return () => {
-      disposed = true;
-    };
-  }, [
-    pendingMessage,
-    pendingIsUnlockable,
-    decryptedPendingText,
-    clock,
-  ]);
+    const observer = new IntersectionObserver(
+      ([entry]) => setCardIsVisible(entry.isIntersecting && entry.intersectionRatio >= 0.5),
+      { threshold: [0, 0.5, 1] }
+    );
+    observer.observe(card);
+    return () => observer.disconnect();
+  }, []);
 
   React.useEffect(() => {
-    if (deliveryTimerRef.current !== null) {
-      window.clearTimeout(deliveryTimerRef.current);
-      deliveryTimerRef.current = null;
-    }
+    if (!activeMessage || !coupleId) return;
 
-    // Never mark as delivered until the recipient device has actually
-    // decrypted the ciphertext and displayed the plaintext.
-    if (!pendingMessage || !coupleId || !decryptedPendingText) return;
+    let seenSaved = false;
 
-    deliveryTimerRef.current = window.setTimeout(async () => {
-      try {
-        await markCompanionMessageDelivered(coupleId, pendingMessage.id);
-      } catch (error) {
-        console.error('Không thể đánh dấu lời nhắn đã chuyển:', error);
+    const clearViewTimers = () => {
+      if (seenTimerRef.current !== null) {
+        window.clearTimeout(seenTimerRef.current);
+        seenTimerRef.current = null;
       }
-      deliveryTimerRef.current = null;
-    }, DELIVERY_VISIBLE_MS);
-
-    return () => {
       if (deliveryTimerRef.current !== null) {
         window.clearTimeout(deliveryTimerRef.current);
         deliveryTimerRef.current = null;
       }
     };
-  }, [coupleId, pendingMessage, decryptedPendingText]);
+
+    const startViewTimers = () => {
+      clearViewTimers();
+      if (document.visibilityState !== 'visible' || !cardIsVisible) return;
+
+      if (!seenSaved && !activeMessage.seenAt) {
+        seenTimerRef.current = window.setTimeout(async () => {
+          try {
+            await markCompanionMessageSeen(coupleId, activeMessage.id);
+            seenSaved = true;
+          } catch (error) {
+            console.error('Không thể đánh dấu lời nhắn đã xem:', error);
+          }
+          seenTimerRef.current = null;
+        }, SEEN_AFTER_MS);
+      }
+
+      deliveryTimerRef.current = window.setTimeout(() => {
+        setActiveMessage(null);
+        deliveryTimerRef.current = null;
+      }, DELIVERY_VISIBLE_MS);
+    };
+
+    startViewTimers();
+    document.addEventListener('visibilitychange', startViewTimers);
+
+    return () => {
+      document.removeEventListener('visibilitychange', startViewTimers);
+      clearViewTimers();
+    };
+  }, [activeMessage, cardIsVisible, coupleId]);
 
   React.useEffect(
     () => () => {
       if (sentNoticeTimerRef.current !== null) {
         window.clearTimeout(sentNoticeTimerRef.current);
+      }
+      if (longPressTimerRef.current !== null) {
+        window.clearTimeout(longPressTimerRef.current);
       }
     },
     []
@@ -453,190 +406,62 @@ export const CouplePixelCard: React.FC<
     };
   }, [getAutomaticState, isChucCurrentUser, isDuongCurrentUser]);
 
-  const pendingBubbleText = React.useMemo(() => {
-    if (!pendingMessage) return null;
-
-    if (decryptedPendingText) {
-      return formatCompanionDelivery({
-        senderName: pendingMessage.senderName,
-        senderCharacter: pendingMessage.senderCharacter,
-        text: decryptedPendingText,
-        createdAt: pendingMessage.createdAt,
-      });
-    }
-
-    if (!pendingIsUnlockable) {
-      return `Có một lời nhắn đang khóa 🔒 Mở lúc ${formatUnlockTime(
-        pendingMessage.unlockAt
-      )}`;
-    }
-
-    if (isDecrypting) {
-      return 'Đến giờ rồi, đang mở khóa lời nhắn... 🔐';
-    }
-
-    return decryptError || 'Đang chờ khóa thời gian mở...';
-  }, [
-    pendingMessage,
-    decryptedPendingText,
-    pendingIsUnlockable,
-    isDecrypting,
-    decryptError,
-  ]);
-
-  const visibleBubble = pendingMessage
+  const visibleBubble = activeMessage
     ? {
-        speaker: pendingMessage.recipientCharacter,
-        text: pendingBubbleText || '',
+        speaker: activeMessage.recipientCharacter,
+        text: formatCompanionDelivery(activeMessage),
       }
     : sentNotice;
-
-  const minimumSchedule = toLocalDateTimeInput(
-    new Date(Date.now() + 60_000)
-  );
-  const sentSummary = summarizeSentMessages(sentMessages, clock);
+  const aliasIndex = activeMessage
+    ? activeMessage.id
+        .split('')
+        .reduce((sum: number, char: string) => sum + char.charCodeAt(0), 0)
+    : 0;
 
   return (
-    <div className="relative min-h-[340px] rounded-2xl border border-rose-100/80 bg-gradient-to-b from-rose-50/70 to-white overflow-hidden">
-      {!composerTarget && !showSentHistory && (
-        <button
-          type="button"
-          onClick={() => setShowSentHistory(true)}
-          className="absolute right-3 top-3 z-30 rounded-full border border-slate-200 bg-white/95 px-3 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm backdrop-blur-sm transition hover:bg-white active:scale-95"
-        >
-          💌 Đã gửi {sentSummary.total}
-        </button>
-      )}
-
-      {showSentHistory && (
-        <div className="absolute inset-3 z-50 flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white/98 shadow-xl backdrop-blur-md">
-          <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
-            <div>
-              <h3 className="text-sm font-extrabold text-slate-800">Lời nhắn đã gửi</h3>
-              <p className="mt-0.5 text-[10px] text-slate-500">
-                Chưa tới giờ chỉ xem được trạng thái. Qua giờ mới có thể mở lại nội dung.
-              </p>
-            </div>
+    <div ref={cardRef} className="relative min-h-[340px] rounded-2xl border border-rose-100/80 bg-gradient-to-b from-rose-50/70 to-white overflow-hidden">
+      {statusTarget && (
+        <div className="absolute left-3 right-3 top-3 z-40 max-h-[260px] overflow-y-auto rounded-2xl border border-rose-100 bg-white/95 p-3 shadow-xl backdrop-blur-sm">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-xs font-bold text-slate-800">Chibi mách bạn</p>
             <button
               type="button"
-              onClick={() => setShowSentHistory(false)}
-              className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-100 text-sm font-bold text-slate-500 hover:bg-slate-200"
-              aria-label="Đóng lịch sử lời nhắn"
+              onClick={() => setStatusTarget(null)}
+              className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-500"
             >
-              ×
+              Đóng
             </button>
           </div>
-
-          <div className="grid grid-cols-4 gap-1.5 border-b border-slate-100 px-3 py-3">
-            <div className="rounded-xl bg-slate-50 px-2 py-2 text-center">
-              <div className="text-base font-extrabold text-slate-800">{sentSummary.total}</div>
-              <div className="text-[9px] font-semibold text-slate-500">Tổng đã gửi</div>
-            </div>
-            <div className="rounded-xl bg-amber-50 px-2 py-2 text-center">
-              <div className="text-base font-extrabold text-amber-700">{sentSummary.locked}</div>
-              <div className="text-[9px] font-semibold text-amber-600">Đang khóa</div>
-            </div>
-            <div className="rounded-xl bg-blue-50 px-1 py-2 text-center">
-              <div className="text-base font-extrabold text-blue-700">{sentSummary.unlocked}</div>
-              <div className="text-[9px] font-semibold text-blue-600">Đã mở</div>
-            </div>
-            <div className="rounded-xl bg-emerald-50 px-1 py-2 text-center">
-              <div className="text-base font-extrabold text-emerald-700">{sentSummary.seen}</div>
-              <div className="text-[9px] font-semibold text-emerald-600">Đã xem</div>
-            </div>
-          </div>
-
-          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-            {sentMessages.length === 0 ? (
-              <div className="grid min-h-32 place-items-center text-center text-xs text-slate-400">
-                Chưa có lời nhắn mã hóa nào được gửi.
-              </div>
+          <div className="space-y-2">
+            {sentMessages.filter((message) => message.recipientCharacter === statusTarget).length === 0 ? (
+              <p className="rounded-xl bg-slate-50 p-3 text-center text-xs text-slate-500">
+                Chưa có lời nào cần kiểm tra.
+              </p>
             ) : (
-              sentMessages.map((message) => {
-                const status = getSentMessageStatus(message, clock);
-                const targetName =
-                  message.recipientCharacter === 'chuc' ? chucName : duongName;
-                const plaintext = historyPlaintexts[message.id];
-                const isOpening = historyOpeningId === message.id;
-                const hasError = historyErrorId === message.id;
-
-                return (
-                  <div
-                    key={message.id}
-                    className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="truncate text-xs font-bold text-slate-700">
-                          Gửi {targetName}
-                        </div>
-                        <div className="mt-0.5 text-[10px] text-slate-400">
-                          {formatVietnamDateTime(message.createdAt)}
-                        </div>
-                      </div>
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold ${
-                          status === 'locked'
-                            ? 'bg-amber-100 text-amber-700'
-                            : status === 'seen'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-blue-100 text-blue-700'
-                        }`}
-                      >
-                        {status === 'locked'
-                          ? '🔒 Đang khóa'
-                          : status === 'seen'
-                            ? '✓ Đã xem'
-                            : '🔓 Đã mở khóa'}
-                      </span>
-                    </div>
-
-                    <div className="mt-2 text-[10px] font-medium text-slate-500">
-                      Mở lúc {formatVietnamDateTime(message.unlockAt)}
-                      {message.deliveredAt
-                        ? ` • Xem lúc ${formatVietnamDateTime(message.deliveredAt)}`
-                        : ''}
-                    </div>
-
-                    {status === 'locked' ? (
-                      <div className="mt-2 rounded-xl border border-dashed border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-400">
-                        🔐 Nội dung đang được khóa thời gian
-                      </div>
-                    ) : (
-                      <div className="mt-2">
-                        {plaintext && (
-                          <div className="mb-2 rounded-xl border border-rose-100 bg-white px-3 py-2 text-xs font-semibold leading-relaxed text-slate-700">
-                            “{plaintext}”
-                          </div>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => openSentMessage(message)}
-                          disabled={isOpening}
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-bold text-slate-600 transition hover:border-rose-200 hover:text-rose-600 disabled:opacity-50"
-                        >
-                          {isOpening
-                            ? 'Đang mở...'
-                            : plaintext
-                              ? 'Ẩn nội dung'
-                              : 'Xem lại'}
-                        </button>
-                        {hasError && (
-                          <span className="ml-2 text-[10px] font-semibold text-red-500">
-                            Chưa mở được, thử lại sau.
-                          </span>
-                        )}
-                      </div>
+              sentMessages
+                .filter((message) => message.recipientCharacter === statusTarget)
+                .map((message) => (
+                  <div key={message.id} className="rounded-xl border border-slate-100 bg-slate-50/80 p-2.5">
+                    <p className="text-xs font-semibold text-slate-700">“{message.text}”</p>
+                    <p className="mt-1 text-[11px] font-bold text-rose-600">
+                      {getCompanionMessageStatus(
+                        message,
+                        statusTarget === 'chuc' ? chucName : duongName
+                      )}
+                    </p>
+                    {message.replyText && (
+                      <p className="mt-1 text-[11px] text-slate-600">
+                        Trả lời: “{message.replyText}”
+                      </p>
                     )}
                   </div>
-                );
-              })
+                ))
             )}
           </div>
         </div>
       )}
 
-      {composerTarget && (
+      {(composerTarget || replyingTo) && (
         <form
           onSubmit={submitMessage}
           className="absolute left-3 right-3 top-3 z-30 rounded-2xl border border-rose-100 bg-white/95 p-3 shadow-lg backdrop-blur-sm"
@@ -645,9 +470,10 @@ export const CouplePixelCard: React.FC<
             htmlFor="companion-message"
             className="mb-2 block text-xs font-bold text-slate-700"
           >
-            Nhắn chibi {composerTarget === 'chuc' ? chucName : duongName} giữ hộ
+            {replyingTo
+              ? `Trả lời ${replyingTo.senderName}`
+              : `Nhắn chibi ${composerTarget === 'chuc' ? chucName : duongName} giữ hộ`}
           </label>
-
           <div className="flex gap-2">
             <input
               id="companion-message"
@@ -655,7 +481,7 @@ export const CouplePixelCard: React.FC<
               onChange={(event) => setDraft(event.target.value)}
               maxLength={160}
               autoFocus
-              placeholder="Ví dụ: Yêu Chúc..."
+              placeholder={replyingTo ? 'Nhập câu trả lời...' : 'Ví dụ: Yêu Chúc...'}
               className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-rose-300 focus:ring-2 focus:ring-rose-100"
             />
             <button
@@ -663,41 +489,9 @@ export const CouplePixelCard: React.FC<
               disabled={isSending || !normalizeCompanionMessage(draft)}
               className="shrink-0 rounded-xl bg-rose-500 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isSending ? 'Đang khóa...' : 'Gửi'}
+              {isSending ? 'Đang gửi...' : 'Gửi'}
             </button>
           </div>
-
-          <div className="mt-2.5 rounded-xl border border-slate-100 bg-slate-50/80 p-2.5">
-            <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-700">
-              <input
-                type="checkbox"
-                checked={scheduleEnabled}
-                onChange={(event) => setScheduleEnabled(event.target.checked)}
-                className="h-4 w-4 accent-rose-500"
-              />
-              🔒 Hẹn giờ mở lời nhắn
-            </label>
-
-            {scheduleEnabled && (
-              <div className="mt-2">
-                <div className="relative">
-                  <div className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700">
-                    <span>{formatLocalDateTimeInput(scheduledUnlockLocal)}</span>
-                    <span aria-hidden="true">📅</span>
-                  </div>
-                  <input
-                    type="datetime-local"
-                    value={scheduledUnlockLocal}
-                    min={minimumSchedule}
-                    onChange={(event) => setScheduledUnlockLocal(event.target.value)}
-                    aria-label="Chọn ngày giờ mở lời nhắn"
-                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
           {sendError && (
             <p className="mt-1.5 text-[11px] font-semibold text-red-500">
               {sendError}
@@ -710,13 +504,36 @@ export const CouplePixelCard: React.FC<
         <div className="h-full w-full flex items-end justify-center gap-2 sm:gap-8">
           <div className="relative w-[42%] sm:w-[38%] max-w-[240px] flex flex-col items-center justify-end">
             {visibleBubble?.speaker === 'duong' && (
-              <div className="absolute bottom-[calc(100%_-_2.4rem)] left-1/2 z-20 w-48 max-w-[78vw] -translate-x-1/2 rounded-2xl rounded-bl-sm border border-rose-100 bg-white px-3 py-2 text-center text-xs font-semibold leading-relaxed text-slate-700 shadow-lg">
-                {visibleBubble.text}
+              <div className="absolute bottom-[calc(100%_-_2.4rem)] left-1/2 z-20 w-44 max-w-[75vw] -translate-x-1/2 rounded-2xl rounded-bl-sm border border-rose-100 bg-white px-3 py-2 text-center text-xs font-semibold leading-relaxed text-slate-700 shadow-lg">
+                <p>{visibleBubble.text}</p>
+                {activeMessage && (
+                  <>
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      {formatReplyInvitation(activeMessage.senderCharacter, aliasIndex)}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReplyingTo(activeMessage);
+                        setComposerTarget(activeMessage.senderCharacter);
+                        setDraft('');
+                      }}
+                      className="mt-2 rounded-lg bg-rose-500 px-3 py-1.5 text-[11px] font-bold text-white"
+                    >
+                      Trả lời
+                    </button>
+                  </>
+                )}
               </div>
             )}
             <button
               type="button"
               onClick={() => openComposer('duong')}
+              onPointerDown={() => startLongPress('duong')}
+              onPointerUp={cancelLongPress}
+              onPointerCancel={cancelLongPress}
+              onPointerLeave={cancelLongPress}
+              onContextMenu={(event) => event.preventDefault()}
               disabled={messageTarget !== 'duong'}
               aria-label={messageTarget === 'duong' ? `Nhắn lời cho ${duongName}` : duongName}
               className={`h-56 sm:h-64 w-full flex items-end justify-center rounded-2xl transition ${
@@ -739,13 +556,36 @@ export const CouplePixelCard: React.FC<
 
           <div className="relative w-[38%] sm:w-[34%] max-w-[210px] flex flex-col items-center justify-end">
             {visibleBubble?.speaker === 'chuc' && (
-              <div className="absolute bottom-[calc(100%_-_2.4rem)] left-1/2 z-20 w-48 max-w-[78vw] -translate-x-1/2 rounded-2xl rounded-br-sm border border-rose-100 bg-white px-3 py-2 text-center text-xs font-semibold leading-relaxed text-slate-700 shadow-lg">
-                {visibleBubble.text}
+              <div className="absolute bottom-[calc(100%_-_2.4rem)] left-1/2 z-20 w-44 max-w-[75vw] -translate-x-1/2 rounded-2xl rounded-br-sm border border-rose-100 bg-white px-3 py-2 text-center text-xs font-semibold leading-relaxed text-slate-700 shadow-lg">
+                <p>{visibleBubble.text}</p>
+                {activeMessage && (
+                  <>
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      {formatReplyInvitation(activeMessage.senderCharacter, aliasIndex)}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReplyingTo(activeMessage);
+                        setComposerTarget(activeMessage.senderCharacter);
+                        setDraft('');
+                      }}
+                      className="mt-2 rounded-lg bg-rose-500 px-3 py-1.5 text-[11px] font-bold text-white"
+                    >
+                      Trả lời
+                    </button>
+                  </>
+                )}
               </div>
             )}
             <button
               type="button"
               onClick={() => openComposer('chuc')}
+              onPointerDown={() => startLongPress('chuc')}
+              onPointerUp={cancelLongPress}
+              onPointerCancel={cancelLongPress}
+              onPointerLeave={cancelLongPress}
+              onContextMenu={(event) => event.preventDefault()}
               disabled={messageTarget !== 'chuc'}
               aria-label={messageTarget === 'chuc' ? `Nhắn lời cho ${chucName}` : chucName}
               className={`h-52 sm:h-60 w-full flex items-end justify-center rounded-2xl transition ${

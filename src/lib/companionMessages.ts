@@ -3,17 +3,11 @@ import {
   collection,
   doc,
   onSnapshot,
-  updateDoc,
+  writeBatch,
 } from 'firebase/firestore';
 
 import { CharacterId } from '../components/character/characterConfig';
 import { db } from './firebase';
-import {
-  createTimelockEnvelope,
-  decryptTimelockEnvelope,
-} from './timelock';
-
-const DEFAULT_IMMEDIATE_DELAY_MS = 15_000;
 
 export interface CompanionMessage {
   id: string;
@@ -21,22 +15,19 @@ export interface CompanionMessage {
   senderName: string;
   senderCharacter: CharacterId;
   recipientCharacter: CharacterId;
-  ciphertext: string;
-  unlockAt: string;
-  timelockRound: number;
-  encryption: 'tlock-drand-quicknet-v1';
+  text: string;
   createdAt: string;
   deliveredAt?: string | null;
+  seenAt?: string | null;
+  repliedAt?: string | null;
+  replyText?: string | null;
+  parentMessageId?: string | null;
 }
 
-export interface NewCompanionMessage {
-  senderUid: string;
-  senderName: string;
-  senderCharacter: CharacterId;
-  recipientCharacter: CharacterId;
-  text: string;
-  unlockAt?: string | null;
-}
+type NewCompanionMessage = Omit<
+  CompanionMessage,
+  'id' | 'createdAt' | 'deliveredAt' | 'seenAt' | 'repliedAt' | 'replyText'
+>;
 
 const messagesCollection = (coupleId: string) =>
   collection(db, 'couples', coupleId, 'companionMessages');
@@ -45,43 +36,21 @@ export const sendCompanionMessage = async (
   coupleId: string,
   message: NewCompanionMessage
 ): Promise<void> => {
-  const {
-    text,
-    unlockAt,
-    ...safeMetadata
-  } = message;
-
-  // Even "send now" is encrypted to a near-future drand round so plaintext
-  // is never persisted to Firestore.
-  const effectiveUnlockAt =
-    unlockAt ||
-    new Date(Date.now() + DEFAULT_IMMEDIATE_DELAY_MS).toISOString();
-
-  const envelope = await createTimelockEnvelope(
-    text,
-    effectiveUnlockAt
-  );
-
   await addDoc(messagesCollection(coupleId), {
-    ...safeMetadata,
-    ciphertext: envelope.ciphertext,
-    unlockAt: envelope.unlockAt,
-    timelockRound: envelope.round,
-    encryption: envelope.encryption,
+    ...message,
     createdAt: new Date().toISOString(),
     deliveredAt: null,
+    seenAt: null,
+    repliedAt: null,
+    replyText: null,
+    parentMessageId: message.parentMessageId || null,
   });
 };
 
-export const decryptCompanionMessage = async (
-  message: CompanionMessage
-): Promise<string> =>
-  decryptTimelockEnvelope(message.ciphertext);
-
-export const subscribeToPendingCompanionMessage = (
+export const subscribeToPendingCompanionMessages = (
   coupleId: string,
   recipientCharacter: CharacterId,
-  onChange: (message: CompanionMessage | null) => void
+  onChange: (messages: CompanionMessage[]) => void
 ): (() => void) =>
   onSnapshot(messagesCollection(coupleId), (snapshot) => {
     const pending = snapshot.docs
@@ -92,16 +61,12 @@ export const subscribeToPendingCompanionMessage = (
       .filter(
         (message) =>
           message.recipientCharacter === recipientCharacter &&
-          !message.deliveredAt &&
-          typeof message.ciphertext === 'string' &&
-          typeof message.unlockAt === 'string'
+          !message.seenAt
       )
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
-    onChange(pending[0] || null);
+    onChange(pending);
   });
-
-
 
 export const subscribeToSentCompanionMessages = (
   coupleId: string,
@@ -114,23 +79,65 @@ export const subscribeToSentCompanionMessages = (
         id: messageDoc.id,
         ...messageDoc.data(),
       }) as CompanionMessage)
-      .filter(
-        (message) =>
-          message.senderUid === senderUid &&
-          typeof message.ciphertext === 'string' &&
-          typeof message.unlockAt === 'string'
-      )
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      .filter((message) => message.senderUid === senderUid && !message.parentMessageId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 5);
 
     onChange(sent);
   });
 
-export const markCompanionMessageDelivered = async (
+export const markCompanionMessageSeen = async (
   coupleId: string,
   messageId: string
 ): Promise<void> => {
-  await updateDoc(
+  const batch = writeBatch(db);
+  const now = new Date().toISOString();
+  batch.update(
     doc(db, 'couples', coupleId, 'companionMessages', messageId),
-    { deliveredAt: new Date().toISOString() }
+    { deliveredAt: now, seenAt: now }
   );
+  await batch.commit();
+};
+
+export const replyToCompanionMessage = async (
+  coupleId: string,
+  original: CompanionMessage,
+  reply: {
+    senderUid: string;
+    senderName: string;
+    text: string;
+  }
+): Promise<void> => {
+  const batch = writeBatch(db);
+  const now = new Date().toISOString();
+  const originalRef = doc(
+    db,
+    'couples',
+    coupleId,
+    'companionMessages',
+    original.id
+  );
+  const replyRef = doc(messagesCollection(coupleId));
+
+  batch.update(originalRef, {
+    seenAt: original.seenAt || now,
+    deliveredAt: original.deliveredAt || now,
+    repliedAt: now,
+    replyText: reply.text,
+  });
+  batch.set(replyRef, {
+    senderUid: reply.senderUid,
+    senderName: reply.senderName,
+    senderCharacter: original.recipientCharacter,
+    recipientCharacter: original.senderCharacter,
+    text: reply.text,
+    createdAt: now,
+    deliveredAt: null,
+    seenAt: null,
+    repliedAt: null,
+    replyText: null,
+    parentMessageId: original.id,
+  });
+
+  await batch.commit();
 };
