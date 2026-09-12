@@ -15,6 +15,7 @@ import {
   getCompanionMessageStatus,
   normalizeCompanionMessage,
 } from './companionMessageLogic';
+import { getCharacterCardMinHeight } from './companionLayout';
 
 interface CouplePixelCardProps {
   duongName: string;
@@ -419,9 +420,13 @@ export const CouplePixelCard: React.FC<
     : 0;
 
   return (
-    <div ref={cardRef} className="relative min-h-[340px] rounded-2xl border border-rose-100/80 bg-gradient-to-b from-rose-50/70 to-white overflow-hidden">
+    <div
+      ref={cardRef}
+      className="relative overflow-hidden rounded-2xl border border-rose-100/80 bg-gradient-to-b from-rose-50/70 to-white transition-[min-height] duration-200"
+      style={{ minHeight: getCharacterCardMinHeight(Boolean(visibleBubble)) }}
+    >
       {statusTarget && (
-        <div className="absolute left-3 right-3 top-3 z-40 max-h-[260px] overflow-y-auto rounded-2xl border border-rose-100 bg-white/95 p-3 shadow-xl backdrop-blur-sm">
+        <div className="fixed inset-x-3 bottom-[calc(6.5rem_+_env(safe-area-inset-bottom))] z-50 max-h-[60vh] overflow-y-auto rounded-2xl border border-rose-100 bg-white/[0.98] p-3 shadow-2xl backdrop-blur-sm sm:absolute sm:inset-x-3 sm:bottom-auto sm:top-3 sm:z-40 sm:max-h-[260px]">
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="text-xs font-bold text-slate-800">Chibi mách bạn</p>
             <button
@@ -464,16 +469,30 @@ export const CouplePixelCard: React.FC<
       {(composerTarget || replyingTo) && (
         <form
           onSubmit={submitMessage}
-          className="absolute left-3 right-3 top-3 z-30 rounded-2xl border border-rose-100 bg-white/95 p-3 shadow-lg backdrop-blur-sm"
+          className="fixed inset-x-3 bottom-[calc(6.5rem_+_env(safe-area-inset-bottom))] z-50 rounded-2xl border border-rose-100 bg-white/[0.98] p-3 shadow-2xl backdrop-blur-sm sm:absolute sm:inset-x-3 sm:bottom-auto sm:top-3 sm:z-30 sm:shadow-lg"
         >
-          <label
-            htmlFor="companion-message"
-            className="mb-2 block text-xs font-bold text-slate-700"
-          >
-            {replyingTo
-              ? `Trả lời ${replyingTo.senderName}`
-              : `Nhắn chibi ${composerTarget === 'chuc' ? chucName : duongName} giữ hộ`}
-          </label>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <label
+              htmlFor="companion-message"
+              className="min-w-0 truncate text-xs font-bold text-slate-700"
+            >
+              {replyingTo
+                ? `Trả lời ${replyingTo.senderName}`
+                : `Nhắn chibi ${composerTarget === 'chuc' ? chucName : duongName} giữ hộ`}
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                setComposerTarget(null);
+                setReplyingTo(null);
+                setDraft('');
+                setSendError('');
+              }}
+              className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-500"
+            >
+              Đóng
+            </button>
+          </div>
           <div className="flex gap-2">
             <input
               id="companion-message"
@@ -500,11 +519,11 @@ export const CouplePixelCard: React.FC<
         </form>
       )}
 
-      <div className="absolute inset-0 pt-6 pb-8 px-4 sm:px-6">
+      <div className="absolute inset-0 px-3 pb-8 pt-6 sm:px-6">
         <div className="h-full w-full flex items-end justify-center gap-2 sm:gap-8">
           <div className="relative w-[42%] sm:w-[38%] max-w-[240px] flex flex-col items-center justify-end">
             {visibleBubble?.speaker === 'duong' && (
-              <div className="absolute bottom-[calc(100%_-_2.4rem)] left-1/2 z-20 w-44 max-w-[75vw] -translate-x-1/2 rounded-2xl rounded-bl-sm border border-rose-100 bg-white px-3 py-2 text-center text-xs font-semibold leading-relaxed text-slate-700 shadow-lg">
+              <div className="absolute bottom-[calc(100%_+_0.5rem)] left-1/2 z-20 w-48 max-w-[82vw] -translate-x-1/2 rounded-2xl rounded-bl-sm border border-rose-100 bg-white px-3 py-2 text-center text-xs font-semibold leading-relaxed text-slate-700 shadow-lg">
                 <p>{visibleBubble.text}</p>
                 {activeMessage && (
                   <>
@@ -556,7 +575,7 @@ export const CouplePixelCard: React.FC<
 
           <div className="relative w-[38%] sm:w-[34%] max-w-[210px] flex flex-col items-center justify-end">
             {visibleBubble?.speaker === 'chuc' && (
-              <div className="absolute bottom-[calc(100%_-_2.4rem)] left-1/2 z-20 w-44 max-w-[75vw] -translate-x-1/2 rounded-2xl rounded-br-sm border border-rose-100 bg-white px-3 py-2 text-center text-xs font-semibold leading-relaxed text-slate-700 shadow-lg">
+              <div className="absolute bottom-[calc(100%_+_0.5rem)] left-1/2 z-20 w-48 max-w-[82vw] -translate-x-1/2 rounded-2xl rounded-br-sm border border-rose-100 bg-white px-3 py-2 text-center text-xs font-semibold leading-relaxed text-slate-700 shadow-lg">
                 <p>{visibleBubble.text}</p>
                 {activeMessage && (
                   <>
