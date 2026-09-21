@@ -29,6 +29,13 @@ export const sortCompanionMessageHistory = <T extends { createdAt: string }>(
   messages: T[]
 ): T[] => [...messages].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
+export const getNewestCompanionMessageId = <
+  T extends { id: string; createdAt: string },
+>(messages: T[]): string | null => {
+  const newest = sortCompanionMessageHistory(messages).at(-1);
+  return newest?.id || null;
+};
+
 export const canMarkCompanionMessageSeen = (
   message: { senderUid: string; seenAt?: string | null },
   currentUserUid: string

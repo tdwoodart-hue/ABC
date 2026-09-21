@@ -2640,10 +2640,12 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
       </main>
 
       {/* Modern 4-Tab Bottom Navigation Bar with More Menu Sheet */}
-      <BottomNavigation
-        activeTab={activeTab}
-        onNavigate={handleNavigateTab}
-      />
+      {activeTab !== 'messages' && (
+        <BottomNavigation
+          activeTab={activeTab}
+          onNavigate={handleNavigateTab}
+        />
+      )}
 
       {/* Interactive Google Maps Location Picker Modal */}
       <MapLocationPickerModal

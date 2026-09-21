@@ -26,6 +26,14 @@ import type { UserProfile } from './types';
 
 import { AuthCard } from './components/AuthCard';
 import { LoadingSplash } from './components/LoadingSplash';
+import { LockedAccessScreen } from './components/LockedAccessScreen';
+
+/**
+ * Trạng thái khóa ứng dụng:
+ * Khi được bật (true), toàn bộ truy cập vào ứng dụng sẽ bị khóa hoàn toàn.
+ * Hiển thị thông báo "Truy cập hiện đã dừng hoạt động".
+ */
+export const IS_APP_LOCKED = true;
 
 /*
  * Private app access whitelist.
@@ -162,6 +170,10 @@ const HomePaintGate: React.FC<HomePaintGateProps> = ({
 };
 
 export default function App() {
+  if (IS_APP_LOCKED) {
+    return <LockedAccessScreen />;
+  }
+
   const [currentUser, setCurrentUser] =
     useState<UserProfile | null>(null);
 
