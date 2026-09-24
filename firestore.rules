@@ -2,9 +2,25 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Ứng dụng đã dừng hoạt động — Khoá toàn bộ quyền truy cập dữ liệu
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function hasAllowedEmail() {
+      return isSignedIn()
+        && request.auth.token.email != null
+        && request.auth.token.email in [
+          'tdwoodart@gmail.com',
+          'duong@gmail.com',
+          'chucga@gmail.com'
+        ];
+    }
+
+    // Private couple app.
+    // Only these three authenticated accounts may access Firestore.
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if hasAllowedEmail();
     }
   }
 }
