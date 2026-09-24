@@ -1,192 +1,113 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Apple, BookOpen, Home, MoreHorizontal, Wallet } from 'lucide-react';
 import { TabType } from './LightHomeScreen';
 import { MoreMenuSheet } from './MoreMenuSheet';
-import {
-  Home,
-  BookOpen,
-  Wallet,
-  MoreHorizontal
-} from 'lucide-react';
 
 interface BottomNavigationProps {
   activeTab: TabType;
   onNavigate: (tab: TabType) => void;
 }
 
-export const BottomNavigation: React.FC<BottomNavigationProps> = ({
-  activeTab,
-  onNavigate,
-}) => {
+export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, onNavigate }) => {
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
-  // Detect when virtual keyboard opens or user is typing in an input/textarea to avoid blocking the UI
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
     let timeoutId: number | null = null;
 
-    const checkInputFocus = () => {
-      const activeEl = document.activeElement;
+    const hasTextInputFocus = () => {
+      const activeEl = document.activeElement as HTMLElement | null;
       if (!activeEl) return false;
-      const tagName = activeEl.tagName.toLowerCase();
-      const isInput = tagName === 'input' || tagName === 'textarea';
-      const isContentEditable = (activeEl as HTMLElement).isContentEditable;
-      if (tagName === 'input') {
-        const type = (activeEl as HTMLInputElement).type?.toLowerCase();
-        if (['checkbox', 'radio', 'range', 'color', 'file', 'button', 'submit', 'reset'].includes(type)) {
-          return false;
-        }
-      }
-      return isInput || isContentEditable;
+      const tag = activeEl.tagName.toLowerCase();
+      if (tag === 'textarea' || activeEl.isContentEditable) return true;
+      if (tag !== 'input') return false;
+      const type = (activeEl as HTMLInputElement).type?.toLowerCase();
+      return !['checkbox', 'radio', 'range', 'color', 'file', 'button', 'submit', 'reset'].includes(type);
     };
 
-    const handleFocusIn = () => {
+    const focusIn = () => {
       if (timeoutId) clearTimeout(timeoutId);
-      if (checkInputFocus()) {
-        setIsKeyboardOpen(true);
-      }
+      if (hasTextInputFocus()) setIsKeyboardOpen(true);
     };
-
-    const handleFocusOut = () => {
+    const focusOut = () => {
       if (timeoutId) clearTimeout(timeoutId);
       timeoutId = window.setTimeout(() => {
-        if (!checkInputFocus()) {
-          setIsKeyboardOpen(false);
-        }
+        if (!hasTextInputFocus()) setIsKeyboardOpen(false);
       }, 120);
     };
-
-    const handleViewportResize = () => {
-      if (window.visualViewport) {
-        const heightDiff = window.innerHeight - window.visualViewport.height;
-        if (heightDiff > 140 && checkInputFocus()) {
-          setIsKeyboardOpen(true);
-        } else if (heightDiff < 60 && !checkInputFocus()) {
-          setIsKeyboardOpen(false);
-        }
-      }
+    const resize = () => {
+      if (!window.visualViewport) return;
+      const diff = window.innerHeight - window.visualViewport.height;
+      if (diff > 140 && hasTextInputFocus()) setIsKeyboardOpen(true);
+      if (diff < 60 && !hasTextInputFocus()) setIsKeyboardOpen(false);
     };
 
-    document.addEventListener('focusin', handleFocusIn);
-    document.addEventListener('focusout', handleFocusOut);
-
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleViewportResize);
-    }
-
+    document.addEventListener('focusin', focusIn);
+    document.addEventListener('focusout', focusOut);
+    window.visualViewport?.addEventListener('resize', resize);
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
-      document.removeEventListener('focusin', handleFocusIn);
-      document.removeEventListener('focusout', handleFocusOut);
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', handleViewportResize);
-      }
+      document.removeEventListener('focusin', focusIn);
+      document.removeEventListener('focusout', focusOut);
+      window.visualViewport?.removeEventListener('resize', resize);
     };
   }, []);
 
-  // More is active if current tab is in the secondary set (achievements, nutrition, profile) or if sheet is open
-  const isMoreActive =
-    activeTab === 'achievements' ||
-    activeTab === 'nutrition' ||
-    activeTab === 'profile' ||
-    isMoreMenuOpen;
+  const isMoreActive = activeTab === 'achievements' || activeTab === 'profile' || isMoreMenuOpen;
 
-  const handleTabClick = (tab: 'home' | 'journal' | 'finance' | 'more') => {
+  const navigate = (tab: 'home' | 'journal' | 'nutrition' | 'finance' | 'more') => {
     if (tab === 'more') {
-      setIsMoreMenuOpen(prev => !prev);
+      setIsMoreMenuOpen((value) => !value);
       return;
     }
     setIsMoreMenuOpen(false);
     onNavigate(tab);
   };
 
+  const itemClass = (active: boolean) =>
+    `flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-0.5 py-1.5 min-h-[50px] select-none transition ${
+      active
+        ? 'border border-rose-200/80 bg-rose-50 font-bold text-rose-600 shadow-2xs'
+        : 'font-medium text-slate-500 hover:bg-slate-50/80 hover:text-slate-800'
+    }`;
+
   return (
     <>
       <nav
-        className={`fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-rose-100/90 shadow-[0_-4px_20px_rgba(0,0,0,0.04)] px-2 sm:px-4 pt-1.5 transition-all duration-200 ease-in-out ${
+        className={`fixed bottom-0 left-0 right-0 z-40 border-t border-rose-100/90 bg-white/95 px-2 pt-1.5 shadow-[0_-4px_20px_rgba(0,0,0,0.04)] backdrop-blur-md transition-all duration-200 sm:px-4 ${
           isKeyboardOpen ? 'translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
         }`}
-        style={{
-          paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',
-        }}
+        style={{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))' }}
         aria-label="Thanh điều hướng chính"
       >
-        <div className="max-w-md sm:max-w-lg md:max-w-xl mx-auto grid grid-cols-4 gap-1">
-          {/* Tab 1: Home (Trang chủ) */}
-          <button
-            type="button"
-            onClick={() => handleTabClick('home')}
-            className={`flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-2xl transition cursor-pointer min-h-[50px] select-none ${
-              activeTab === 'home'
-                ? 'text-rose-600 font-bold bg-rose-50 border border-rose-200/80 shadow-2xs'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/80 font-medium'
-            }`}
-          >
-            <Home className="w-5 h-5 shrink-0" />
-            <span className="text-[11px] sm:text-xs leading-none truncate whitespace-nowrap">
-              Trang chủ
-            </span>
+        <div className="mx-auto grid max-w-xl grid-cols-5 gap-1">
+          <button type="button" onClick={() => navigate('home')} className={itemClass(activeTab === 'home')}>
+            <Home className="h-5 w-5 shrink-0" />
+            <span className="w-full truncate whitespace-nowrap text-center text-[10px] leading-none sm:text-xs">Trang chủ</span>
           </button>
-
-          {/* Tab 2: Journal (Nhật ký) */}
-          <button
-            type="button"
-            onClick={() => handleTabClick('journal')}
-            className={`flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-2xl transition cursor-pointer min-h-[50px] select-none ${
-              activeTab === 'journal'
-                ? 'text-rose-600 font-bold bg-rose-50 border border-rose-200/80 shadow-2xs'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/80 font-medium'
-            }`}
-          >
-            <BookOpen className="w-5 h-5 shrink-0" />
-            <span className="text-[11px] sm:text-xs leading-none truncate whitespace-nowrap">
-              Nhật ký
-            </span>
+          <button type="button" onClick={() => navigate('journal')} className={itemClass(activeTab === 'journal')}>
+            <BookOpen className="h-5 w-5 shrink-0" />
+            <span className="w-full truncate whitespace-nowrap text-center text-[10px] leading-none sm:text-xs">Nhật ký</span>
           </button>
-
-          {/* Tab 3: Finance (Tài chính) */}
-          <button
-            type="button"
-            onClick={() => handleTabClick('finance')}
-            className={`flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-2xl transition cursor-pointer min-h-[50px] select-none ${
-              activeTab === 'finance'
-                ? 'text-rose-600 font-bold bg-rose-50 border border-rose-200/80 shadow-2xs'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/80 font-medium'
-            }`}
-          >
-            <Wallet className="w-5 h-5 shrink-0" />
-            <span className="text-[11px] sm:text-xs leading-none truncate whitespace-nowrap">
-              Tài chính
-            </span>
+          <button type="button" onClick={() => navigate('nutrition')} className={itemClass(activeTab === 'nutrition')}>
+            <Apple className="h-5 w-5 shrink-0" />
+            <span className="w-full truncate whitespace-nowrap text-center text-[10px] leading-none sm:text-xs">Dinh dưỡng</span>
           </button>
-
-          {/* Tab 4: More (Thêm) */}
-          <button
-            type="button"
-            onClick={() => handleTabClick('more')}
-            className={`flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-2xl transition cursor-pointer min-h-[50px] relative select-none ${
-              isMoreActive
-                ? 'text-rose-600 font-bold bg-rose-50 border border-rose-200/80 shadow-2xs'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/80 font-medium'
-            }`}
-            aria-expanded={isMoreMenuOpen}
-            aria-haspopup="dialog"
-          >
+          <button type="button" onClick={() => navigate('finance')} className={itemClass(activeTab === 'finance')}>
+            <Wallet className="h-5 w-5 shrink-0" />
+            <span className="w-full truncate whitespace-nowrap text-center text-[10px] leading-none sm:text-xs">Tài chính</span>
+          </button>
+          <button type="button" onClick={() => navigate('more')} className={`${itemClass(isMoreActive)} relative`} aria-expanded={isMoreMenuOpen} aria-haspopup="dialog">
             <div className="relative">
-              <MoreHorizontal className="w-5 h-5 shrink-0" />
-              {(activeTab === 'achievements' || activeTab === 'nutrition' || activeTab === 'profile') && (
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white" />
-              )}
+              <MoreHorizontal className="h-5 w-5 shrink-0" />
+              {(activeTab === 'achievements' || activeTab === 'profile') && <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />}
             </div>
-            <span className="text-[11px] sm:text-xs leading-none truncate whitespace-nowrap">
-              Thêm
-            </span>
+            <span className="w-full truncate whitespace-nowrap text-center text-[10px] leading-none sm:text-xs">Thêm</span>
           </button>
         </div>
       </nav>
 
-      {/* More Options Bottom Sheet */}
       <MoreMenuSheet
         isOpen={isMoreMenuOpen}
         onClose={() => setIsMoreMenuOpen(false)}
