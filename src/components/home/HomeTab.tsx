@@ -1,13 +1,9 @@
 import React from 'react';
-import {
-  Calendar,
-  ChevronRight,
-  Trophy,
-} from 'lucide-react';
+import { ChevronRight, Trophy } from 'lucide-react';
 
 import { CoupleData, JournalEntry, UserProfile, WakeUpLog } from '../../types';
-import { formatDateVN } from '../../utils/formatDate';
 import { CouplePixelCard } from '../character/CouplePixelCard';
+import { AnniversaryDoodle } from './AnniversaryDoodle';
 import { WakeUpChallengeCard } from '../WakeUpChallengeCard';
 import { MemoryOfTheDayCard } from './MemoryOfTheDayCard';
 import { SecretStatsModal } from './SecretStatsModal';
@@ -31,8 +27,6 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   onOpenJournal,
 }) => {
   const [showSecretStats, setShowSecretStats] = React.useState(false);
-  const secretPressTimerRef = React.useRef<number | null>(null);
-  const secretPressTriggeredRef = React.useRef(false);
 
   const isU1 =
     coupleData?.user1Id === userProfile.uid ||
@@ -84,34 +78,6 @@ export const HomeTab: React.FC<HomeTabProps> = ({
     daysTogether
   );
 
-  const clearSecretPressTimer = () => {
-    if (secretPressTimerRef.current !== null) {
-      window.clearTimeout(secretPressTimerRef.current);
-      secretPressTimerRef.current = null;
-    }
-  };
-
-  const handleSecretPressStart = () => {
-    clearSecretPressTimer();
-    secretPressTriggeredRef.current = false;
-
-    secretPressTimerRef.current = window.setTimeout(() => {
-      secretPressTriggeredRef.current = true;
-      setShowSecretStats(true);
-
-      if (
-        typeof navigator !== 'undefined' &&
-        'vibrate' in navigator
-      ) {
-        navigator.vibrate?.(35);
-      }
-    }, 800);
-  };
-
-  const handleSecretPressEnd = () => {
-    clearSecretPressTimer();
-  };
-
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-md space-y-6">
@@ -122,45 +88,13 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           isChucCurrentUser={isU2}
         />
 
-        <div className="bg-gradient-to-br from-rose-50 to-pink-50/50 rounded-2xl p-6 border border-rose-100/80 text-center">
-          <span className="text-xs font-bold text-rose-500 uppercase tracking-wider block mb-1">
-            Số Ngày Bên Nhau
-          </span>
-
-          <div
-            className="text-5xl font-black text-rose-600 tracking-tight my-2 select-none touch-manipulation"
-            onPointerDown={handleSecretPressStart}
-            onPointerUp={handleSecretPressEnd}
-            onPointerCancel={handleSecretPressEnd}
-            onPointerLeave={handleSecretPressEnd}
-            onContextMenu={(event) => event.preventDefault()}
-            role="button"
-            tabIndex={0}
-            aria-label={`${daysTogether} ngày bên nhau`}
-            onKeyDown={(event) => {
-              if (
-                event.key === 'Enter' ||
-                event.key === ' '
-              ) {
-                event.preventDefault();
-                setShowSecretStats(true);
-              }
-            }}
-          >
-            {daysTogether}{' '}
-            <span className="text-xl font-bold text-rose-400">
-              ngày
-            </span>
-          </div>
-
-          <div className="mt-4 pt-3 border-t border-rose-100/80 flex items-center justify-center gap-2 text-xs text-slate-500">
-            <Calendar className="w-4 h-4 text-rose-400" />
-            <span>Ngày bắt đầu:</span>
-            <span className="font-bold text-slate-700">
-              {formatDateVN(coupleData?.anniversaryDate)}
-            </span>
-          </div>
-        </div>
+        <AnniversaryDoodle
+          anniversaryDate={coupleData?.anniversaryDate}
+          daysTogether={daysTogether}
+          duongName={u1Name}
+          chucName={u2Name}
+          onOpenSecretStats={() => setShowSecretStats(true)}
+        />
 
         <MemoryOfTheDayCard
           journals={journals}
