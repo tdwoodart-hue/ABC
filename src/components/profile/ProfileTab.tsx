@@ -22,6 +22,9 @@ import {
 import { Companion, CoupleData, UserProfile } from '../../types';
 import { formatDateVN } from '../../utils/formatDate';
 import { requestAndShowTestNotification } from '../../utils/notifications';
+import appPackage from '../../../package.json';
+
+const APP_VERSION = appPackage.version;
 
 interface ProfileTabProps {
   userProfile: UserProfile;
@@ -652,6 +655,10 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             </p>
           )}
         </div>
+
+        <p className="pt-1 text-center text-[10px] font-medium text-slate-400">
+          {`Phiên bản ứng dụng v${APP_VERSION}`}
+        </p>
       </div>
 
       {/* Recovery & History Protection Tool */}
