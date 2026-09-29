@@ -18,4 +18,6 @@ test('More menu exposes Đôi lời muốn nói and modal keeps locked content h
   assert.match(modal, /Đã gửi/);
   assert.match(modal, /setUnlockAt/);
   assert.match(modal, /Thời gian mở thư/);
+  assert.match(modal, /\+5 phút/);
+  assert.match(modal, /\+1 ngày/);
 });

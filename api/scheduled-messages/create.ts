@@ -1,4 +1,4 @@
-import { assertParticipant, getAdminDb, sealKeyMaterial, verifyAllowedUser } from './admin';
+import { assertParticipant, getAdminDb, sealKeyMaterial, verifyAllowedUser } from './admin.js';
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
