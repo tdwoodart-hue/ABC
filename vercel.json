@@ -7,6 +7,5 @@
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ],
-  "crons": [{ "path": "/api/scheduled-messages/notify-due", "schedule": "*/5 * * * *" }]
+  ]
 }

@@ -13,11 +13,12 @@ This project follows [Semantic Versioning](https://semver.org/):
 ### Added
 
 - Encrypted scheduled messages in **Đôi lời muốn nói**.
-- Timed server key release and generic due-message push notifications.
+- Timed server key release for messages opened in the app.
 
 ### Configuration
 
-- Production requires `SCHEDULED_MESSAGES_KEY_SECRET`, Firebase Admin credentials, and `CRON_SECRET` in Vercel.
+- Production requires `SCHEDULED_MESSAGES_KEY_SECRET` and Firebase Admin credentials in Vercel.
+- Vercel Hobby does not run the background push cron; upgrade to Pro to enable timed background notifications.
 
 ## [0.2.0] - 2026-09-29
 
