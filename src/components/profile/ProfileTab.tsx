@@ -1,5 +1,6 @@
 // PROFILE_TAB_IMPORTS_FIXED_V2
 import React from 'react';
+import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
 import {
   Bell,
   Calendar,
@@ -22,6 +23,7 @@ import {
 import { Companion, CoupleData, UserProfile } from '../../types';
 import { formatDateVN } from '../../utils/formatDate';
 import { requestAndShowTestNotification } from '../../utils/notifications';
+import { auth } from '../../lib/firebase';
 import appPackage from '../../../package.json';
 
 const APP_VERSION = appPackage.version;
@@ -106,6 +108,12 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       'https://api.dicebear.com/7.x/micah/svg?seed=duong_male&hair=fonze&eyes=eyes&mouth=smile';
 
   const [testingNotification, setTestingNotification] = React.useState(false);
+  const [passwordOpen, setPasswordOpen] = React.useState(false);
+  const [currentPassword, setCurrentPassword] = React.useState('');
+  const [newPassword, setNewPassword] = React.useState('');
+  const [confirmPassword, setConfirmPassword] = React.useState('');
+  const [passwordStatus, setPasswordStatus] = React.useState<string | null>(null);
+  const [savingPassword, setSavingPassword] = React.useState(false);
   const [notificationStatus, setNotificationStatus] = React.useState<string | null>(null);
   const [notificationPermission, setNotificationPermission] = React.useState<
     NotificationPermission | 'unsupported'
@@ -162,6 +170,24 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
     } finally {
       setTestingNotification(false);
     }
+  };
+
+  const handleChangePassword = async () => {
+    const user = auth.currentUser;
+    if (!user?.email) return;
+    if (newPassword.length < 6) return setPasswordStatus('Mật khẩu mới cần ít nhất 6 ký tự.');
+    if (newPassword !== confirmPassword) return setPasswordStatus('Mật khẩu mới nhập lại chưa khớp.');
+    setSavingPassword(true);
+    setPasswordStatus(null);
+    try {
+      await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, currentPassword));
+      await updatePassword(user, newPassword);
+      setPasswordStatus('Đổi mật khẩu thành công.');
+      setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
+    } catch (error: any) {
+      setPasswordStatus(error?.code === 'auth/wrong-password' || error?.code === 'auth/invalid-credential'
+        ? 'Mật khẩu hiện tại không đúng.' : 'Không thể đổi mật khẩu lúc này. Hãy đăng nhập lại rồi thử lại.');
+    } finally { setSavingPassword(false); }
   };
 
   return (
@@ -656,10 +682,28 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           )}
         </div>
 
+        <div className="p-3 bg-rose-50/60 rounded-xl border border-rose-200/70 flex items-center justify-between gap-3">
+          <div><p className="text-xs font-bold text-slate-800">Mật khẩu tài khoản</p><p className="text-[11px] text-slate-500 mt-0.5">Xác thực mật khẩu cũ trước khi thay đổi.</p></div>
+          <button type="button" onClick={() => { setPasswordStatus(null); setPasswordOpen(true); }} className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shrink-0">Đổi mật khẩu</button>
+        </div>
+
         <p className="pt-1 text-center text-[10px] font-medium text-slate-400">
           {`Phiên bản ứng dụng v${APP_VERSION}`}
         </p>
       </div>
+
+      {passwordOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/45 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl space-y-4">
+            <div><h3 className="font-bold text-slate-800">Đổi mật khẩu</h3><p className="text-xs text-slate-500 mt-1">Mật khẩu mới tối thiểu 6 ký tự.</p></div>
+            <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="Mật khẩu hiện tại" className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+            <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Mật khẩu mới" className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+            <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Nhập lại mật khẩu mới" className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+            {passwordStatus && <p className="text-xs text-rose-600">{passwordStatus}</p>}
+            <div className="flex justify-end gap-2"><button type="button" onClick={() => setPasswordOpen(false)} className="px-3 py-2 text-xs text-slate-600">Hủy</button><button type="button" disabled={savingPassword} onClick={handleChangePassword} className="px-4 py-2 rounded-xl bg-rose-600 text-white text-xs font-semibold disabled:opacity-50">{savingPassword ? 'Đang đổi...' : 'Xác nhận đổi'}</button></div>
+          </div>
+        </div>
+      )}
 
       {/* Recovery & History Protection Tool */}
       <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3">
