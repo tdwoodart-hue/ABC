@@ -25,8 +25,17 @@ service cloud.firestore {
       allow update, delete: if false;
     }
     match /scheduled_message_keys/{messageId} { allow read, write: if false; }
-    match /{document=**} {
+    match /users/{userId} {
       allow read, write: if hasAllowedEmail();
+    }
+    match /couples/{coupleId} {
+      allow read, write: if hasAllowedEmail();
+    }
+    match /couples/{coupleId}/{collectionId}/{document=**} {
+      allow read, write: if hasAllowedEmail() && collectionId != 'scheduled_messages';
+    }
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
