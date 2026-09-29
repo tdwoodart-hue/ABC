@@ -19,6 +19,12 @@ service cloud.firestore {
 
     // Private couple app.
     // Only these three authenticated accounts may access Firestore.
+    match /couples/{coupleId}/scheduled_messages/{messageId} {
+      allow create: if hasAllowedEmail() && request.resource.data.senderUid == request.auth.uid;
+      allow read: if hasAllowedEmail() && (resource.data.senderUid == request.auth.uid || resource.data.recipientUid == request.auth.uid);
+      allow update, delete: if false;
+    }
+    match /scheduled_message_keys/{messageId} { allow read, write: if false; }
     match /{document=**} {
       allow read, write: if hasAllowedEmail();
     }

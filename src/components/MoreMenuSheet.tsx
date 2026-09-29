@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { ChevronRight, Heart, Sparkles, Trophy, User, X } from 'lucide-react';
+import { ScheduledMessagesModal } from './ScheduledMessagesModal';
 import { TabType } from './LightHomeScreen';
 
 interface MoreMenuSheetProps {
@@ -10,6 +11,7 @@ interface MoreMenuSheetProps {
 }
 
 export const MoreMenuSheet: React.FC<MoreMenuSheetProps> = ({ isOpen, onClose, activeTab, onNavigate }) => {
+  const [messagesOpen, setMessagesOpen] = React.useState(false);
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && isOpen) onClose();
@@ -28,6 +30,13 @@ export const MoreMenuSheet: React.FC<MoreMenuSheetProps> = ({ isOpen, onClose, a
 
   const menuItems = [
     {
+      id: 'messages' as const,
+      title: 'Đôi lời muốn nói',
+      description: 'Gửi một lời nhắn mở đúng thời điểm',
+      icon: Heart,
+      colorClass: 'bg-rose-50 text-rose-500 border-rose-100 group-hover:bg-rose-100',
+      iconClass: 'text-rose-500',
+    }, {
       id: 'achievements' as TabType,
       title: 'Thành tích & Kỷ lục',
       description: 'Cột mốc ngày yêu, huy hiệu & thử thách',
@@ -67,7 +76,7 @@ export const MoreMenuSheet: React.FC<MoreMenuSheetProps> = ({ isOpen, onClose, a
             const selected = activeTab === item.id;
             const Icon = item.icon;
             return (
-              <button key={item.id} type="button" onClick={() => { onNavigate(item.id); onClose(); }} className={`group flex w-full items-center justify-between rounded-2xl border p-3.5 text-left transition-all ${selected ? 'border-rose-300 bg-rose-50/80 ring-2 ring-rose-200/70 shadow-xs' : 'border-slate-200/80 bg-white shadow-2xs hover:border-rose-100 hover:bg-rose-50/30'}`}>
+            <button key={item.id} type="button" onClick={() => { if (item.id === 'messages') { setMessagesOpen(true); onClose(); } else { onNavigate(item.id); onClose(); } }} className={`group flex w-full items-center justify-between rounded-2xl border p-3.5 text-left transition-all ${selected ? 'border-rose-300 bg-rose-50/80 ring-2 ring-rose-200/70 shadow-xs' : 'border-slate-200/80 bg-white shadow-2xs hover:border-rose-100 hover:bg-rose-50/30'}`}>
                 <div className="flex min-w-0 flex-1 items-center gap-3.5">
                   <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${selected ? 'border-rose-600 bg-rose-500 text-white shadow-xs' : item.colorClass}`}>
                     <Icon className={`h-5 w-5 ${selected ? 'text-white' : item.iconClass}`} />
@@ -88,6 +97,7 @@ export const MoreMenuSheet: React.FC<MoreMenuSheetProps> = ({ isOpen, onClose, a
 
         <div className="flex items-center justify-center gap-1.5 border-t border-rose-50 bg-rose-50/25 px-5 py-2.5 text-[11px] text-slate-400"><Heart className="h-3 w-3 fill-rose-400 text-rose-400" /><span>Ứng dụng lưu giữ kỷ niệm tình yêu</span></div>
       </div>
+      <ScheduledMessagesModal isOpen={messagesOpen} onClose={() => setMessagesOpen(false)} />
     </div>
   );
 };
