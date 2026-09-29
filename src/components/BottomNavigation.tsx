@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Apple, BookOpen, Home, MoreHorizontal, Wallet } from 'lucide-react';
 import { TabType } from './LightHomeScreen';
 import { MoreMenuSheet } from './MoreMenuSheet';
+import { ScheduledMessagesModal } from './ScheduledMessagesModal';
 
 interface BottomNavigationProps {
   activeTab: TabType;
@@ -10,6 +11,7 @@ interface BottomNavigationProps {
 
 export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, onNavigate }) => {
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [isMessagesOpen, setIsMessagesOpen] = useState(false);
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
   useEffect(() => {
@@ -113,7 +115,9 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
         onClose={() => setIsMoreMenuOpen(false)}
         activeTab={activeTab}
         onNavigate={onNavigate}
+        onOpenMessages={() => setIsMessagesOpen(true)}
       />
+      <ScheduledMessagesModal isOpen={isMessagesOpen} onClose={() => setIsMessagesOpen(false)} />
     </>
   );
 };
