@@ -140,9 +140,7 @@ export const CompanionManagerModal: React.FC<CompanionManagerModalProps> = ({
               <h3 className="text-sm sm:text-base font-bold text-slate-800">
                 Bạn Bè & Thú Cưng Đôi Mình
               </h3>
-              <p className="text-[11px] text-slate-500">
-                Thêm mèo cưng, cún cưng, bạn bè để gắn thẻ khi viết nhật ký
-              </p>
+              
             </div>
           </div>
           <button
@@ -322,9 +320,7 @@ export const CompanionManagerModal: React.FC<CompanionManagerModalProps> = ({
                     🐱
                   </div>
                   <p className="text-xs font-bold text-slate-700">Chưa có thú cưng hoặc bạn bè nào</p>
-                  <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
-                    Thêm chú mèo cưng, cún yêu hoặc bạn bè thân thiết để cùng xuất hiện trong các kỷ niệm của hai đứa nhé!
-                  </p>
+                  
                 </div>
               ) : (
                 <div className="space-y-2">

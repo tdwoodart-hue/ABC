@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { ChevronRight, Heart, Sparkles, Trophy, User, X } from 'lucide-react';
+import { ChevronRight, Sparkles, Trophy, User, X } from 'lucide-react';
 import { TabType } from './LightHomeScreen';
 
 interface MoreMenuSheetProps {
@@ -64,7 +64,7 @@ export const MoreMenuSheet: React.FC<MoreMenuSheetProps> = ({ isOpen, onClose, a
             <div className="flex h-7 w-7 items-center justify-center rounded-xl border border-rose-100 bg-rose-50 text-rose-500"><Sparkles className="h-3.5 w-3.5" /></div>
             <div>
               <h3 className="text-sm font-bold text-slate-800">Thêm tiện ích</h3>
-              <p className="text-[11px] font-medium text-slate-400">Các tính năng bổ sung</p>
+              
             </div>
           </div>
           <button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200"><X className="h-4 w-4" /></button>
@@ -85,7 +85,7 @@ export const MoreMenuSheet: React.FC<MoreMenuSheetProps> = ({ isOpen, onClose, a
                       <span className={`truncate text-sm font-bold ${selected ? 'text-rose-700' : 'text-slate-800'}`}>{item.title}</span>
                       {item.badge && <span className="rounded-full border border-amber-200 bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">{item.badge}</span>}
                     </div>
-                    <p className="mt-0.5 truncate text-xs font-normal text-slate-500">{item.description}</p>
+                    
                   </div>
                 </div>
                 <div className={`ml-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ${selected ? 'bg-rose-200/80 text-rose-700' : 'bg-slate-100 text-slate-400 group-hover:bg-rose-50 group-hover:text-rose-500'}`}><ChevronRight className="h-4 w-4" /></div>
@@ -94,7 +94,7 @@ export const MoreMenuSheet: React.FC<MoreMenuSheetProps> = ({ isOpen, onClose, a
           })}
         </div>
 
-        <div className="flex items-center justify-center gap-1.5 border-t border-rose-50 bg-rose-50/25 px-5 py-2.5 text-[11px] text-slate-400"><Heart className="h-3 w-3 fill-rose-400 text-rose-400" /><span>Ứng dụng lưu giữ kỷ niệm tình yêu</span></div>
+        
       </div>
     </div>
   );

@@ -176,7 +176,7 @@ export const FundQRCodeCard: React.FC<FundQRCodeCardProps> = ({
             >
               <QrCode className="w-10 h-10 mb-2 opacity-50" />
               <span className="text-xs font-bold">+ Thêm mã QR</span>
-              <span className="text-[10px] text-slate-400 mt-0.5">Tải ảnh hoặc nhập STK</span>
+              
             </div>
           )}
         </div>

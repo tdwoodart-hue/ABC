@@ -341,9 +341,7 @@ export const DeviceManagerModal: React.FC<DeviceManagerModalProps> = ({
                   <h4 className="text-sm font-bold text-slate-800">
                     Mã PIN 4 số bảo vệ thiết bị
                   </h4>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Đặt mã PIN 4 số trên trình duyệt này để ngăn người ngoài mở xem trộm khi mượn máy.
-                  </p>
+                  
                 </div>
               </div>
 

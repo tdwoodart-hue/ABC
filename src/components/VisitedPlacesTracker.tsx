@@ -1330,7 +1330,7 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
                   </div>
                   <div>
                     <p className="text-[11px] font-black text-slate-800">Top của chúng mình</p>
-                    <p className="text-[9px] font-medium text-slate-400">Những nơi đang được chấm cao nhất</p>
+                    
                   </div>
                 </div>
                 <span className="text-[9px] font-bold text-slate-400">{ratingStats.ratedCount} nơi đã chấm</span>
@@ -1372,9 +1372,7 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
               <div className="flex items-center justify-between px-0.5">
                 <div>
                   <p className="text-[11px] font-black text-slate-800">{filteredPlaces.length} địa điểm</p>
-                  <p className="text-[9px] font-medium text-slate-400">
-                    Chạm vào Chấm điểm để lưu cảm nhận của hai đứa
-                  </p>
+                  
                 </div>
                 {ratingStats.ratedCount > 0 && (
                   <div className="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-[9px] font-black text-amber-700">
