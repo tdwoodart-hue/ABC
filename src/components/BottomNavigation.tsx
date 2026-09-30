@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Apple, BookOpen, Home, MoreHorizontal, Wallet } from 'lucide-react';
 import { TabType } from './LightHomeScreen';
 import { MoreMenuSheet } from './MoreMenuSheet';
@@ -39,20 +40,44 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
       }, 120);
     };
     const resize = () => {
-      if (!window.visualViewport) return;
-      const diff = window.innerHeight - window.visualViewport.height;
-      if (diff > 140 && hasTextInputFocus()) setIsKeyboardOpen(true);
-      if (diff < 60 && !hasTextInputFocus()) setIsKeyboardOpen(false);
+      const viewport = window.visualViewport;
+      if (!viewport) {
+        if (!hasTextInputFocus()) setIsKeyboardOpen(false);
+        return;
+      }
+
+      const diff = Math.max(0, window.innerHeight - viewport.height);
+
+      if (diff > 140 && hasTextInputFocus()) {
+        setIsKeyboardOpen(true);
+        return;
+      }
+
+      // iOS can keep the input focused after the keyboard has closed.
+      // Reset the nav as soon as the visual viewport is back to normal.
+      if (diff < 80) setIsKeyboardOpen(false);
+    };
+
+    const pageShow = () => {
+      setIsKeyboardOpen(false);
+      window.requestAnimationFrame(resize);
     };
 
     document.addEventListener('focusin', focusIn);
     document.addEventListener('focusout', focusOut);
+    window.addEventListener('resize', resize);
+    window.addEventListener('pageshow', pageShow);
     window.visualViewport?.addEventListener('resize', resize);
+    window.visualViewport?.addEventListener('scroll', resize);
+
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
       document.removeEventListener('focusin', focusIn);
       document.removeEventListener('focusout', focusOut);
+      window.removeEventListener('resize', resize);
+      window.removeEventListener('pageshow', pageShow);
       window.visualViewport?.removeEventListener('resize', resize);
+      window.visualViewport?.removeEventListener('scroll', resize);
     };
   }, []);
 
@@ -74,13 +99,21 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
         : 'font-medium text-slate-500 hover:bg-slate-50/80 hover:text-slate-800'
     }`;
 
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <>
       <nav
-        className={`fixed bottom-0 left-0 right-0 z-40 border-t border-rose-100/90 bg-white/95 px-2 pt-1.5 shadow-[0_-4px_20px_rgba(0,0,0,0.04)] backdrop-blur-md transition-all duration-200 sm:px-4 ${
-          isKeyboardOpen ? 'translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
+        className={`fixed bottom-0 left-0 right-0 z-40 border-t border-rose-100/90 bg-white/95 px-2 pt-1.5 shadow-[0_-4px_20px_rgba(0,0,0,0.04)] backdrop-blur-md sm:px-4 ${
+          isKeyboardOpen ? 'hidden' : ''
         }`}
-        style={{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))' }}
+        style={{
+          bottom: 0,
+          left: 0,
+          right: 0,
+          paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',
+        }}
+        data-us-bottom-navigation="true"
         aria-label="Thanh điều hướng chính"
       >
         <div className="mx-auto grid max-w-xl grid-cols-5 gap-1">
@@ -118,6 +151,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
         onOpenMessages={() => setIsMessagesOpen(true)}
       />
       <ScheduledMessagesModal isOpen={isMessagesOpen} onClose={() => setIsMessagesOpen(false)} />
-    </>
+    </>,
+    document.body
   );
 };
