@@ -1248,7 +1248,7 @@ export const AchievementsTab: React.FC<AchievementsTabProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-800">Ghi Điểm Hành Động Yêu Thương</h3>
-                  <p className="text-[11px] text-slate-400">Tích lũy điểm chăm sóc và tình cảm mỗi ngày</p>
+                  
                 </div>
               </div>
               <button
@@ -1426,7 +1426,7 @@ export const AchievementsTab: React.FC<AchievementsTabProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-800">Thêm Kỷ Niệm / Cột Mốc Riêng</h3>
-                  <p className="text-[11px] text-slate-400">Ghi dấu mốc kỷ niệm đặc biệt của riêng hai bạn</p>
+                  
                 </div>
               </div>
               <button
@@ -1545,9 +1545,7 @@ export const AchievementsTab: React.FC<AchievementsTabProps> = ({
               <h3 className="text-base font-bold text-slate-800">
                 Chứng Nhận Tình Yêu Đôi Lứa
               </h3>
-              <p className="text-xs text-slate-400">
-                Vinh danh chặng đường hạnh phúc của hai bạn
-              </p>
+              
             </div>
 
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5 text-xs">

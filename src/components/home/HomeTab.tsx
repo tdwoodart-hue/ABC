@@ -180,9 +180,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               <span className="text-sm font-bold text-slate-800 block truncate">
                 Thành Tích & Điểm Thưởng
               </span>
-              <p className="text-xs text-slate-500 truncate">
-                Huy hiệu, cấp độ tình yêu & kỷ niệm
-              </p>
+              
             </div>
           </div>
 

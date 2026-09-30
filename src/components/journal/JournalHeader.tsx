@@ -22,9 +22,7 @@ export const JournalHeader: React.FC<JournalHeaderProps> = ({
           <BookOpen className="w-5 h-5 text-rose-500 shrink-0" />
           <span>Nhật Ký Tình Yêu</span>
         </h2>
-        <p className="text-xs text-slate-400 mt-0.5">
-          Album kỷ niệm số lưu giữ những hành trình ngọt ngào của hai bạn
-        </p>
+        
       </div>
 
       <div className="flex items-center gap-2">

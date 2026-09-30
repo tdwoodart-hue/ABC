@@ -396,11 +396,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
               <h3 className="text-base font-bold text-slate-800 sm:text-lg">
                 Chưa có kỷ niệm nào phù hợp
               </h3>
-              <p className="mx-auto mt-1.5 max-w-sm text-xs leading-relaxed text-slate-400">
-                {isAnyFilterActive
-                  ? 'Không tìm thấy nhật ký theo bộ lọc đã chọn. Hãy thử đặt lại bộ lọc hoặc thay đổi từ khóa.'
-                  : 'Hãy bắt đầu viết lại những khoảnh khắc đáng nhớ đầu tiên của hai bạn nhé!'}
-              </p>
+              
               <div className="mt-5 flex items-center justify-center gap-2">
                 {isAnyFilterActive ? (
                   <button

@@ -656,9 +656,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                 <Bell className="w-3.5 h-3.5 text-indigo-600" />
                 Thông báo từ người kia
               </p>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Chỉ cần bật một lần. Sau đó Us tự duy trì push trên thiết bị này.
-              </p>
+              
             </div>
 
             <button
@@ -683,7 +681,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         </div>
 
         <div className="p-3 bg-rose-50/60 rounded-xl border border-rose-200/70 flex items-center justify-between gap-3">
-          <div><p className="text-xs font-bold text-slate-800">Mật khẩu tài khoản</p><p className="text-[11px] text-slate-500 mt-0.5">Xác thực mật khẩu cũ trước khi thay đổi.</p></div>
+          <div><p className="text-xs font-bold text-slate-800">Mật khẩu tài khoản</p></div>
           <button type="button" onClick={() => { setPasswordStatus(null); setPasswordOpen(true); }} className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shrink-0">Đổi mật khẩu</button>
         </div>
 
@@ -724,12 +722,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           </button>
         </div>
 
-        <p className="text-xs text-slate-500 leading-relaxed">
-          Đã khóa hoàn toàn thao tác xóa bình luận trên toàn hệ thống để không
-          bao giờ bị xóa nhầm nữa. Nếu bạn vừa lỡ bấm xóa bình luận trước đó,
-          hãy bấm nút trên để khôi phục hoặc chèn lại nội dung vào đúng bài viết
-          ngay lập tức.
-        </p>
+        
       </div>
 
       {/* Logout Button */}

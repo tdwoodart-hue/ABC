@@ -760,9 +760,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
             <Wallet className="w-5 h-5 text-rose-500 shrink-0" />
             <span>Tài Chính</span>
           </h1>
-          <p className="text-[11px] text-slate-400 mt-0.5">
-            Quỹ chung · mục tiêu · wishlist của hai đứa
-          </p>
+          
         </div>
 
         <button
@@ -792,11 +790,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
               {netBalance.toLocaleString('vi-VN')}
               <span className="text-base ml-1 text-slate-400 font-bold">đ</span>
             </div>
-            <p className="text-[11px] text-slate-500 mt-1.5">
-              {affordableCount > 0
-                ? `Đang đủ cho ${affordableCount} gợi ý trong danh sách “Mua gì?”`
-                : 'Đóng thêm quỹ để mở khóa các gợi ý mua sắm'}
-            </p>
+            
           </div>
 
           <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center">
@@ -931,9 +925,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
           <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-bold text-slate-800">Nhịp đóng quỹ 30 ngày gần đây</p>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Dùng để ước tính bao lâu thì đủ mua món tiếp theo
-              </p>
+              
             </div>
             <div className="text-right shrink-0">
               <p className="text-sm font-black text-emerald-600">
@@ -970,9 +962,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
                   <Sparkles className="w-4 h-4 text-rose-500" />
                   Quỹ này mua được gì?
                 </h3>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Gợi ý từ thấp → cao dựa trên số dư {netBalance.toLocaleString('vi-VN')}đ.
-                </p>
+                
               </div>
               <button
                 type="button"
@@ -1179,9 +1169,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
             <div className="bg-white border border-dashed border-slate-200 rounded-2xl p-8 text-center">
               <PiggyBank className="w-7 h-7 text-slate-300 mx-auto mb-2" />
               <p className="text-xs font-bold text-slate-600">Chưa có hũ tiết kiệm</p>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Vào “Mua gì?” và chọn một món để biến thành mục tiêu.
-              </p>
+              
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1259,12 +1247,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
             </div>
           )}
 
-          {availableAfterGoals < netBalance && (
-            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600">
-              <strong>Gợi ý:</strong> nếu coi số tiền đang nằm trong các hũ là “đã khóa”,
-              quỹ linh hoạt còn khoảng <strong>{availableAfterGoals.toLocaleString('vi-VN')}đ</strong>.
-            </div>
-          )}
+          
         </div>
       )}
 

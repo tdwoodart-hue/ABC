@@ -318,9 +318,9 @@ const DailyMetricsCard: React.FC<DailyMetricsCardProps> = ({
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-bold text-slate-900">Hoạt động & cơ thể</h2>
-          <p className="mt-0.5 text-[11px] text-slate-400">Nhập nhanh mỗi ngày · dữ liệu đồng bộ</p>
+          
         </div>
-        <span className="rounded-lg bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-500">Mỗi ngày</span>
+        
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -401,9 +401,7 @@ const DailyMetricsCard: React.FC<DailyMetricsCardProps> = ({
               ? 'Chưa có lần cân trước để so sánh'
               : `${weightDelta > 0 ? '+' : ''}${decimal.format(weightDelta)} kg so với lần cân trước`}
           </p>
-          <p className="mt-2 text-[10px] leading-relaxed text-slate-400">
-            TDEE dùng cân nặng trong mục tiêu để tránh dao động nước làm thay đổi calories mỗi ngày.
-          </p>
+          
         </div>
       </div>
     </section>
@@ -461,7 +459,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ profile, onClose, onSave 
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h2 className="text-base font-bold text-slate-900">Mục tiêu dinh dưỡng</h2>
-            <p className="mt-0.5 text-[11px] text-slate-400">TDEE, macro và mục tiêu vận động của riêng tài khoản đang đăng nhập.</p>
+            
           </div>
           <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-500">
             <X className="h-4 w-4" />
@@ -540,7 +538,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ profile, onClose, onSave 
               />
               <span className="pb-1 text-[10px] font-semibold text-slate-400">kcal</span>
             </div>
-            <p className="mt-1 text-[9px] text-slate-400">Công thức: {number.format(Math.round(suggestedBmr))} · {draft.bmrOverride === undefined ? 'đang tự động' : 'đang sửa tay'}</p>
+            
           </div>
           <div className="rounded-xl border border-white/80 bg-white/75 p-3">
             <div className="mb-1 flex items-center justify-between gap-2">
@@ -558,7 +556,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ profile, onClose, onSave 
               />
               <span className="pb-1 text-[10px] font-semibold text-slate-400">kcal</span>
             </div>
-            <p className="mt-1 text-[9px] text-slate-400">Công thức: {number.format(Math.round(suggestedTdee / 10) * 10)} · {draft.tdeeOverride === undefined ? 'đang tự động' : 'đang sửa tay'}</p>
+            
           </div>
         </div>
 
@@ -809,7 +807,7 @@ const FoodLibraryModal: React.FC<FoodLibraryModalProps> = ({ recipes, onClose, o
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-bold text-slate-900">Kho món</h2>
-            <p className="mt-0.5 text-[11px] text-slate-400">Món hay ăn để thêm nhanh lần sau.</p>
+            
           </div>
           <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-500"><X className="h-4 w-4" /></button>
         </div>
@@ -1102,7 +1100,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
       <div className="mb-5 flex items-center justify-between gap-3 border-b border-rose-100/70 pb-4">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Dinh dưỡng</h1>
-          <p className="mt-1 text-xs text-slate-400">Dữ liệu riêng của {userProfile.displayName || 'tài khoản này'} · không dùng chung với tài khoản còn lại.</p>
+          
         </div>
         <button type="button" onClick={() => setSettingsOpen(true)} className="grid h-11 w-11 place-items-center rounded-2xl border border-rose-100 bg-white text-slate-600 shadow-xs transition hover:bg-rose-50 active:scale-95" aria-label="Cài đặt chỉ số dinh dưỡng" title="Sửa mục tiêu, TDEE, BMR và macro">
           <Settings2 className="h-4.5 w-4.5" />
@@ -1125,7 +1123,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
           ) : (
             <>
               <p className="text-sm font-bold text-slate-900">{formatDateShort(weekDates[0])} – {formatDateShort(weekDates[6])}</p>
-              <span className="text-[11px] font-medium text-slate-400">Theo dõi 7 ngày</span>
+              
             </>
           )}
         </button>
@@ -1157,12 +1155,12 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
               <div className="rounded-xl bg-rose-50/45 px-3 py-2.5">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-300">TDEE</p>
                 <p className="mt-1 text-base font-bold tabular-nums text-slate-800">{number.format(tdee)} kcal</p>
-                <p className="mt-0.5 text-[9px] text-slate-400">{profile.tdeeOverride === undefined ? 'Tự động' : 'Tùy chỉnh trong Cài đặt'}</p>
+                
               </div>
               <div className="rounded-xl bg-rose-50/45 px-3 py-2.5">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-300">BMR</p>
                 <p className="mt-1 text-base font-bold tabular-nums text-slate-800">{number.format(bmr)} kcal</p>
-                <p className="mt-0.5 text-[9px] text-slate-400">{profile.bmrOverride === undefined ? 'Tự động' : 'Tùy chỉnh trong Cài đặt'}</p>
+                
               </div>
             </div>
           </section>
@@ -1178,7 +1176,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-900">Macro</h2>
-                <p className="mt-0.5 text-[11px] text-slate-400">Theo mục tiêu {GOAL_LABELS[profile.goal].toLowerCase()}</p>
+                
               </div>
               <span className="rounded-lg bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-600">
                 {profile.proteinTarget}P · {profile.carbTarget}C · {profile.fatTarget}F
@@ -1195,7 +1193,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-900">Bữa ăn</h2>
-                <p className="mt-0.5 text-[11px] text-slate-400">{dayEntries.length} mục đã ghi</p>
+                
               </div>
               <div className="flex items-center gap-2">
                 <button type="button" onClick={() => setLibraryOpen(true)} className="flex h-9 items-center gap-1.5 rounded-xl border border-rose-100 bg-white px-3 text-[11px] font-bold text-slate-600 hover:bg-rose-50"><Database className="h-3.5 w-3.5" /> Kho món</button>
@@ -1207,7 +1205,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
               <button type="button" onClick={() => setAddOpen(true)} className="flex w-full flex-col items-center justify-center rounded-2xl border border-dashed border-rose-100 bg-rose-50/20 px-4 py-8 text-center hover:bg-rose-50/40">
                 <span className="mb-2 grid h-10 w-10 place-items-center rounded-2xl bg-white text-rose-400 shadow-xs"><UtensilsCrossed className="h-4.5 w-4.5" /></span>
                 <span className="text-xs font-bold text-slate-600">Chưa ghi bữa ăn nào</span>
-                <span className="mt-1 text-[11px] text-slate-400">Thêm calories và macro để bắt đầu theo dõi.</span>
+                
               </button>
             ) : (
               <div className="space-y-3">
@@ -1291,7 +1289,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
           <section className="rounded-[24px] border border-rose-100/80 bg-white p-5 shadow-xs">
             <div className="mb-4">
               <h2 className="text-sm font-bold text-slate-900">Steps & cân nặng 7 ngày</h2>
-              <p className="mt-0.5 text-[11px] text-slate-400">Theo dõi mức vận động và xu hướng cân mỗi ngày.</p>
+              
             </div>
             <div className="space-y-2">
               {weekRows.map((row) => (
@@ -1317,7 +1315,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-900">Macro trung bình</h2>
-                <p className="mt-0.5 text-[11px] text-slate-400">Chỉ tính các ngày đã ghi dữ liệu.</p>
+                
               </div>
               <span className="rounded-lg bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-500">TDEE {number.format(tdee)}</span>
             </div>

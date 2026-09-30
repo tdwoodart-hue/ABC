@@ -347,9 +347,7 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
                 <h3 className="text-base font-bold text-slate-900">
                   Bộ lọc nhật ký
                 </h3>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  Chỉ hiện những kỷ niệm bạn muốn tìm
-                </p>
+                
               </div>
 
               <button
