@@ -172,12 +172,15 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           className="bg-white rounded-2xl p-4 border border-slate-200/80 hover:border-rose-300 transition-all shadow-xs hover:shadow-md cursor-pointer flex items-center justify-between gap-3 group"
         >
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-11 h-11 rounded-xl bg-[#fff9f3] flex items-center justify-center shrink-0 border border-[#f0ded0] overflow-hidden group-hover:scale-105 transition-transform">
+            <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden group-hover:scale-105 transition-transform">
               <img
                 src={UI_ASSETS.home.achievement}
                 alt=""
                 aria-hidden="true"
-                className="w-10 h-10 object-contain"
+                width={128}
+                height={128}
+                decoding="async"
+                className="w-full h-full object-cover"
               />
             </div>
 

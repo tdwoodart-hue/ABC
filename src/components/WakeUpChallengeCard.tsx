@@ -532,12 +532,15 @@ export const WakeUpChallengeCard: React.FC<
 
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-11 h-11 rounded-xl bg-[#fff9f3] flex items-center justify-center shrink-0 border border-[#f0ded0] overflow-hidden">
+            <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden">
               <img
                 src={UI_ASSETS.home.morningChallenge}
                 alt=""
                 aria-hidden="true"
-                className="w-10 h-10 object-contain"
+                width={128}
+                height={128}
+                decoding="async"
+                className="w-full h-full object-cover"
               />
             </div>
             <span className="text-sm font-bold text-slate-800 whitespace-nowrap">
