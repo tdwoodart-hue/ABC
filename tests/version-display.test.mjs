@@ -9,7 +9,7 @@ test('profile settings display the package version dynamically', async () => {
   ]);
   const { version } = JSON.parse(packageSource);
 
-  assert.equal(version, '0.3.1');
+  assert.equal(version, '0.3.2');
   assert.match(profileSource, /import appPackage from '\.\.\/\.\.\/\.\.\/package\.json';/);
   assert.match(profileSource, /const APP_VERSION = appPackage\.version;/);
   assert.match(profileSource, /Phiên bản ứng dụng v\$\{APP_VERSION\}/);
