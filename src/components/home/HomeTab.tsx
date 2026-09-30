@@ -2,10 +2,10 @@ import React from 'react';
 import {
   Calendar,
   ChevronRight,
-  Trophy,
 } from 'lucide-react';
 
 import { CoupleData, JournalEntry, UserProfile, WakeUpLog } from '../../types';
+import { UI_ASSETS } from '../../config/uiAssets';
 import { formatDateVN } from '../../utils/formatDate';
 import { CouplePixelCard } from '../character/CouplePixelCard';
 import { WakeUpChallengeCard } from '../WakeUpChallengeCard';
@@ -172,8 +172,13 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           className="bg-white rounded-2xl p-4 border border-slate-200/80 hover:border-rose-300 transition-all shadow-xs hover:shadow-md cursor-pointer flex items-center justify-between gap-3 group"
         >
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100 group-hover:scale-105 transition-transform">
-              <Trophy className="w-5 h-5 text-rose-500" />
+            <div className="w-11 h-11 rounded-xl bg-[#fff9f3] flex items-center justify-center shrink-0 border border-[#f0ded0] overflow-hidden group-hover:scale-105 transition-transform">
+              <img
+                src={UI_ASSETS.home.achievement}
+                alt=""
+                aria-hidden="true"
+                className="w-10 h-10 object-contain"
+              />
             </div>
 
             <div className="text-left min-w-0">
