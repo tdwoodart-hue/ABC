@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { ChevronRight, Sparkles, Trophy, User, X } from 'lucide-react';
+import { ChevronRight, Heart, Sparkles, Trophy, User, X } from 'lucide-react';
 import { TabType } from './LightHomeScreen';
 
 interface MoreMenuSheetProps {
