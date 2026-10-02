@@ -1678,7 +1678,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
 
   const handleAddJournal = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userProfile.coupleId || !journalTitle.trim()) return;
+    if (!userProfile.coupleId) return;
 
     setAddingJournal(true);
     try {
@@ -2125,7 +2125,7 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
 
   const handleSaveEditJournal = async (journalId: string, e: React.FormEvent) => {
     e.preventDefault();
-    if (!userProfile.coupleId || !editTitle.trim()) return;
+    if (!userProfile.coupleId) return;
 
     setSavingEdit(true);
     try {
