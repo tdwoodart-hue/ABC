@@ -11,6 +11,7 @@ import { CouplePixelCard } from '../character/CouplePixelCard';
 import { WakeUpChallengeCard } from '../WakeUpChallengeCard';
 import { MemoryOfTheDayCard } from './MemoryOfTheDayCard';
 import { SecretStatsModal } from './SecretStatsModal';
+import { useHomeAppearance } from './hooks/useHomeAppearance';
 import { useHomeSecretStats } from './hooks/useHomeSecretStats';
 
 interface HomeTabProps {
@@ -31,6 +32,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   onOpenJournal,
 }) => {
   const [showSecretStats, setShowSecretStats] = React.useState(false);
+  const { appearance } = useHomeAppearance(userProfile.uid);
   const secretPressTimerRef = React.useRef<number | null>(null);
   const secretPressTriggeredRef = React.useRef(false);
 
@@ -115,12 +117,27 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-md space-y-6">
-        <CouplePixelCard
-          duongName={u1Name}
-          chucName={u2Name}
-          isDuongCurrentUser={isU1}
-          isChucCurrentUser={isU2}
-        />
+        {appearance.heroMode === 'characters' ? (
+          <CouplePixelCard
+            duongName={u1Name}
+            chucName={u2Name}
+            isDuongCurrentUser={isU1}
+            isChucCurrentUser={isU2}
+          />
+        ) : (
+          <div className="overflow-hidden rounded-2xl border border-[#eee6df] bg-[#fffaf5] shadow-xs">
+            <img
+              src={
+                appearance.heroMode === 'custom' && appearance.customImageUrl
+                  ? appearance.customImageUrl
+                  : UI_ASSETS.home.heroVietnam
+              }
+              alt="Ảnh giao diện Trang chủ"
+              className="block h-auto w-full object-cover"
+              decoding="async"
+            />
+          </div>
+        )}
 
         <div className="bg-gradient-to-br from-rose-50 to-pink-50/50 rounded-2xl p-6 border border-rose-100/80 text-center">
           <span className="text-xs font-bold text-rose-500 uppercase tracking-wider block mb-1">

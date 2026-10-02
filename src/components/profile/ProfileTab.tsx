@@ -107,6 +107,12 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
     : coupleData?.user1Avatar ||
       'https://api.dicebear.com/7.x/micah/svg?seed=duong_male&hair=fonze&eyes=eyes&mouth=smile';
 
+  const { appearance, setHeroMode, setCustomImageUrl } = useHomeAppearance(userProfile.uid);
+  const homeImageInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [homeImageUploading, setHomeImageUploading] = React.useState(false);
+  const [homeImageProgress, setHomeImageProgress] = React.useState(0);
+  const [homeAppearanceStatus, setHomeAppearanceStatus] = React.useState<string | null>(null);
+
   const [testingNotification, setTestingNotification] = React.useState(false);
   const [passwordOpen, setPasswordOpen] = React.useState(false);
   const [currentPassword, setCurrentPassword] = React.useState('');
@@ -145,6 +151,46 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       );
     }
   }, []);
+
+  const handleHomeHeroModeChange = async (mode: 'characters' | 'vietnam' | 'custom') => {
+    setHomeAppearanceStatus(null);
+
+    if (mode === 'custom' && !appearance.customImageUrl) {
+      homeImageInputRef.current?.click();
+      return;
+    }
+
+    try {
+      await setHeroMode(mode);
+    } catch (error: any) {
+      setHomeAppearanceStatus(error?.message || 'Không thể đổi giao diện Trang chủ.');
+    }
+  };
+
+  const handleHomeHeroImageSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setHomeAppearanceStatus('Chỉ chọn file ảnh.');
+      return;
+    }
+
+    setHomeImageUploading(true);
+    setHomeImageProgress(0);
+    setHomeAppearanceStatus(null);
+
+    try {
+      const url = await uploadHomeAppearanceImage(file, setHomeImageProgress);
+      await setCustomImageUrl(url);
+      setHomeAppearanceStatus('Đã đổi ảnh Trang chủ.');
+    } catch (error: any) {
+      setHomeAppearanceStatus(error?.message || 'Không thể tải ảnh lên.');
+    } finally {
+      setHomeImageUploading(false);
+    }
+  };
 
   const handleTestNotification = async () => {
     if (testingNotification) return;
@@ -395,6 +441,97 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             </div>
           </div>
         </div>
+      </div>
+
+
+      {/* Home appearance — saved per signed-in account */}
+      <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
+        <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+          <Palette className="w-4 h-4 text-rose-500" />
+          <h3 className="text-sm font-bold text-slate-800">Giao diện Trang chủ</h3>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { mode: 'characters' as const, label: 'Nhân vật' },
+            { mode: 'vietnam' as const, label: 'Ảnh Việt Nam' },
+            { mode: 'custom' as const, label: 'Ảnh của tao' },
+          ].map((option) => {
+            const active = appearance.heroMode === option.mode;
+
+            return (
+              <button
+                key={option.mode}
+                type="button"
+                onClick={() => void handleHomeHeroModeChange(option.mode)}
+                className={`min-h-[44px] rounded-xl border px-2 py-2 text-xs font-semibold transition ${
+                  active
+                    ? 'border-rose-300 bg-rose-50 text-rose-700'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {appearance.heroMode !== 'characters' && (
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[#fffaf5]">
+            <img
+              src={
+                appearance.heroMode === 'custom' && appearance.customImageUrl
+                  ? appearance.customImageUrl
+                  : UI_ASSETS.home.heroVietnam
+              }
+              alt="Xem trước giao diện Trang chủ"
+              className="block h-auto max-h-72 w-full object-contain"
+            />
+          </div>
+        )}
+
+        <input
+          ref={homeImageInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleHomeHeroImageSelected}
+          className="hidden"
+        />
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={homeImageUploading}
+            onClick={() => homeImageInputRef.current?.click()}
+            className="inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+          >
+            {homeImageUploading ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>{Math.round(homeImageProgress)}%</span>
+              </>
+            ) : (
+              <>
+                <ImageIcon className="h-3.5 w-3.5" />
+                <span>{appearance.customImageUrl ? 'Đổi ảnh của tao' : 'Chọn ảnh của tao'}</span>
+              </>
+            )}
+          </button>
+
+          {appearance.customImageUrl && appearance.heroMode !== 'custom' && (
+            <button
+              type="button"
+              onClick={() => void handleHomeHeroModeChange('custom')}
+              className="min-h-[40px] rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              Dùng lại ảnh đã lưu
+            </button>
+          )}
+        </div>
+
+        {homeAppearanceStatus && (
+          <p className="text-xs font-medium text-slate-500">{homeAppearanceStatus}</p>
+        )}
       </div>
 
       {/* Detailed Couple & Living Information */}

@@ -241,7 +241,7 @@ function getFirebaseServices() {
 
 function createObjectPath(
   userId: string,
-  folder: 'images' | 'videos' | 'thumbnails' | 'audio',
+  folder: 'images' | 'videos' | 'thumbnails' | 'audio' | 'home-ui',
   filename: string
 ): string {
   const now = new Date();
@@ -1228,6 +1228,55 @@ export async function uploadMediaFile(
       } "${file.name}" lên Firebase Storage. ${explainStorageError(
         error
       )}`
+    );
+  }
+}
+
+
+/**
+ * Upload a user-selected Home appearance image.
+ * Stored separately from journal/media uploads so UI assets stay organized.
+ */
+export async function uploadHomeAppearanceImage(
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<string> {
+  if (!file || !isImageFile(file)) {
+    throw new Error('Chỉ chọn file ảnh cho giao diện Trang chủ.');
+  }
+
+  if (file.size <= 0) {
+    throw new Error('Ảnh đang trống hoặc không đọc được.');
+  }
+
+  const HOME_IMAGE_MAX_SIZE = 25 * 1024 * 1024;
+  if (file.size > HOME_IMAGE_MAX_SIZE) {
+    throw new Error(`Ảnh quá lớn (${humanFileSize(file.size)}). Giới hạn 25 MB.`);
+  }
+
+  const { user } = getFirebaseServices();
+  const prepared = await prepareImageForUpload(file);
+  const objectPath = createObjectPath(
+    user.uid,
+    'home-ui',
+    prepared.filename
+  );
+
+  try {
+    return await uploadBlobResumable(
+      prepared.blob,
+      objectPath,
+      {
+        contentType: prepared.contentType,
+        originalName: file.name || prepared.filename,
+        uploadedBy: user.uid,
+        mediaType: 'image',
+      },
+      onProgress
+    );
+  } catch (error: any) {
+    throw new Error(
+      `Không thể tải ảnh giao diện Trang chủ lên Firebase Storage. ${explainStorageError(error)}`
     );
   }
 }
