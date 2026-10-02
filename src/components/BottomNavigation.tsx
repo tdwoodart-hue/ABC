@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Apple, BookOpen, Home, MoreHorizontal, Wallet } from 'lucide-react';
+import { BookOpen, Home, LayoutGrid, Soup, Wallet } from 'lucide-react';
 import { TabType } from './LightHomeScreen';
 import { MoreMenuSheet } from './MoreMenuSheet';
 import { ScheduledMessagesModal } from './ScheduledMessagesModal';
@@ -93,10 +93,18 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
   };
 
   const itemClass = (active: boolean) =>
-    `flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-0.5 py-1.5 min-h-[50px] select-none transition ${
+    `flex min-w-0 min-h-[56px] flex-col items-center justify-center gap-1 rounded-[20px] px-1 py-1.5 select-none transition-all duration-200 active:scale-[0.98] ${
       active
-        ? 'border border-rose-200/80 bg-rose-50 font-bold text-rose-600 shadow-2xs'
-        : 'font-medium text-slate-500 hover:bg-slate-50/80 hover:text-slate-800'
+        ? 'bg-rose-50 text-rose-700'
+        : 'text-slate-500 hover:bg-slate-50/70 hover:text-slate-700'
+    }`;
+
+  const iconClass = (active: boolean) =>
+    `h-5.5 w-5.5 shrink-0 transition-colors ${active ? 'stroke-[2.2]' : 'stroke-[1.8]'}`;
+
+  const labelClass = (active: boolean) =>
+    `w-full truncate whitespace-nowrap text-center text-[11px] leading-none sm:text-xs ${
+      active ? 'font-bold text-rose-700' : 'font-medium text-slate-500'
     }`;
 
   if (typeof document === 'undefined') return null;
@@ -104,7 +112,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
   return createPortal(
     <>
       <nav
-        className={`fixed bottom-0 left-0 right-0 z-40 border-t border-rose-100/90 bg-white/95 px-2 pt-1.5 shadow-[0_-4px_20px_rgba(0,0,0,0.04)] backdrop-blur-md sm:px-4 ${
+        className={`fixed bottom-0 left-0 right-0 z-40 border-t border-[#eee6df] bg-[#fffdf9]/95 px-2 pt-1.5 shadow-[0_-6px_24px_rgba(60,38,28,0.06)] backdrop-blur-xl sm:px-4 ${
           isKeyboardOpen ? 'hidden' : ''
         }`}
         style={{
@@ -117,28 +125,61 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
         aria-label="Thanh điều hướng chính"
       >
         <div className="mx-auto grid max-w-xl grid-cols-5 gap-1">
-          <button type="button" onClick={() => navigate('home')} className={itemClass(activeTab === 'home')}>
-            <Home className="h-5 w-5 shrink-0" />
-            <span className="w-full truncate whitespace-nowrap text-center text-[10px] leading-none sm:text-xs">Trang chủ</span>
+          <button
+            type="button"
+            onClick={() => navigate('home')}
+            className={itemClass(activeTab === 'home')}
+            aria-current={activeTab === 'home' ? 'page' : undefined}
+          >
+            <Home className={iconClass(activeTab === 'home')} />
+            <span className={labelClass(activeTab === 'home')}>Hôm nay</span>
           </button>
-          <button type="button" onClick={() => navigate('journal')} className={itemClass(activeTab === 'journal')}>
-            <BookOpen className="h-5 w-5 shrink-0" />
-            <span className="w-full truncate whitespace-nowrap text-center text-[10px] leading-none sm:text-xs">Nhật ký</span>
+
+          <button
+            type="button"
+            onClick={() => navigate('journal')}
+            className={itemClass(activeTab === 'journal')}
+            aria-current={activeTab === 'journal' ? 'page' : undefined}
+          >
+            <BookOpen className={iconClass(activeTab === 'journal')} />
+            <span className={labelClass(activeTab === 'journal')}>Nhật ký</span>
           </button>
-          <button type="button" onClick={() => navigate('nutrition')} className={itemClass(activeTab === 'nutrition')}>
-            <Apple className="h-5 w-5 shrink-0" />
-            <span className="w-full truncate whitespace-nowrap text-center text-[10px] leading-none sm:text-xs">Dinh dưỡng</span>
+
+          <button
+            type="button"
+            onClick={() => navigate('nutrition')}
+            className={itemClass(activeTab === 'nutrition')}
+            aria-current={activeTab === 'nutrition' ? 'page' : undefined}
+          >
+            <Soup className={iconClass(activeTab === 'nutrition')} />
+            <span className={labelClass(activeTab === 'nutrition')}>Dinh dưỡng</span>
           </button>
-          <button type="button" onClick={() => navigate('finance')} className={itemClass(activeTab === 'finance')}>
-            <Wallet className="h-5 w-5 shrink-0" />
-            <span className="w-full truncate whitespace-nowrap text-center text-[10px] leading-none sm:text-xs">Tài chính</span>
+
+          <button
+            type="button"
+            onClick={() => navigate('finance')}
+            className={itemClass(activeTab === 'finance')}
+            aria-current={activeTab === 'finance' ? 'page' : undefined}
+          >
+            <Wallet className={iconClass(activeTab === 'finance')} />
+            <span className={labelClass(activeTab === 'finance')}>Tài chính</span>
           </button>
-          <button type="button" onClick={() => navigate('more')} className={`${itemClass(isMoreActive)} relative`} aria-expanded={isMoreMenuOpen} aria-haspopup="dialog">
+
+          <button
+            type="button"
+            onClick={() => navigate('more')}
+            className={`${itemClass(isMoreActive)} relative`}
+            aria-current={isMoreActive ? 'page' : undefined}
+            aria-expanded={isMoreMenuOpen}
+            aria-haspopup="dialog"
+          >
             <div className="relative">
-              <MoreHorizontal className="h-5 w-5 shrink-0" />
-              {(activeTab === 'achievements' || activeTab === 'profile') && <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />}
+              <LayoutGrid className={iconClass(isMoreActive)} />
+              {(activeTab === 'achievements' || activeTab === 'profile') && (
+                <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-[#fffdf9]" />
+              )}
             </div>
-            <span className="w-full truncate whitespace-nowrap text-center text-[10px] leading-none sm:text-xs">Thêm</span>
+            <span className={labelClass(isMoreActive)}>Thêm</span>
           </button>
         </div>
       </nav>
