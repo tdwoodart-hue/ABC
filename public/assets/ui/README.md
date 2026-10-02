@@ -15,3 +15,6 @@ Naming rules:
 - keep previews, drafts, and experiments out of the production asset registry
 
 All app code should reference assets through `src/config/uiAssets.ts` instead of scattering hard-coded asset paths across components.
+
+
+- `home/presets/`: built-in selectable Home appearance presets shown in Settings.
