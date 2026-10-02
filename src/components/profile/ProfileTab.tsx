@@ -12,7 +12,10 @@ import {
   LogOut,
   Map,
   MapPin,
+  Image as ImageIcon,
+  Loader2,
   Navigation,
+  Palette,
   PawPrint,
   Phone,
   ShieldCheck,
@@ -21,8 +24,11 @@ import {
 } from 'lucide-react';
 
 import { Companion, CoupleData, UserProfile } from '../../types';
+import { UI_ASSETS } from '../../config/uiAssets';
 import { formatDateVN } from '../../utils/formatDate';
 import { requestAndShowTestNotification } from '../../utils/notifications';
+import { uploadHomeAppearanceImage } from '../../utils/mediaHelper';
+import { useHomeAppearance } from '../home/hooks/useHomeAppearance';
 import { auth } from '../../lib/firebase';
 import appPackage from '../../../package.json';
 
