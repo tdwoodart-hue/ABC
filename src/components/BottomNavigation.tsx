@@ -17,7 +17,8 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    let timeoutId: number | null = null;
+
+    const timers: number[] = [];
 
     const hasTextInputFocus = () => {
       const activeEl = document.activeElement as HTMLElement | null;
@@ -29,55 +30,87 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
       return !['checkbox', 'radio', 'range', 'color', 'file', 'button', 'submit', 'reset'].includes(type);
     };
 
-    const focusIn = () => {
-      if (timeoutId) clearTimeout(timeoutId);
-      if (hasTextInputFocus()) setIsKeyboardOpen(true);
-    };
-    const focusOut = () => {
-      if (timeoutId) clearTimeout(timeoutId);
-      timeoutId = window.setTimeout(() => {
-        if (!hasTextInputFocus()) setIsKeyboardOpen(false);
-      }, 120);
-    };
-    const resize = () => {
+    const getViewportShrink = () => {
       const viewport = window.visualViewport;
-      if (!viewport) {
-        if (!hasTextInputFocus()) setIsKeyboardOpen(false);
-        return;
-      }
+      if (!viewport) return 0;
+      return Math.max(0, window.innerHeight - viewport.height);
+    };
 
-      const diff = Math.max(0, window.innerHeight - viewport.height);
+    const syncKeyboardState = () => {
+      const viewportShrink = getViewportShrink();
+      const textInputFocused = hasTextInputFocus();
 
-      if (diff > 140 && hasTextInputFocus()) {
+      // Important on iOS:
+      // while the keyboard is closing, visualViewport is still short for a
+      // few frames. Do NOT reveal the fixed nav during that interval or
+      // Safari can pin its composited layer at the old keyboard top.
+      if (viewportShrink > 120) {
         setIsKeyboardOpen(true);
         return;
       }
 
-      // iOS can keep the input focused after the keyboard has closed.
-      // Reset the nav as soon as the visual viewport is back to normal.
-      if (diff < 80) setIsKeyboardOpen(false);
+      if (!textInputFocused || viewportShrink < 80) {
+        setIsKeyboardOpen(false);
+      }
+    };
+
+    const scheduleSync = (...delays: number[]) => {
+      delays.forEach((delay) => {
+        const id = window.setTimeout(() => {
+          window.requestAnimationFrame(syncKeyboardState);
+        }, delay);
+        timers.push(id);
+      });
+    };
+
+    const focusIn = () => {
+      if (hasTextInputFocus()) {
+        setIsKeyboardOpen(true);
+        scheduleSync(80, 220);
+      }
+    };
+
+    const focusOut = () => {
+      // iOS keyboard dismissal is animated and often finishes well after
+      // focusout. Keep the nav hidden until visualViewport is restored.
+      scheduleSync(80, 220, 420, 700);
+    };
+
+    const viewportChanged = () => {
+      window.requestAnimationFrame(syncKeyboardState);
     };
 
     const pageShow = () => {
-      setIsKeyboardOpen(false);
-      window.requestAnimationFrame(resize);
+      scheduleSync(0, 120, 320);
+    };
+
+    const visibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        scheduleSync(0, 120, 320);
+      }
     };
 
     document.addEventListener('focusin', focusIn);
     document.addEventListener('focusout', focusOut);
-    window.addEventListener('resize', resize);
+    document.addEventListener('visibilitychange', visibilityChange);
+    window.addEventListener('resize', viewportChanged);
     window.addEventListener('pageshow', pageShow);
-    window.visualViewport?.addEventListener('resize', resize);
-    window.visualViewport?.addEventListener('scroll', resize);
+    window.addEventListener('orientationchange', viewportChanged);
+    window.visualViewport?.addEventListener('resize', viewportChanged);
+    window.visualViewport?.addEventListener('scroll', viewportChanged);
+
+    scheduleSync(0, 120);
 
     return () => {
-      if (timeoutId) clearTimeout(timeoutId);
+      timers.forEach((id) => window.clearTimeout(id));
       document.removeEventListener('focusin', focusIn);
       document.removeEventListener('focusout', focusOut);
-      window.removeEventListener('resize', resize);
+      document.removeEventListener('visibilitychange', visibilityChange);
+      window.removeEventListener('resize', viewportChanged);
       window.removeEventListener('pageshow', pageShow);
-      window.visualViewport?.removeEventListener('resize', resize);
-      window.visualViewport?.removeEventListener('scroll', resize);
+      window.removeEventListener('orientationchange', viewportChanged);
+      window.visualViewport?.removeEventListener('resize', viewportChanged);
+      window.visualViewport?.removeEventListener('scroll', viewportChanged);
     };
   }, []);
 
@@ -104,7 +137,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
   return createPortal(
     <>
       <nav
-        className={`fixed bottom-0 left-0 right-0 z-40 border-t border-rose-100/90 bg-white/95 px-2 pt-1.5 shadow-[0_-4px_20px_rgba(0,0,0,0.04)] backdrop-blur-md sm:px-4 ${
+        className={`fixed bottom-0 left-0 right-0 z-40 border-t border-rose-100/90 bg-white px-2 pt-1.5 shadow-[0_-4px_20px_rgba(0,0,0,0.04)] sm:px-4 ${
           isKeyboardOpen ? 'hidden' : ''
         }`}
         style={{
@@ -112,6 +145,9 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
           left: 0,
           right: 0,
           paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',
+          transform: 'translate3d(0, 0, 0)',
+          WebkitTransform: 'translate3d(0, 0, 0)',
+          willChange: 'transform',
         }}
         data-us-bottom-navigation="true"
         aria-label="Thanh điều hướng chính"
