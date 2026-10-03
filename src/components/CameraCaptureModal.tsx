@@ -67,14 +67,14 @@ interface CachedLocation {
 }
 
 const LOCATION_CACHE_KEY = 'us:camera-location:v2';
-const LOCATION_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+const LOCATION_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const MAX_RECORDING_SECONDS = 60;
 
 const readCachedLocation = (): CameraLocationMetadata | null => {
   if (typeof window === 'undefined') return null;
 
   try {
-    const raw = window.sessionStorage.getItem(LOCATION_CACHE_KEY);
+    const raw = window.localStorage.getItem(LOCATION_CACHE_KEY);
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as CachedLocation;
@@ -87,7 +87,7 @@ const readCachedLocation = (): CameraLocationMetadata | null => {
       typeof parsed.data.lat !== 'number' ||
       typeof parsed.data.lng !== 'number'
     ) {
-      window.sessionStorage.removeItem(LOCATION_CACHE_KEY);
+      window.localStorage.removeItem(LOCATION_CACHE_KEY);
       return null;
     }
 
@@ -106,7 +106,7 @@ const writeCachedLocation = (data: CameraLocationMetadata) => {
       data,
     };
 
-    window.sessionStorage.setItem(
+    window.localStorage.setItem(
       LOCATION_CACHE_KEY,
       JSON.stringify(payload)
     );
@@ -650,51 +650,31 @@ export const CameraCaptureModal: React.FC<
   /**
    * LOCATION LIFECYCLE
    *
-   * - Reuses location captured in the last 5 minutes.
-   * - Auto-refreshes ONLY if browser permission is already granted.
-   * - If permission is "prompt" or unknown, opening Camera DOES NOT
-   *   trigger the location permission popup. User taps the location chip.
+   * Camera and GPS are deliberately decoupled.
+   *
+   * - Opening Camera NEVER requests the user's location.
+   * - Reuses the last location explicitly captured by the user for up to 24h.
+   * - A fresh GPS request happens only when the user taps the location chip.
+   *
+   * This avoids repeated iOS location permission prompts when the user only
+   * wants to take a photo/video.
    */
   useEffect(() => {
     if (!isOpen) return;
 
-    let cancelled = false;
+    setLocationError(null);
 
-    const prepareLocation =
-      async () => {
-        setLocationError(null);
+    const cached = readCachedLocation();
 
-        const cached =
-          readCachedLocation();
+    if (cached) {
+      setGpsMetadata(cached);
+    } else {
+      setGpsMetadata(null);
+    }
 
-        if (cached) {
-          setGpsMetadata(cached);
-        }
-
-        const permission =
-          await getGeolocationPermissionState();
-
-        if (cancelled) return;
-
-        setLocationPermission(
-          permission
-        );
-
-        if (
-          permission === 'granted' &&
-          !cached
-        ) {
-          void fetchCurrentLocation();
-        }
-      };
-
-    void prepareLocation();
-
-    return () => {
-      cancelled = true;
-    };
-    // Deliberately isolated from facingMode/captureMode.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Do not query/fetch GPS on camera open.
+    // Permission state is refreshed only after an explicit GPS action.
+    setLocationPermission('unknown');
   }, [isOpen]);
 
   /**
@@ -1190,7 +1170,7 @@ export const CameraCaptureModal: React.FC<
     gpsMetadata
       ? gpsMetadata.locationName ||
         gpsMetadata.address ||
-        'Đã lưu vị trí'
+        'Vị trí gần nhất'
       : locationPermission ===
           'denied'
         ? 'Vị trí đang tắt'
