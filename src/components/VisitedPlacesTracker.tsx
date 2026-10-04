@@ -1061,30 +1061,22 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
         <div className="space-y-3 pt-2 border-t border-slate-100 animate-in fade-in duration-200">
 
           {/* Main switch */}
-          <div className="grid grid-cols-2 gap-1 rounded-2xl border border-slate-200/80 bg-slate-50 p-1">
+          <div className="app-subtabs">
             <button
               type="button"
               onClick={() => setActiveSubView('provinces')}
-              className={`flex h-9 items-center justify-center gap-1.5 rounded-xl text-[11px] font-black transition ${
-                activeSubView === 'provinces'
-                  ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/60'
-                  : 'text-slate-400 hover:text-slate-700'
-              }`}
+              className={`app-subtab flex-1 ${activeSubView === 'provinces' ? 'app-subtab-active' : ''}`}
             >
-              <Map className={`h-3.5 w-3.5 ${activeSubView === 'provinces' ? 'text-rose-500' : ''}`} />
-              Tỉnh thành
+              <Map className="h-3.5 w-3.5" />
+              <span>Tỉnh thành</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveSubView('places')}
-              className={`flex h-9 items-center justify-center gap-1.5 rounded-xl text-[11px] font-black transition ${
-                activeSubView === 'places'
-                  ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/60'
-                  : 'text-slate-400 hover:text-slate-700'
-              }`}
+              className={`app-subtab flex-1 ${activeSubView === 'places' ? 'app-subtab-active' : ''}`}
             >
-              <Navigation className={`h-3.5 w-3.5 ${activeSubView === 'places' ? 'text-rose-500' : ''}`} />
-              Địa điểm
+              <Navigation className="h-3.5 w-3.5" />
+              <span>Địa điểm</span>
             </button>
           </div>
 
@@ -1169,7 +1161,7 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
 
           {/* Source filter only for places */}
           {activeSubView === 'places' && (
-            <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-50 p-1 ring-1 ring-slate-200/70">
+            <div className="app-subtabs">
               {[
                 { id: 'all', label: 'Tất cả', count: allUnifiedPlaces.length },
                 { id: 'journal', label: 'Nhật ký', count: journalPlaces.length },
@@ -1179,18 +1171,10 @@ export const VisitedPlacesTracker: React.FC<VisitedPlacesTrackerProps> = ({
                   key={item.id}
                   type="button"
                   onClick={() => setPlaceOriginFilter(item.id as 'all' | 'journal' | 'custom')}
-                  className={`flex h-8 items-center justify-center gap-1 rounded-lg text-[10px] font-black transition ${
-                    placeOriginFilter === item.id
-                      ? 'bg-white text-rose-600 shadow-sm ring-1 ring-slate-200/50'
-                      : 'text-slate-400 hover:text-slate-700'
-                  }`}
+                  className={`app-subtab flex-1 ${placeOriginFilter === item.id ? 'app-subtab-active' : ''}`}
                 >
                   <span>{item.label}</span>
-                  <span className={`rounded-full px-1.5 py-0.5 text-[8px] ${
-                    placeOriginFilter === item.id ? 'bg-rose-50 text-rose-500' : 'bg-slate-200/60 text-slate-500'
-                  }`}>
-                    {item.count}
-                  </span>
+                  <span className="app-subtab-count">{item.count}</span>
                 </button>
               ))}
             </div>
