@@ -124,7 +124,7 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
 
   return (
     <div className="space-y-3">
-      <div className="app-segmented grid grid-cols-3 gap-1">
+      <div className="app-subtabs">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const active = journalViewTab === tab.id;
@@ -135,8 +135,8 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
               id={`subtab-${tab.id}`}
               type="button"
               onClick={() => setJournalViewTab(tab.id)}
-              className={`app-segmented-item flex min-w-0 items-center justify-center gap-1.5 px-2 ${
-                active ? 'app-segmented-item-active' : ''
+              className={`app-subtab flex-1 min-w-0 ${
+                active ? 'app-subtab-active' : ''
               }`}
               aria-current={active ? 'page' : undefined}
             >
