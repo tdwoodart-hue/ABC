@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { JournalEntry, UserProfile, CoupleData } from '../../types';
-import { MessageCircle, Heart, Mic } from 'lucide-react';
+import { MessageCircle, Mic, Send } from 'lucide-react';
 import { JournalVoiceMemoPlayer } from './JournalVoiceMemoPlayer';
 import { CommentVoiceRecorder } from './CommentVoiceRecorder';
 
@@ -23,9 +23,6 @@ interface JournalCommentsProps {
 
 export const JournalComments: React.FC<JournalCommentsProps> = ({
   item,
-  userProfile,
-  coupleData,
-  isAuthor,
   commentInput,
   getAuthor,
   onCommentInputChange,
@@ -43,61 +40,45 @@ export const JournalComments: React.FC<JournalCommentsProps> = ({
   };
 
   return (
-    <div className="pt-3 border-t border-slate-100/90 space-y-2.5">
+    <div className="space-y-2.5 border-t border-slate-100 pt-3">
       {commentsCount > 0 && (
-        <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-          <div className="flex items-center gap-1.5">
-            <MessageCircle className="w-4 h-4 text-rose-500" />
-            <span>Bình luận & Lời nhắn ({commentsCount})</span>
-          </div>
-
-          {!isVoiceRecording && onAddVoiceComment && (
-            <button
-              type="button"
-              onClick={() => setIsVoiceRecording(true)}
-              className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-lg border border-rose-200/60 transition cursor-pointer"
-            >
-              <Mic className="w-3 h-3 text-rose-500" />
-              <span>Gửi voice</span>
-            </button>
-          )}
+        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+          <MessageCircle className="h-3.5 w-3.5" />
+          <span>{commentsCount} bình luận</span>
         </div>
       )}
 
-      {/* Scrollable Comment list */}
       {item.comments && item.comments.length > 0 && (
-        <div className="max-h-56 overflow-y-auto overscroll-contain space-y-2 pr-1.5 scrollbar-thin">
+        <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
           {item.comments.map((comment) => {
             const cAuthor = getAuthor(comment.authorUid, comment.authorName);
+
             return (
-              <div
-                key={comment.id}
-                className="flex items-start gap-2.5 text-xs bg-slate-50/80 p-2.5 rounded-2xl border border-slate-100/80"
-              >
-                <div className="w-6 h-6 rounded-full bg-rose-100 overflow-hidden shrink-0 mt-0.5 border border-white">
+              <div key={comment.id} className="flex items-start gap-2.5">
+                <div className="h-6 w-6 shrink-0 overflow-hidden rounded-full bg-slate-100">
                   <img
                     src={cAuthor.avatar}
                     alt={cAuthor.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://api.dicebear.com/7.x/micah/svg?seed=fallback';
+                    className="h-full w-full object-cover"
+                    onError={(event) => {
+                      (event.target as HTMLImageElement).src =
+                        'https://api.dicebear.com/7.x/micah/svg?seed=fallback';
                     }}
                   />
                 </div>
-                <div className="flex-1 min-w-0 space-y-1">
+
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-slate-800 text-[11px]">{cAuthor.name}</span>
+                    <span className="text-[11px] font-semibold text-slate-700">
+                      {cAuthor.name}
+                    </span>
                     {comment.voiceMemoUrl && (
-                      <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-600 bg-rose-100/80 px-1.5 py-0.2 rounded-full">
-                        <Mic className="w-2.5 h-2.5" />
-                        <span>Voice</span>
-                      </span>
+                      <Mic className="h-3 w-3 text-rose-400" />
                     )}
                   </div>
 
-                  {/* If voice memo comment */}
                   {comment.voiceMemoUrl && (
-                    <div className="pt-0.5 max-w-sm">
+                    <div className="mt-1 max-w-sm">
                       <JournalVoiceMemoPlayer
                         voiceMemoUrl={comment.voiceMemoUrl}
                         duration={comment.voiceMemoDuration}
@@ -107,24 +88,22 @@ export const JournalComments: React.FC<JournalCommentsProps> = ({
                   )}
 
                   {comment.content && (
-                    <p className="text-slate-600 mt-0.5 leading-snug break-words">
+                    <p className="mt-0.5 break-words text-xs leading-5 text-slate-600">
                       {comment.content}
                     </p>
                   )}
 
                   {comment.attachmentImageUrl && (
-                    <div className="pt-1">
-                      <img
-                        src={comment.attachmentImageUrl}
-                        alt="Ảnh đính kèm"
-                        className="max-h-48 max-w-full rounded-xl object-cover border border-slate-200/80 cursor-pointer hover:opacity-95 transition"
-                        onClick={() => {
-                          if (typeof window !== 'undefined' && comment.attachmentImageUrl) {
-                            window.open(comment.attachmentImageUrl, '_blank');
-                          }
-                        }}
-                      />
-                    </div>
+                    <img
+                      src={comment.attachmentImageUrl}
+                      alt=""
+                      className="mt-1.5 max-h-40 max-w-full cursor-pointer rounded-xl object-cover"
+                      onClick={() => {
+                        if (typeof window !== 'undefined' && comment.attachmentImageUrl) {
+                          window.open(comment.attachmentImageUrl, '_blank');
+                        }
+                      }}
+                    />
                   )}
                 </div>
               </div>
@@ -133,50 +112,49 @@ export const JournalComments: React.FC<JournalCommentsProps> = ({
         </div>
       )}
 
-      {/* Voice Recorder Mode in Comments */}
       {isVoiceRecording && onAddVoiceComment ? (
         <CommentVoiceRecorder
           onVoiceCommentSend={handleVoiceSend}
           onCancel={() => setIsVoiceRecording(false)}
         />
       ) : (
-        /* Quick Comment Form with Text & Voice Trigger */
         <form
-          onSubmit={(e) => onAddComment(item.id, e)}
-          className="flex items-center gap-1.5 pt-1"
+          onSubmit={(event) => onAddComment(item.id, event)}
+          className="flex items-center gap-1.5"
         >
           <input
             type="text"
-            placeholder={isAuthor ? 'Viết bình luận kỷ niệm...' : 'Gửi lời nhắn cho nửa kia...'}
+            placeholder="Bình luận..."
             value={commentInput || ''}
-            onChange={(e) => onCommentInputChange(item.id, e.target.value)}
-            onFocus={(e) => {
-              const el = e.currentTarget;
-              setTimeout(() => {
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            onChange={(event) => onCommentInputChange(item.id, event.target.value)}
+            onFocus={(event) => {
+              const element = event.currentTarget;
+              window.setTimeout(() => {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }, 250);
             }}
-            className="flex-1 px-3.5 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-slate-800 text-xs focus:outline-none focus:ring-1.5 focus:ring-rose-400 focus:bg-white transition placeholder:text-slate-400"
+            className="app-control min-w-0 flex-1 px-3 text-sm placeholder:text-slate-400"
           />
 
           {onAddVoiceComment && (
             <button
               type="button"
               onClick={() => setIsVoiceRecording(true)}
-              className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/70 rounded-xl transition cursor-pointer shrink-0 shadow-2xs hover:shadow-xs"
-              title="Ghi âm bình luận giọng nói"
+              className="app-icon-button h-11 w-11 border border-[var(--app-border)] bg-white"
+              aria-label="Ghi âm"
+              title="Ghi âm"
             >
-              <Mic className="w-4 h-4 text-rose-500" />
+              <Mic className="h-4 w-4" />
             </button>
           )}
 
           <button
             type="submit"
             disabled={!commentInput?.trim()}
-            className="px-3.5 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold shadow-2xs transition cursor-pointer disabled:opacity-40 shrink-0 flex items-center gap-1"
+            className="app-icon-button app-icon-button-brand h-11 w-11 border border-rose-200 bg-rose-50 disabled:opacity-35"
+            aria-label="Gửi bình luận"
           >
-            <span>Gửi</span>
-            <Heart className="w-3 h-3 fill-white" />
+            <Send className="h-4 w-4" />
           </button>
         </form>
       )}

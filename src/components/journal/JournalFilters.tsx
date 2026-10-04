@@ -127,65 +127,7 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
     document.body.style.overflow = 'hidden';
     window.addEventListener('keydown', handleKeyDown);
 
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isFilterSheetOpen]);
-
-  useEffect(() => {
-    if (journalViewTab !== 'feed') {
-      setIsFilterSheetOpen(false);
-    }
-  }, [journalViewTab]);
-
-  const setQuickDateFilter = (
-    mode: 'all' | 'this_month' | 'last_month' | 'this_year'
-  ) => {
-    setJournalDateFilterMode(mode);
-    setIsCustomDateOpen(false);
-
-    setJournalFilterMonth('');
-  };
-
-  const openCustomDate = () => {
-    setJournalDateFilterMode('custom');
-    setIsCustomDateOpen(true);
-  };
-
-  const clearCustomDates = () => {
-    setJournalFilterStartDate('');
-    setJournalFilterEndDate('');
-  };
-
-  const getMonthLabel = (monthValue: string) => {
-    const [year, month] = monthValue.split('-');
-    const count = journals.filter((journal) =>
-      journal.date?.startsWith(monthValue)
-    ).length;
-
-    return `Tháng ${month}/${year} (${count})`;
-  };
-
-  const tabs = [
-    {
-      id: 'feed' as const,
-      label: 'Bài viết',
-      icon: BookOpen,
-    },
-    {
-      id: 'love_map' as const,
-      label: 'Bản đồ',
-      icon: Compass,
-    },
-    {
-      id: 'places' as const,
-      label: 'Đã đi',
-      icon: Map,
-    },
-  ];
-
-  return (
+    return (
     <div className="space-y-3">
       <div className="app-segmented grid grid-cols-3 gap-1">
         {tabs.map((tab) => {
@@ -242,7 +184,6 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
                 : 'border-[var(--app-border)]'
             }`}
             aria-label={filterCount > 0 ? `Bộ lọc, ${filterCount} đang bật` : 'Bộ lọc'}
-            title="Bộ lọc"
           >
             <SlidersHorizontal className="h-4 w-4" />
             {filterCount > 0 && (
@@ -254,78 +195,52 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
         </div>
       )}
 
-      {/* Filter Bottom Sheet */}
       {isFilterSheetOpen && (
         <div
           className="fixed inset-0 z-[120] flex items-end justify-center sm:items-center sm:p-4"
           role="dialog"
           aria-modal="true"
-          aria-label="Bộ lọc nhật ký"
+          aria-label="Bộ lọc"
         >
           <button
             type="button"
-            className="absolute inset-0 bg-slate-950/40"
+            className="absolute inset-0 bg-slate-950/35"
             onClick={() => setIsFilterSheetOpen(false)}
-            aria-label="Đóng bộ lọc"
+            aria-label="Đóng"
           />
 
-          <div className="relative z-10 max-h-[88vh] w-full overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-w-lg sm:rounded-3xl">
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">
-                  Bộ lọc nhật ký
-                </h3>
-                
-              </div>
-
+          <div className="relative z-10 flex max-h-[86vh] w-full flex-col overflow-hidden rounded-t-[24px] bg-white shadow-2xl sm:max-w-md sm:rounded-[24px]">
+            <div className="flex items-center justify-between px-4 py-3.5">
+              <h3 className="app-section-title">Bộ lọc</h3>
               <button
                 type="button"
                 onClick={() => setIsFilterSheetOpen(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
+                className="app-icon-button h-9 w-9"
                 aria-label="Đóng"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="max-h-[calc(88vh-138px)] space-y-6 overflow-y-auto px-5 py-5">
-              {/* Date */}
-              <section>
-                <div className="mb-3 flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-rose-500" />
-                  <h4 className="text-sm font-bold text-slate-800">
-                    Thời gian
-                  </h4>
-                </div>
+            <div className="space-y-5 overflow-y-auto px-4 pb-4">
+              <section className="space-y-2.5">
+                <span className="app-caption font-semibold">Thời gian</span>
 
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-2">
                   {[
                     { id: 'all' as const, label: 'Tất cả' },
-                    {
-                      id: 'this_month' as const,
-                      label: 'Tháng này',
-                    },
-                    {
-                      id: 'last_month' as const,
-                      label: 'Tháng trước',
-                    },
-                    {
-                      id: 'this_year' as const,
-                      label: 'Năm nay',
-                    },
+                    { id: 'this_month' as const, label: 'Tháng này' },
+                    { id: 'last_month' as const, label: 'Tháng trước' },
+                    { id: 'this_year' as const, label: 'Năm nay' },
                   ].map((option) => {
-                    const selected =
-                      journalDateFilterMode === option.id;
-
+                    const selected = journalDateFilterMode === option.id;
                     return (
                       <button
                         key={option.id}
                         type="button"
                         onClick={() => setQuickDateFilter(option.id)}
-                        className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${
-                          selected
-                            ? 'border-rose-500 bg-rose-500 text-white'
-                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        className={`app-button min-h-10 px-3 py-2 ${
+                          selected ? 'app-button-primary' : 'app-button-secondary'
                         }`}
                       >
                         {option.label}
@@ -335,33 +250,25 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
                 </div>
 
                 {availableMonths.length > 0 && (
-                  <div className="relative mt-3">
+                  <div className="relative">
                     <select
-                      value={
-                        journalDateFilterMode === 'month'
-                          ? journalFilterMonth
-                          : ''
-                      }
+                      value={journalDateFilterMode === 'month' ? journalFilterMonth : ''}
                       onChange={(event) => {
                         const value = event.target.value;
-
                         if (!value) return;
-
                         setJournalFilterMonth(value);
                         setJournalDateFilterMode('month');
                         setIsCustomDateOpen(false);
                       }}
-                      className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-3 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-rose-300 focus:ring-2 focus:ring-rose-100"
+                      className="app-control h-11 w-full appearance-none px-3 pr-9 text-sm"
                     >
-                      <option value="">Chọn một tháng cụ thể</option>
-
+                      <option value="">Theo tháng...</option>
                       {availableMonths.map((monthValue) => (
                         <option key={monthValue} value={monthValue}>
                           {getMonthLabel(monthValue)}
                         </option>
                       ))}
                     </select>
-
                     <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   </div>
                 )}
@@ -369,62 +276,42 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
                 <button
                   type="button"
                   onClick={openCustomDate}
-                  className={`mt-2 flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition ${
+                  className={`app-button w-full text-left ${
                     journalDateFilterMode === 'custom'
-                      ? 'border-rose-200 bg-rose-50 text-rose-700'
-                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      ? 'border border-rose-200 bg-rose-50 text-rose-700'
+                      : 'app-button-secondary'
                   }`}
                 >
-                  <span>Chọn khoảng ngày</span>
-
-                  {journalDateFilterMode === 'custom' && (
-                    <Check className="h-4 w-4" />
-                  )}
+                  Khoảng ngày
                 </button>
 
-                {(journalDateFilterMode === 'custom' ||
-                  isCustomDateOpen) && (
-                  <div className="mt-3 grid grid-cols-1 gap-3 rounded-2xl bg-slate-50 p-3 sm:grid-cols-2">
-                    <label className="space-y-1">
-                      <span className="text-[11px] font-semibold text-slate-500">
-                        Từ ngày
-                      </span>
-                      <input
-                        type="date"
-                        value={journalFilterStartDate}
-                        onChange={(event) => {
-                          setJournalFilterStartDate(
-                            event.target.value
-                          );
-                          setJournalDateFilterMode('custom');
-                        }}
-                        className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-rose-300 focus:ring-2 focus:ring-rose-100"
-                      />
-                    </label>
-
-                    <label className="space-y-1">
-                      <span className="text-[11px] font-semibold text-slate-500">
-                        Đến ngày
-                      </span>
-                      <input
-                        type="date"
-                        value={journalFilterEndDate}
-                        onChange={(event) => {
-                          setJournalFilterEndDate(
-                            event.target.value
-                          );
-                          setJournalDateFilterMode('custom');
-                        }}
-                        className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-rose-300 focus:ring-2 focus:ring-rose-100"
-                      />
-                    </label>
-
-                    {(journalFilterStartDate ||
-                      journalFilterEndDate) && (
+                {(journalDateFilterMode === 'custom' || isCustomDateOpen) && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      aria-label="Từ ngày"
+                      type="date"
+                      value={journalFilterStartDate}
+                      onChange={(event) => {
+                        setJournalFilterStartDate(event.target.value);
+                        setJournalDateFilterMode('custom');
+                      }}
+                      className="app-control h-11 min-w-0 px-2 text-sm"
+                    />
+                    <input
+                      aria-label="Đến ngày"
+                      type="date"
+                      value={journalFilterEndDate}
+                      onChange={(event) => {
+                        setJournalFilterEndDate(event.target.value);
+                        setJournalDateFilterMode('custom');
+                      }}
+                      className="app-control h-11 min-w-0 px-2 text-sm"
+                    />
+                    {(journalFilterStartDate || journalFilterEndDate) && (
                       <button
                         type="button"
                         onClick={clearCustomDates}
-                        className="text-left text-xs font-semibold text-slate-500 hover:text-rose-600 sm:col-span-2"
+                        className="col-span-2 text-left text-xs font-semibold text-slate-500"
                       >
                         Xóa khoảng ngày
                       </button>
@@ -433,137 +320,87 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
                 )}
               </section>
 
-              {/* Companion */}
-              <section>
-                <div className="mb-3 flex items-center gap-2">
-                  <Users className="h-4 w-4 text-rose-500" />
-                  <h4 className="text-sm font-bold text-slate-800">
-                    Đi cùng ai
-                  </h4>
-                </div>
+              {companions.length > 0 && (
+                <section className="space-y-2.5">
+                  <span className="app-caption font-semibold">Đi cùng</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCompanionFilter(null)}
+                      className={`app-chip ${
+                        selectedCompanionFilter === null ? 'app-chip-active' : ''
+                      }`}
+                    >
+                      Tất cả
+                    </button>
 
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSelectedCompanionFilter(null)
-                    }
-                    className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${
-                      selectedCompanionFilter === null
-                        ? 'border-slate-800 bg-slate-800 text-white'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    Tất cả
-                  </button>
-
-                  {companions.map((companion) => {
-                    const selected =
-                      selectedCompanionFilter === companion.id;
-
-                    const count = journals.filter((journal) =>
-                      journal.taggedPeople?.some(
-                        (person) => person.id === companion.id
-                      )
-                    ).length;
-
-                    return (
-                      <button
-                        key={companion.id}
-                        type="button"
-                        onClick={() =>
-                          setSelectedCompanionFilter(
-                            selected ? null : companion.id
-                          )
-                        }
-                        className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
-                          selected
-                            ? 'border-rose-500 bg-rose-500 text-white'
-                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <span>{companion.emoji || '🐾'}</span>
-                        <span>{companion.name}</span>
-                        <span
-                          className={`rounded-full px-1.5 py-0.5 text-[10px] ${
-                            selected
-                              ? 'bg-white/20 text-white'
-                              : 'bg-slate-100 text-slate-500'
-                          }`}
+                    {companions.map((companion) => {
+                      const selected = selectedCompanionFilter === companion.id;
+                      return (
+                        <button
+                          key={companion.id}
+                          type="button"
+                          onClick={() =>
+                            setSelectedCompanionFilter(selected ? null : companion.id)
+                          }
+                          className={`app-chip ${selected ? 'app-chip-active' : ''}`}
                         >
-                          {count}
-                        </span>
-                      </button>
-                    );
-                  })}
+                          <span>{companion.emoji || '🐾'}</span>
+                          <span>{companion.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
 
-                  {companions.length === 0 && (
-                    <p className="text-xs text-slate-400">
-                      Chưa có người hoặc thú cưng nào để lọc.
-                    </p>
-                  )}
-                </div>
-              </section>
-
-              {/* Sort */}
-              <section>
-                <div className="mb-3 flex items-center gap-2">
-                  <ArrowDownUp className="h-4 w-4 text-rose-500" />
-                  <h4 className="text-sm font-bold text-slate-800">
-                    Sắp xếp
-                  </h4>
-                </div>
-
+              <section className="space-y-2.5">
+                <span className="app-caption font-semibold">Sắp xếp</span>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setJournalSortOrder('newest')}
-                    className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${
+                    className={`app-button min-h-10 px-3 py-2 ${
                       journalSortOrder === 'newest'
-                        ? 'border-rose-500 bg-rose-500 text-white'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        ? 'app-button-primary'
+                        : 'app-button-secondary'
                     }`}
                   >
-                    Mới nhất trước
+                    Mới nhất
                   </button>
-
                   <button
                     type="button"
                     onClick={() => setJournalSortOrder('oldest')}
-                    className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${
+                    className={`app-button min-h-10 px-3 py-2 ${
                       journalSortOrder === 'oldest'
-                        ? 'border-rose-500 bg-rose-500 text-white'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        ? 'app-button-primary'
+                        : 'app-button-secondary'
                     }`}
                   >
-                    Cũ nhất trước
+                    Cũ nhất
                   </button>
                 </div>
               </section>
             </div>
 
             <div
-              className="flex items-center gap-2 border-t border-slate-100 bg-white px-5 pt-3"
-              style={{
-                paddingBottom:
-                  'calc(0.75rem + env(safe-area-inset-bottom, 0px))',
-              }}
+              className="flex gap-2 border-t border-slate-100 px-4 pt-3"
+              style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}
             >
               <button
                 type="button"
                 onClick={onResetFilters}
                 disabled={!isAnyFilterActive}
-                className="h-11 flex-1 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-default disabled:opacity-40"
+                className="app-button app-button-secondary flex-1 disabled:opacity-40"
               >
                 Đặt lại
               </button>
-
               <button
                 type="button"
                 onClick={() => setIsFilterSheetOpen(false)}
-                className="h-11 flex-[1.35] rounded-xl bg-rose-500 px-4 text-sm font-bold text-white shadow-xs transition hover:bg-rose-600"
+                className="app-button app-button-primary flex-[1.25]"
               >
-                Xem kết quả
+                Xong
               </button>
             </div>
           </div>
