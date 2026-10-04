@@ -522,11 +522,11 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
     const lng = parseFloat(rawLngInput.trim());
 
     if (isNaN(lat) || lat < -90 || lat > 90) {
-      alert('Vĩ độ (Latitude) không hợp lệ (phải từ -90 đến 90).');
+      alert('Vĩ độ không hợp lệ (phải từ -90 đến 90).');
       return;
     }
     if (isNaN(lng) || lng < -180 || lng > 180) {
-      alert('Kinh độ (Longitude) không hợp lệ (phải từ -180 đến 180).');
+      alert('Kinh độ không hợp lệ (phải từ -180 đến 180).');
       return;
     }
 
@@ -1081,53 +1081,6 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
           </div>
         </div>
 
-        {/* 3. QUICK-PIN CHIPS CAROUSEL (Góc quen & Địa điểm cũ) */}
-        {quickHistoryChips.length > 0 && (
-          <div className="max-w-7xl mx-auto flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
-
-
-            {quickHistoryChips.map((place) => {
-              const isSelected =
-                Math.abs(currentLat - (place.lat || 0)) < 0.0001 &&
-                Math.abs(currentLng - (place.lng || 0)) < 0.0001;
-              const displayName = place.customNickname || place.name;
-
-              return (
-                <button
-                  key={place.id}
-                  type="button"
-                  onClick={() => handleSelectHistoryLocation(place)}
-                  className={`px-2.5 py-1 rounded-xl text-xs font-bold shrink-0 transition flex items-center gap-1.5 border cursor-pointer ${
-                    isSelected
-                      ? 'bg-rose-500 text-white border-rose-600 shadow-2xs scale-102'
-                      : 'bg-slate-50 hover:bg-rose-50 text-slate-700 hover:text-rose-700 border-slate-200/90'
-                  }`}
-                  title={place.address || displayName}
-                >
-                  <span className="text-xs">{place.emoji || (place.isSaved ? '⭐' : '📍')}</span>
-                  <span className="max-w-[130px] truncate">{displayName}</span>
-                  {place.photoCount > 0 && (
-                    <span className={`text-[10px] px-1 py-0.1 rounded font-normal ${
-                      isSelected ? 'bg-white/20 text-white' : 'bg-slate-200/70 text-slate-600'
-                    }`}>
-                      {place.photoCount} ảnh
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-
-            <button
-              type="button"
-              onClick={() => setShowHistoryDrawer(true)}
-              className="text-[11px] text-rose-600 hover:text-rose-700 font-bold px-2 py-1 shrink-0 flex items-center gap-0.5 hover:underline cursor-pointer"
-            >
-              <span>Tất cả</span>
-              <ArrowRight className="w-3 h-3" />
-            </button>
-          </div>
-        )}
-
         {/* Live Status Toast */}
         {statusFeedback && (
           <div className="max-w-7xl mx-auto text-xs text-rose-700 bg-rose-50 border border-rose-200/90 px-3 py-1.5 rounded-xl font-medium flex items-center gap-1.5 animate-fadeIn">
@@ -1209,9 +1162,9 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
               <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
                 {[
                   { id: 'all', label: 'Tất cả' },
-                  { id: 'saved', label: '⭐ Đã lưu' },
-                  { id: 'top_photos', label: '📸 Nhiều ảnh' },
-                  { id: 'recent', label: '🕒 Gần đây' }
+                  { id: 'saved', label: 'Đã lưu' },
+                  { id: 'top_photos', label: 'Nhiều ảnh' },
+                  { id: 'recent', label: 'Gần đây' }
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -1246,11 +1199,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
                             ? `Không tìm thấy "${historySearchTerm}"`
                             : 'Chưa có địa chỉ cũ nào'}
                     </p>
-                    <p className="text-[11px] text-slate-400">
-                      {historyFilter === 'saved'
-                        ? 'Bạn có thể lưu các địa điểm thân quen để chọn nhanh bất cứ lúc nào.'
-                        : 'Mọi địa điểm từ nhật ký và danh sách đã lưu sẽ tự động xuất hiện ở đây.'}
-                    </p>
+
                   </div>
                   <div className="flex items-center justify-center gap-2 pt-1">
                     {historyFilter !== 'all' || historySearchTerm ? (
@@ -1367,7 +1316,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
                     <Loader2 className="w-3 h-3 animate-spin" /> Đang cập nhật địa chỉ...
                   </span>
                 ) : (
-                  formattedAddress || 'Kéo thả ghim đỏ để chọn vị trí chính xác...'
+                  formattedAddress || 'Chọn vị trí trên bản đồ'
                 )}
               </p>
             </div>
