@@ -99,7 +99,6 @@ export const SavedLocationSelectorModal: React.FC<SavedLocationSelectorModalProp
   const [formNotes, setFormNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isLocatingGPS, setIsLocatingGPS] = useState(false);
-  const [showAdvancedPlaceForm, setShowAdvancedPlaceForm] = useState(false);
 
   // Extract merged history
   const allHistoryItems = useMemo(() => {
@@ -173,7 +172,6 @@ export const SavedLocationSelectorModal: React.FC<SavedLocationSelectorModalProp
       setFormAccuracy(undefined);
       setFormNotes('');
     }
-    setShowAdvancedPlaceForm(false);
     setShowAddForm(true);
   };
 
@@ -263,7 +261,7 @@ export const SavedLocationSelectorModal: React.FC<SavedLocationSelectorModalProp
 
   const handlePickItem = (item: LocationHistoryItem) => {
     onSelectLocation({
-      locationName: item.customNickname || item.name,
+      locationName: item.name,
       address: item.address || item.name,
       lat: item.lat,
       lng: item.lng,
@@ -275,114 +273,158 @@ export const SavedLocationSelectorModal: React.FC<SavedLocationSelectorModalProp
   };
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/35 sm:items-center sm:p-4">
-      <div className="flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-t-[24px] bg-white shadow-2xl sm:rounded-[24px]">
-        <div className="flex items-center justify-between gap-3 px-4 py-3.5">
-          <div className="min-w-0">
-            <h3 className="app-section-title">Địa điểm</h3>
-            <p className="app-caption mt-0.5">{allHistoryItems.length} địa điểm</p>
-          </div>
-
-          <div className="flex items-center gap-1">
-            {onOpenMapPicker && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onOpenMapPicker();
-                }}
-                className="app-icon-button"
-                aria-label="Mở bản đồ"
-                title="Bản đồ"
-              >
-                <MapPin className="h-4 w-4" />
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={() => handleOpenAddForm()}
-              className="app-icon-button app-icon-button-brand"
-              aria-label="Thêm địa điểm"
-              title="Thêm"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="app-icon-button"
-              aria-label="Đóng"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        <div className="space-y-2.5 border-t border-slate-100 px-4 py-3">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="search"
-              placeholder="Tìm địa điểm"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              className="app-control h-11 w-full pl-10 pr-9 text-sm placeholder:text-slate-400"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="app-icon-button absolute right-0.5 top-1/2 h-9 w-9 -translate-y-1/2"
-                aria-label="Xóa tìm kiếm"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
+    <div className="fixed inset-0 z-[120] bg-black/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-150">
+      <div className="bg-white w-full max-w-2xl rounded-3xl border border-slate-200/90 shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+        
+        {/* TOP HEADER */}
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-gradient-to-r from-rose-50/70 via-white to-amber-50/50">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-rose-500 text-white flex items-center justify-center shadow-xs">
+              <Star className="w-5 h-5 fill-white text-white" />
+            </div>
+            <div>
+              <h3 className="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-1.5">
+                <span>Địa điểm thân quen & Đã từng ghé</span>
+                <span className="text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-extrabold">
+                  {allHistoryItems.length}
+                </span>
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                Chọn địa chỉ chụp nhiều ảnh hoặc đặt tên riêng cho góc kỷ niệm của 2 đứa
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => setFilterTab('all')}
-              className={`app-chip ${filterTab === 'all' ? 'app-chip-active' : ''}`}
+              onClick={() => handleOpenAddForm()}
+              className="h-9 px-3 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition cursor-pointer"
             >
-              Tất cả
+              <Plus className="w-3.5 h-3.5" />
+              <span>Đặt tên địa điểm</span>
             </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* SEARCH & FILTER CONTROLS */}
+        <div className="p-3.5 border-b border-slate-100 space-y-2.5 bg-slate-50/60 shrink-0">
+          {/* Search bar */}
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Tìm theo tên riêng, địa chỉ, quán quen, thành phố..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-400 shadow-2xs"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Filter Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setFilterTab('all')}
+              className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition cursor-pointer ${
+                filterTab === 'all'
+                  ? 'bg-slate-800 text-white shadow-2xs font-bold'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              Tất cả ({allHistoryItems.length})
+            </button>
+
             <button
               type="button"
               onClick={() => setFilterTab('saved')}
-              className={`app-chip ${filterTab === 'saved' ? 'app-chip-active' : ''}`}
+              className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition cursor-pointer flex items-center gap-1 ${
+                filterTab === 'saved'
+                  ? 'bg-rose-500 text-white shadow-2xs font-bold'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+              }`}
             >
-              <Star className="h-3 w-3" />
-              Đã lưu
+              <Star className="w-3 h-3 fill-current" />
+              <span>Đã đặt tên ({savedPlaces.length})</span>
             </button>
 
+            <button
+              type="button"
+              onClick={() => setFilterTab('photos')}
+              className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition cursor-pointer flex items-center gap-1 ${
+                filterTab === 'photos'
+                  ? 'bg-amber-500 text-white shadow-2xs font-bold'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <Camera className="w-3 h-3" />
+              <span>Nhiều ảnh nhất</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilterTab('recent')}
+              className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition cursor-pointer flex items-center gap-1 ${
+                filterTab === 'recent'
+                  ? 'bg-sky-500 text-white shadow-2xs font-bold'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <Clock className="w-3 h-3" />
+              <span>Gần đây nhất</span>
+            </button>
+
+            {/* If draft location exists, show quick-save prompt */}
             {currentDraftLocation && (currentDraftLocation.name || currentDraftLocation.lat) && (
               <button
                 type="button"
                 onClick={() => handleOpenAddForm(currentDraftLocation)}
-                className="app-chip ml-auto"
+                className="ml-auto px-2.5 py-1.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 whitespace-nowrap flex items-center gap-1 text-[11px] font-bold"
               >
-                Lưu vị trí này
+                <Sparkles className="w-3 h-3 text-rose-500" />
+                <span>Lưu vị trí đang chọn</span>
               </button>
             )}
           </div>
         </div>
 
-        <div className="flex-1 space-y-1 overflow-y-auto px-3 pb-3">
+        {/* LIST CONTENT */}
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-2.5 divide-y divide-slate-100">
           {filteredItems.length === 0 ? (
-            <div className="px-5 py-10 text-center">
-              <MapPin className="mx-auto h-6 w-6 text-slate-300" />
-              <p className="app-caption mt-2">Không có địa điểm</p>
+            <div className="p-10 text-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                <MapPin className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-700">Chưa tìm thấy địa điểm phù hợp</p>
+                <p className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
+                  Bạn có thể bấm "Đặt tên địa điểm" ở góc trên để tạo mới hoặc lưu tên riêng cho góc kỷ niệm của 2 bạn.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => handleOpenAddForm()}
-                className="app-button app-button-primary mt-4 inline-flex items-center gap-1.5"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"
               >
-                <Plus className="h-3.5 w-3.5" />
-                Thêm
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Đặt tên địa điểm mới</span>
               </button>
             </div>
           ) : (
@@ -390,199 +432,333 @@ export const SavedLocationSelectorModal: React.FC<SavedLocationSelectorModalProp
               <div
                 key={item.id}
                 onClick={() => handlePickItem(item)}
-                className="group flex cursor-pointer items-center gap-3 rounded-2xl px-3 py-2.5 transition hover:bg-slate-50"
+                className="pt-2.5 first:pt-0 group relative bg-white hover:bg-rose-50/40 p-3 rounded-2xl border border-slate-200/70 hover:border-rose-300 transition cursor-pointer shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-lg">
-                  {item.emoji || (item.isSaved ? '⭐' : '📍')}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="truncate text-sm font-semibold text-slate-800">
-                      {item.customNickname || item.name}
-                    </span>
-                    {item.isSaved && <Star className="h-3 w-3 shrink-0 fill-rose-400 text-rose-400" />}
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  {/* Emoji Avatar */}
+                  <div className="w-11 h-11 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-center text-2xl shrink-0 group-hover:scale-105 transition shadow-2xs">
+                    {item.emoji || (item.isSaved ? '⭐' : '📍')}
                   </div>
-                  <p className="truncate text-[11px] text-slate-400">
-                    {item.address || item.name}
-                  </p>
+
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                        {item.customNickname || item.name}
+                      </h4>
+                      {item.isSaved && (
+                        <span className="text-[10px] bg-rose-100 text-rose-700 px-1.5 py-0.2 rounded-md font-bold flex items-center gap-0.5">
+                          <Star className="w-2.5 h-2.5 fill-current" />
+                          Đã đặt tên
+                        </span>
+                      )}
+                      {item.photoCount >= 5 && (
+                        <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded-md font-bold flex items-center gap-0.5">
+                          <Flame className="w-2.5 h-2.5 text-amber-600" />
+                          Chụp nhiều ảnh ({item.photoCount})
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-[11px] text-slate-500 line-clamp-1 flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span className="truncate">{item.address || item.name}</span>
+                    </p>
+
+                    {/* Stats & Meta Chips */}
+                    <div className="flex items-center gap-2 flex-wrap text-[10px] text-slate-400 pt-0.5">
+                      {item.photoCount > 0 && (
+                        <span className="font-semibold text-slate-600 flex items-center gap-1">
+                          <Camera className="w-3 h-3 text-slate-400" />
+                          {item.photoCount} ảnh & video
+                        </span>
+                      )}
+
+                      {item.entryCount > 0 && (
+                        <span>· {item.entryCount} trang kỷ niệm</span>
+                      )}
+
+                      {item.lastVisited && (
+                        <span>· Ghé gần nhất: {formatDateShortVN(item.lastVisited)}</span>
+                      )}
+
+                      {item.lat && item.lng && (
+                        <span className="font-mono text-slate-400 bg-slate-100 px-1.5 py-0.2 rounded">
+                          GPS: {item.lat.toFixed(4)}, {item.lng.toFixed(4)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Sample images preview */}
+                    {item.sampleImages && item.sampleImages.length > 0 && (
+                      <div className="flex items-center gap-1.5 pt-1">
+                        {item.sampleImages.slice(0, 4).map((img, idx) => (
+                          <div key={idx} className="w-7 h-7 rounded-lg overflow-hidden border border-slate-200/80 bg-slate-100 shrink-0">
+                            <img src={img} alt="" className="w-full h-full object-cover" />
+                          </div>
+                        ))}
+                        {item.photoCount > 4 && (
+                          <span className="text-[9px] text-slate-400 font-bold ml-1">
+                            +{item.photoCount - 4} ảnh khác
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <div className="flex shrink-0 items-center gap-0.5">
-                  {item.isSaved ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          handleOpenAddForm(item);
-                        }}
-                        className="app-icon-button h-9 w-9"
-                        aria-label="Sửa"
-                      >
-                        <Edit3 className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(event) =>
-                          handleDeleteSavedPlace(item.savedPlaceId || item.id, event)
-                        }
-                        className="app-icon-button h-9 w-9 hover:bg-rose-50 hover:text-rose-500"
-                        aria-label="Xóa"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </>
-                  ) : (
+                {/* Right Action buttons */}
+                <div className="flex items-center gap-1.5 sm:self-center shrink-0 justify-end pt-1 sm:pt-0">
+                  {!item.isSaved ? (
                     <button
                       type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
+                      onClick={(e) => {
+                        e.stopPropagation();
                         handleOpenAddForm(item);
                       }}
-                      className="app-icon-button h-9 w-9"
-                      aria-label="Lưu"
+                      className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-[11px] font-bold border border-rose-200 flex items-center gap-1 transition"
+                      title="Đặt tên riêng & ghim địa điểm này"
                     >
-                      <Star className="h-3.5 w-3.5" />
+                      <Star className="w-3 h-3 text-rose-500" />
+                      <span>Đặt tên riêng</span>
                     </button>
+                  ) : (
+                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAddForm(item)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+                        title="Chỉnh sửa tên / địa chỉ"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteSavedPlace(item.savedPlaceId || item.id, e)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                        title="Xóa khỏi địa điểm đã lưu"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   )}
-                  <ChevronRight className="h-4 w-4 text-slate-300" />
+
+                  <button
+                    type="button"
+                    onClick={() => handlePickItem(item)}
+                    className="px-3 py-1.5 bg-rose-500 group-hover:bg-rose-600 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1 transition"
+                  >
+                    <span>Chọn</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
             ))
           )}
         </div>
 
-        {showAddForm && (
-          <div className="absolute inset-0 z-20 flex items-end bg-black/25 sm:items-center sm:justify-center sm:p-4">
-            <form
-              onSubmit={handleSavePlace}
-              className="w-full rounded-t-[24px] bg-white p-4 shadow-2xl sm:max-w-md sm:rounded-[24px]"
-            >
-              <div className="mb-4 flex items-center justify-between">
-                <h4 className="app-section-title">
-                  {editingPlaceId ? 'Sửa địa điểm' : 'Thêm địa điểm'}
-                </h4>
-                <button
-                  type="button"
-                  onClick={() => setShowAddForm(false)}
-                  className="app-icon-button h-9 w-9"
-                  aria-label="Đóng"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+        {/* BOTTOM FOOTER */}
+        <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 shrink-0">
+          <span>Nhấp vào bất kỳ địa điểm nào để điền tự động vào kỷ niệm.</span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-semibold hover:bg-slate-100 transition cursor-pointer"
+          >
+            Đóng
+          </button>
+        </div>
+      </div>
+
+      {/* NESTED FORM MODAL: ADD / EDIT SAVED PLACE */}
+      {showAddForm && (
+        <div className="fixed inset-0 z-[130] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <form
+            onSubmit={handleSavePlace}
+            className="bg-white w-full max-w-lg rounded-3xl border border-slate-200 shadow-2xl p-5 space-y-4 max-h-[92vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center font-bold">
+                  <Star className="w-4 h-4 fill-current" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800">
+                    {editingPlaceId ? 'Chỉnh sửa địa điểm thân quen' : 'Đặt tên riêng cho địa điểm'}
+                  </h4>
+                  <p className="text-[10px] text-slate-400">
+                    Lưu vào danh sách để chọn nhanh cho những lần chụp ảnh tiếp theo
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddForm(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Emoji & Nickname */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Tên riêng / Biệt danh địa điểm <span className="text-rose-500">*</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <div className="relative group">
+                  <span className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xl cursor-pointer">
+                    {formEmoji}
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  required
+                  placeholder="VD: Tổ ấm của chúng mình, Góc cafe quen, Nhà Dương, Nhà Chúc Gà, Chỗ tỏ tình..."
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  className="flex-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white"
+                />
               </div>
 
-              <div className="space-y-3">
-                <input
-                  autoFocus
-                  type="text"
-                  value={formName}
-                  onChange={(event) => setFormName(event.target.value)}
-                  placeholder="Tên địa điểm"
-                  className="app-control w-full px-3 text-sm"
-                />
+              {/* Quick Emojis */}
+              <div className="flex items-center gap-1.5 mt-2 overflow-x-auto pb-1 no-scrollbar">
+                <span className="text-[10px] text-slate-400 font-semibold shrink-0">Biểu tượng:</span>
+                {QUICK_EMOJIS.map((em) => (
+                  <button
+                    key={em}
+                    type="button"
+                    onClick={() => setFormEmoji(em)}
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm transition ${
+                      formEmoji === em ? 'bg-rose-100 border border-rose-300 scale-110' : 'hover:bg-slate-100'
+                    }`}
+                  >
+                    {em}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-                <input
-                  type="text"
-                  value={formAddress}
-                  onChange={(event) => setFormAddress(event.target.value)}
-                  placeholder="Địa chỉ"
-                  className="app-control w-full px-3 text-sm"
-                />
+            {/* Category */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Phân loại không gian
+              </label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {PLACE_CATEGORIES.map((cat) => {
+                  const Icon = cat.icon;
+                  const isSelected = formCategory === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setFormCategory(cat.id)}
+                      className={`p-2 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1.5 transition ${
+                        isSelected
+                          ? 'bg-rose-50 border-rose-300 text-rose-700 ring-1 ring-rose-300'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      <span>{cat.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
+            {/* Address */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Địa chỉ chi tiết <span className="text-[10px] text-slate-400">(Số nhà, Đường, Quận/Huyện, Tỉnh/TP)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="VD: 123 Đường Nguyễn Huệ, Quận 1, TP. Hồ Chí Minh..."
+                value={formAddress}
+                onChange={(e) => setFormAddress(e.target.value)}
+                className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white"
+              />
+            </div>
+
+            {/* GPS Coordinates */}
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                  <Crosshair className="w-3.5 h-3.5 text-rose-500" />
+                  Tọa độ GPS vị trí
+                </span>
                 <button
                   type="button"
                   onClick={handleFetchGPSForForm}
                   disabled={isLocatingGPS}
-                  className="app-button app-button-secondary inline-flex w-full items-center justify-center gap-1.5 disabled:opacity-50"
+                  className="text-[11px] text-sky-600 hover:text-sky-700 font-bold flex items-center gap-1 bg-sky-50 px-2.5 py-1 rounded-xl border border-sky-200"
                 >
-                  {isLocatingGPS ? (
-                    <Navigation className="h-4 w-4 animate-pulse" />
-                  ) : (
-                    <Crosshair className="h-4 w-4" />
-                  )}
-                  Vị trí hiện tại
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowAdvancedPlaceForm((value) => !value)}
-                  className="text-xs font-semibold text-slate-500"
-                >
-                  {showAdvancedPlaceForm ? 'Ẩn tùy chọn' : 'Tùy chọn'}
-                </button>
-
-                {showAdvancedPlaceForm && (
-                  <div className="space-y-3 rounded-2xl bg-slate-50 p-3">
-                    <div className="flex flex-wrap gap-1.5">
-                      {QUICK_EMOJIS.map((emoji) => (
-                        <button
-                          key={emoji}
-                          type="button"
-                          onClick={() => setFormEmoji(emoji)}
-                          className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                            formEmoji === emoji ? 'bg-rose-100 ring-1 ring-rose-200' : 'bg-white'
-                          }`}
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {PLACE_CATEGORIES.map((category) => {
-                        const Icon = category.icon;
-                        const selected = formCategory === category.id;
-                        return (
-                          <button
-                            key={category.id}
-                            type="button"
-                            onClick={() => setFormCategory(category.id)}
-                            className={`rounded-xl px-2 py-2 text-[11px] font-semibold ${
-                              selected
-                                ? 'bg-rose-50 text-rose-700'
-                                : 'bg-white text-slate-500'
-                            }`}
-                          >
-                            <Icon className="mx-auto mb-1 h-3.5 w-3.5" />
-                            {category.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <textarea
-                      rows={2}
-                      value={formNotes}
-                      onChange={(event) => setFormNotes(event.target.value)}
-                      placeholder="Ghi chú"
-                      className="app-control w-full resize-none px-3 py-2 text-sm"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-4 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddForm(false)}
-                  className="app-button app-button-secondary flex-1"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving || !formName.trim()}
-                  className="app-button app-button-primary flex-[1.2] disabled:opacity-40"
-                >
-                  {isSaving ? 'Đang lưu' : 'Lưu'}
+                  <Navigation className="w-3 h-3" />
+                  <span>{isLocatingGPS ? 'Đang đọc GPS...' : 'Lấy GPS hiện tại'}</span>
                 </button>
               </div>
-            </form>
-          </div>
-        )}
-      </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-slate-500 font-semibold block mb-0.5">Vĩ độ (Lat)</label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    placeholder="21.028511"
+                    value={formLat !== undefined ? formLat : ''}
+                    onChange={(e) => setFormLat(e.target.value ? parseFloat(e.target.value) : undefined)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-500 font-semibold block mb-0.5">Kinh độ (Lng)</label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    placeholder="105.854444"
+                    value={formLng !== undefined ? formLng : ''}
+                    onChange={(e) => setFormLng(e.target.value ? parseFloat(e.target.value) : undefined)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-800"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Ghi chú riêng của 2 đứa <span className="text-[10px] text-slate-400">(Không bắt buộc)</span>
+              </label>
+              <textarea
+                rows={2}
+                placeholder="VD: Quán cafe hẹn hò đầu tiên, nơi chụp bộ ảnh kỷ niệm mùa thu..."
+                value={formNotes}
+                onChange={(e) => setFormNotes(e.target.value)}
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white"
+              />
+            </div>
+
+            {/* Form Actions */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowAddForm(false)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="px-5 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>{isSaving ? 'Đang lưu...' : 'Lưu địa điểm'}</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 };
