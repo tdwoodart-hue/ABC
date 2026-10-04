@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { JournalEntry, UserProfile, CoupleData } from '../../types';
 import { formatDateShortVN } from '../../utils/formatDate';
 import { JournalMusicPlayer } from '../JournalMusicPlayer';
@@ -6,13 +6,13 @@ import { JournalVoiceMemoPlayer } from './JournalVoiceMemoPlayer';
 import { JournalMediaGallery } from './JournalMediaGallery';
 import { JournalComments } from './JournalComments';
 import {
-  Calendar,
   MapPin,
   ExternalLink,
   Users,
   Edit3,
   Eye,
   Trash2,
+  MoreHorizontal,
   AlertTriangle,
   Check,
   X,
@@ -172,6 +172,32 @@ export const JournalCard: React.FC<JournalCardProps> = ({
         : [];
 
   const isAuthor = item.authorUid === userProfile.uid;
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const actionsRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!actionsOpen) return;
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      if (!actionsRef.current?.contains(event.target as Node)) {
+        setActionsOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActionsOpen(false);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [actionsOpen]);
 
   return (
     <article
@@ -203,43 +229,64 @@ export const JournalCard: React.FC<JournalCardProps> = ({
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-0.5">
-          {!singlePostView && (
-            <button
-              type="button"
-              onClick={() => onOpenPost(item)}
-              className="app-icon-button h-9 w-9"
-              aria-label="Mở bài viết"
-              title="Mở bài viết"
-            >
-              <Eye className="h-4 w-4" />
-            </button>
-          )}
+        <div ref={actionsRef} className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setActionsOpen((value) => !value)}
+            className="app-icon-button h-9 w-9"
+            aria-label="Tùy chọn bài viết"
+            aria-expanded={actionsOpen}
+            title="Tùy chọn"
+          >
+            <MoreHorizontal className="h-4.5 w-4.5" />
+          </button>
 
-          {isAuthor && (
-            <button
-              id={`btn-edit-journal-${item.id}`}
-              type="button"
-              onClick={() => onStartEdit(item)}
-              className="app-icon-button h-9 w-9"
-              aria-label="Sửa bài viết"
-              title="Sửa bài viết"
-            >
-              <Edit3 className="h-4 w-4" />
-            </button>
-          )}
+          {actionsOpen && (
+            <div className="absolute right-0 top-10 z-30 min-w-[148px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-lg">
+              {!singlePostView && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActionsOpen(false);
+                    onOpenPost(item);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  Xem
+                </button>
+              )}
 
-          {!item.deleteRequest && (
-            <button
-              id={`btn-delete-req-${item.id}`}
-              type="button"
-              onClick={() => onRequestDelete(item)}
-              className="app-icon-button h-9 w-9 hover:bg-rose-50 hover:text-rose-500"
-              aria-label="Xóa bài viết"
-              title="Xóa bài viết"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+              {isAuthor && (
+                <button
+                  id={`btn-edit-journal-${item.id}`}
+                  type="button"
+                  onClick={() => {
+                    setActionsOpen(false);
+                    onStartEdit(item);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  <Edit3 className="h-3.5 w-3.5" />
+                  Sửa
+                </button>
+              )}
+
+              {!item.deleteRequest && (
+                <button
+                  id={`btn-delete-req-${item.id}`}
+                  type="button"
+                  onClick={() => {
+                    setActionsOpen(false);
+                    onRequestDelete(item);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Xóa
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>

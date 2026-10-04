@@ -298,43 +298,39 @@ const DailyMetricsCard: React.FC<DailyMetricsCardProps> = ({
   stepTarget,
   onSave,
 }) => {
-  const [steps, setSteps] = useState(metric?.steps === undefined ? '' : String(metric.steps));
-  const [weight, setWeight] = useState(metric?.weightKg === undefined ? '' : String(metric.weightKg));
+  const [steps, setSteps] = useState(
+    metric?.steps === undefined ? '' : String(metric.steps)
+  );
+  const [weight, setWeight] = useState(
+    metric?.weightKg === undefined ? '' : String(metric.weightKg)
+  );
 
   useEffect(() => {
     setSteps(metric?.steps === undefined ? '' : String(metric.steps));
-    setWeight(metric?.weightKg === undefined ? '' : String(metric.weightKg));
+    setWeight(
+      metric?.weightKg === undefined ? '' : String(metric.weightKg)
+    );
   }, [metric?.date, metric?.steps, metric?.weightKg]);
 
   const stepsValue = Number(steps) || 0;
-  const weightValue = weight === '' ? undefined : Number(weight);
+  const weightValue =
+    weight === '' ? undefined : Number(weight);
   const weightDelta =
-    weightValue !== undefined && Number.isFinite(weightValue) && previousWeight !== undefined
+    weightValue !== undefined &&
+    Number.isFinite(weightValue) &&
+    previousWeight !== undefined
       ? weightValue - previousWeight
       : null;
 
   return (
-    <section className="rounded-[24px] border border-rose-100/80 bg-white p-5 shadow-xs">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-bold text-slate-900">Hoạt động & cơ thể</h2>
-          
-        </div>
-        
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl border border-rose-100/70 bg-rose-50/25 p-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 text-xs font-bold text-slate-700">
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-white text-rose-500 shadow-xs">
-                <Footprints className="h-4 w-4" />
-              </span>
-              Số bước
-            </span>
-            <span className="text-[10px] font-semibold text-slate-400">Mục tiêu {number.format(stepTarget)}</span>
-          </div>
-          <div className="flex items-end gap-2">
+    <section className="app-card p-4">
+      <div className="grid grid-cols-2 divide-x divide-slate-100">
+        <label className="min-w-0 pr-4">
+          <span className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+            <Footprints className="h-3.5 w-3.5" />
+            Bước
+          </span>
+          <div className="flex items-end gap-1.5">
             <input
               type="number"
               min="0"
@@ -342,36 +338,37 @@ const DailyMetricsCard: React.FC<DailyMetricsCardProps> = ({
               inputMode="numeric"
               value={steps}
               onChange={(event) => setSteps(event.target.value)}
-              onBlur={() => onSave({ steps: steps === '' ? undefined : Math.max(0, Number(steps) || 0) })}
+              onBlur={() =>
+                onSave({
+                  steps:
+                    steps === ''
+                      ? undefined
+                      : Math.max(0, Number(steps) || 0),
+                })
+              }
               placeholder="0"
-              className="min-w-0 flex-1 bg-transparent text-2xl font-extrabold tracking-tight tabular-nums text-slate-900 outline-none placeholder:text-slate-300"
+              className="min-w-0 flex-1 bg-transparent text-lg font-bold tabular-nums text-slate-900 outline-none placeholder:text-slate-300"
             />
-            <span className="pb-1 text-xs font-semibold text-slate-400">bước</span>
-          </div>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-rose-100/80">
-            <div
-              className="h-full rounded-full bg-rose-500 transition-all duration-300"
-              style={{ width: `${clampPercent(stepsValue, stepTarget)}%` }}
-            />
-          </div>
-          <p className="mt-2 text-[10px] font-medium text-slate-400">
-            {stepsValue >= stepTarget
-              ? 'Đã đạt mục tiêu vận động hôm nay'
-              : `Còn ${number.format(Math.max(0, stepTarget - stepsValue))} bước`}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-rose-100/70 bg-rose-50/25 p-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 text-xs font-bold text-slate-700">
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-white text-rose-500 shadow-xs">
-                <Scale className="h-4 w-4" />
-              </span>
-              Cân nặng
+            <span className="pb-0.5 text-[10px] text-slate-400">
+              / {number.format(stepTarget)}
             </span>
-            <span className="text-[10px] font-semibold text-slate-400">Buổi sáng</span>
           </div>
-          <div className="flex items-end gap-2">
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full bg-rose-500"
+              style={{
+                width: `${clampPercent(stepsValue, stepTarget)}%`,
+              }}
+            />
+          </div>
+        </label>
+
+        <label className="min-w-0 pl-4">
+          <span className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+            <Scale className="h-3.5 w-3.5" />
+            Cân nặng
+          </span>
+          <div className="flex items-end gap-1.5">
             <input
               type="number"
               min="20"
@@ -380,29 +377,29 @@ const DailyMetricsCard: React.FC<DailyMetricsCardProps> = ({
               inputMode="decimal"
               value={weight}
               onChange={(event) => setWeight(event.target.value)}
-              onBlur={() => onSave({ weightKg: weight === '' ? undefined : Math.max(0, Number(weight) || 0) })}
-              placeholder="65.5"
-              className="min-w-0 flex-1 bg-transparent text-2xl font-extrabold tracking-tight tabular-nums text-slate-900 outline-none placeholder:text-slate-300"
+              onBlur={() =>
+                onSave({
+                  weightKg:
+                    weight === ''
+                      ? undefined
+                      : Math.max(0, Number(weight) || 0),
+                })
+              }
+              placeholder="—"
+              className="min-w-0 flex-1 bg-transparent text-lg font-bold tabular-nums text-slate-900 outline-none placeholder:text-slate-300"
             />
-            <span className="pb-1 text-xs font-semibold text-slate-400">kg</span>
+            <span className="pb-0.5 text-[10px] text-slate-400">
+              kg
+            </span>
           </div>
-          <p
-            className={`mt-3 text-[10px] font-semibold ${
-              weightDelta === null
-                ? 'text-slate-400'
-                : Math.abs(weightDelta) < 0.05
-                  ? 'text-slate-500'
-                  : weightDelta < 0
-                    ? 'text-emerald-600'
-                    : 'text-amber-600'
-            }`}
-          >
+          <p className="mt-2 truncate text-[10px] text-slate-400">
             {weightDelta === null
-              ? 'Chưa có lần cân trước để so sánh'
-              : `${weightDelta > 0 ? '+' : ''}${decimal.format(weightDelta)} kg so với lần cân trước`}
+              ? 'Chưa có so sánh'
+              : `${weightDelta > 0 ? '+' : ''}${decimal.format(
+                  weightDelta
+                )} kg`}
           </p>
-          
-        </div>
+        </label>
       </div>
     </section>
   );
@@ -1097,22 +1094,37 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
 
   return (
     <div className="mx-auto min-w-0 w-full max-w-3xl overflow-x-hidden pb-16">
-      <div className="mb-5 flex items-center justify-between gap-3 border-b border-rose-100/70 pb-4">
-        <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Dinh dưỡng</h1>
-          
-        </div>
-        <button type="button" onClick={() => setSettingsOpen(true)} className="grid h-11 w-11 place-items-center rounded-2xl border border-rose-100 bg-white text-slate-600 shadow-xs transition hover:bg-rose-50 active:scale-95" aria-label="Cài đặt chỉ số dinh dưỡng" title="Sửa mục tiêu, TDEE, BMR và macro">
-          <Settings2 className="h-4.5 w-4.5" />
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h1 className="app-page-title">Dinh dưỡng</h1>
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          className="app-icon-button h-10 w-10 border border-[var(--app-border)] bg-white"
+          aria-label="Cài đặt dinh dưỡng"
+          title="Cài đặt"
+        >
+          <Settings2 className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="mb-4 grid grid-cols-2 rounded-2xl border border-rose-100 bg-white p-1 shadow-xs">
-        <button type="button" onClick={() => setMode('day')} className={`h-10 rounded-xl text-xs font-bold transition ${mode === 'day' ? 'bg-rose-500 text-white shadow-xs' : 'text-slate-500 hover:bg-rose-50'}`}>Trong ngày</button>
-        <button type="button" onClick={() => setMode('week')} className={`h-10 rounded-xl text-xs font-bold transition ${mode === 'week' ? 'bg-rose-500 text-white shadow-xs' : 'text-slate-500 hover:bg-rose-50'}`}>Trong tuần</button>
+      <div className="app-segmented mb-3 grid grid-cols-2 gap-1">
+        <button
+          type="button"
+          onClick={() => setMode('day')}
+          className={`app-segmented-item ${mode === 'day' ? 'app-segmented-item-active' : ''}`}
+        >
+          Ngày
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('week')}
+          className={`app-segmented-item ${mode === 'week' ? 'app-segmented-item-active' : ''}`}
+        >
+          Tuần
+        </button>
       </div>
 
-      <div className="mb-4 flex items-center justify-between rounded-2xl border border-rose-100 bg-white p-2 shadow-xs">
+      <div className="mb-3 flex items-center justify-between px-1 py-1">
         <button type="button" onClick={() => moveDate(mode === 'day' ? -1 : -7)} className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 hover:bg-rose-50 hover:text-rose-600"><ChevronLeft className="h-5 w-5" /></button>
         <button type="button" onClick={() => setSelectedDate(toIso(new Date()))} className="min-w-0 rounded-xl px-3 py-1 text-center hover:bg-rose-50/50">
           {mode === 'day' ? (
@@ -1132,7 +1144,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
 
       {mode === 'day' ? (
         <div className="space-y-4">
-          <section className="overflow-hidden rounded-[24px] border border-rose-100/80 bg-white p-5 shadow-xs sm:p-6">
+          <section className="app-card p-5 sm:p-6">
             <div className="flex items-center gap-5">
               <div className="grid h-28 w-28 shrink-0 place-items-center rounded-full p-2" style={{ background: `conic-gradient(rgb(244 63 94) ${caloriePercent * 3.6}deg, rgb(255 228 230) 0deg)` }}>
                 <div className="grid h-full w-full place-items-center rounded-full bg-white text-center">
@@ -1143,7 +1155,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
                 </div>
               </div>
               <div className="min-w-0 flex-1 rounded-2xl p-2">
-                <p className="text-xs font-semibold text-rose-300">Mục tiêu hôm nay</p>
+                <p className="text-[11px] font-semibold text-slate-400">Mục tiêu</p>
                 <div className="mt-1 flex items-end gap-1.5">
                   <span className="text-3xl font-extrabold tracking-tight tabular-nums text-slate-900">{number.format(profile.calorieTarget)}</span>
                   <span className="pb-1 text-xs font-semibold text-slate-400">kcal</span>
@@ -1151,18 +1163,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
                 <p className={`mt-2 text-xs font-semibold ${caloriesLeft >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{caloriesLeft >= 0 ? `Còn ${number.format(caloriesLeft)} kcal` : `Vượt ${number.format(Math.abs(caloriesLeft))} kcal`}</p>
               </div>
             </div>
-            <div className="mt-5 grid grid-cols-2 gap-2.5 border-t border-rose-50 pt-4">
-              <div className="rounded-xl bg-rose-50/45 px-3 py-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-300">TDEE</p>
-                <p className="mt-1 text-base font-bold tabular-nums text-slate-800">{number.format(tdee)} kcal</p>
-                
-              </div>
-              <div className="rounded-xl bg-rose-50/45 px-3 py-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-300">BMR</p>
-                <p className="mt-1 text-base font-bold tabular-nums text-slate-800">{number.format(bmr)} kcal</p>
-                
-              </div>
-            </div>
+
           </section>
 
           <DailyMetricsCard
@@ -1172,13 +1173,13 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
             onSave={(updates) => void saveMetric(updates)}
           />
 
-          <section className="rounded-[24px] border border-rose-100/80 bg-white p-5 shadow-xs">
+          <section className="app-card p-5">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-900">Macro</h2>
                 
               </div>
-              <span className="rounded-lg bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-600">
+              <span className="text-[10px] font-semibold text-slate-400">
                 {profile.proteinTarget}P · {profile.carbTarget}C · {profile.fatTarget}F
               </span>
             </div>
@@ -1189,20 +1190,20 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
             </div>
           </section>
 
-          <section className="rounded-[24px] border border-rose-100/80 bg-white p-4 shadow-xs sm:p-5">
+          <section className="app-card p-4 sm:p-5">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-900">Bữa ăn</h2>
                 
               </div>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={() => setLibraryOpen(true)} className="flex h-9 items-center gap-1.5 rounded-xl border border-rose-100 bg-white px-3 text-[11px] font-bold text-slate-600 hover:bg-rose-50"><Database className="h-3.5 w-3.5" /> Kho món</button>
-                <button type="button" onClick={() => { setPresetMeal(null); setEditingMeal(null); setAddOpen(true); }} className="flex h-9 items-center gap-1.5 rounded-xl bg-rose-500 px-3.5 text-xs font-bold text-white shadow-xs hover:bg-rose-600 active:scale-95"><Plus className="h-4 w-4" /> Thêm</button>
+                <button type="button" onClick={() => setLibraryOpen(true)} className="app-button app-button-secondary inline-flex min-h-9 items-center gap-1.5 px-3 py-1.5"><Database className="h-3.5 w-3.5" /> Kho</button>
+                <button type="button" onClick={() => { setPresetMeal(null); setEditingMeal(null); setAddOpen(true); }} className="app-button app-button-primary inline-flex min-h-9 items-center gap-1.5 px-3 py-1.5"><Plus className="h-4 w-4" /> Thêm</button>
               </div>
             </div>
 
             {dayEntries.length === 0 ? (
-              <button type="button" onClick={() => setAddOpen(true)} className="flex w-full flex-col items-center justify-center rounded-2xl border border-dashed border-rose-100 bg-rose-50/20 px-4 py-8 text-center hover:bg-rose-50/40">
+              <button type="button" onClick={() => setAddOpen(true)} className="flex w-full flex-col items-center justify-center rounded-2xl bg-slate-50 px-4 py-7 text-center hover:bg-slate-100">
                 <span className="mb-2 grid h-10 w-10 place-items-center rounded-2xl bg-white text-rose-400 shadow-xs"><UtensilsCrossed className="h-4.5 w-4.5" /></span>
                 <span className="text-xs font-bold text-slate-600">Chưa ghi bữa ăn nào</span>
                 
@@ -1210,10 +1211,10 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
             ) : (
               <div className="space-y-3">
                 {mealGroups.map((group) => (
-                  <div key={group.mealType} className="overflow-hidden rounded-2xl border border-rose-100/70 bg-rose-50/20">
-                    <div className="flex items-center justify-between gap-3 border-b border-rose-50 bg-white/80 px-3.5 py-2.5">
+                  <div key={group.mealType} className="overflow-hidden rounded-2xl bg-slate-50/70">
+                    <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
                       <div className="flex items-center gap-2">
-                        <span className="grid h-7 w-7 place-items-center rounded-lg bg-rose-50 text-rose-500"><UtensilsCrossed className="h-3.5 w-3.5" /></span>
+                        <span className="grid h-7 w-7 place-items-center rounded-lg bg-white text-slate-500"><UtensilsCrossed className="h-3.5 w-3.5" /></span>
                         <div>
                           <p className="text-[11px] font-extrabold text-slate-800">{MEAL_LABELS[group.mealType]}</p>
                           <p className="text-[9px] font-medium text-slate-400">{group.entries.length} món</p>
@@ -1221,7 +1222,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
                       </div>
                       <p className="text-[11px] font-extrabold tabular-nums text-slate-700">{number.format(Math.round(group.totals.calories))} kcal</p>
                     </div>
-                    <div className="divide-y divide-rose-50">
+                    <div className="divide-y divide-white">
                       {group.entries.map((entry) => (
                         <div key={entry.id} className="flex min-w-0 items-center gap-3 px-3.5 py-2.5">
                           <div className="min-w-0 flex-1">
@@ -1246,27 +1247,24 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
         </div>
       ) : (
         <div className="space-y-4">
-          <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <section className="app-card grid grid-cols-3 divide-x divide-slate-100 p-3">
             {[
-              ['TB calories', number.format(Math.round(avgCalories)), 'kcal/ngày'],
-              ['TB protein', number.format(Math.round(avgProtein)), 'g/ngày'],
-              ['TB steps', stepRows.length ? number.format(Math.round(avgSteps)) : '—', 'bước/ngày'],
-              ['TB cân nặng', weightRows.length ? decimal.format(avgWeight) : '—', 'kg'],
-              ['Ngày ghi ăn', `${loggedDays}/7`, 'ngày'],
-              ['Mục tiêu', number.format(profile.calorieTarget), 'kcal/ngày'],
+              ['TB kcal', number.format(Math.round(avgCalories)), 'kcal'],
+              ['Đã ghi', `${loggedDays}/7`, 'ngày'],
+              ['Cân nặng', weightRows.length ? decimal.format(avgWeight) : '—', 'kg'],
             ].map(([label, value, sub]) => (
-              <div key={label} className="rounded-2xl border border-rose-100/80 bg-white p-3.5 text-left shadow-xs">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-300">{label}</p>
-                <p className="mt-1.5 text-xl font-extrabold tabular-nums text-slate-900">{value}</p>
-                <p className="mt-0.5 text-[10px] font-medium text-slate-400">{sub}</p>
+              <div key={label} className="min-w-0 px-2 text-center">
+                <p className="text-[10px] font-semibold text-slate-400">{label}</p>
+                <p className="mt-1 truncate text-lg font-bold tabular-nums text-slate-900">{value}</p>
+                <p className="text-[10px] text-slate-400">{sub}</p>
               </div>
             ))}
           </section>
 
-          <section className="rounded-[24px] border border-rose-100/80 bg-white p-5 shadow-xs">
+          <section className="app-card p-5">
             <div className="mb-5">
               <h2 className="text-sm font-bold text-slate-900">Calories 7 ngày</h2>
-              <p className="mt-0.5 text-[11px] text-slate-400">Mục tiêu {number.format(profile.calorieTarget)} kcal/ngày</p>
+              
             </div>
             <div className="flex h-44 items-end gap-2 sm:gap-3">
               {weekRows.map((row) => {
@@ -1286,9 +1284,9 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
             </div>
           </section>
 
-          <section className="rounded-[24px] border border-rose-100/80 bg-white p-5 shadow-xs">
+          <section className="app-card p-5">
             <div className="mb-4">
-              <h2 className="text-sm font-bold text-slate-900">Steps & cân nặng 7 ngày</h2>
+              <h2 className="text-sm font-bold text-slate-900">Hoạt động 7 ngày</h2>
               
             </div>
             <div className="space-y-2">
@@ -1311,13 +1309,13 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
             </div>
           </section>
 
-          <section className="rounded-[24px] border border-rose-100/80 bg-white p-5 shadow-xs">
+          <section className="app-card p-5">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-900">Macro trung bình</h2>
                 
               </div>
-              <span className="rounded-lg bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-500">TDEE {number.format(tdee)}</span>
+              
             </div>
             <div className="space-y-4">
               <ProgressRow label="Protein" value={loggedDays ? weekTotals.protein / loggedDays : 0} target={profile.proteinTarget} icon={Beef} />
