@@ -191,550 +191,403 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   };
 
   return (
-    <div className="space-y-4 pb-12 max-w-4xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2">
-        <div>
-          <h2 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2">
-            <UserIcon className="w-5 h-5 text-rose-500 shrink-0" />
-            <span>Tài Khoản & Hồ Sơ Đôi</span>
-          </h2>
-        </div>
+    <div className="mx-auto max-w-4xl space-y-4 pb-12">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="app-page-title">Hồ sơ</h2>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onEditProfile}
-            className="px-3.5 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-            <span>Chỉnh sửa thông tin</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onEditProfile}
+          className="app-button app-button-primary inline-flex items-center gap-1.5"
+        >
+          <Edit3 className="h-4 w-4" />
+          Sửa
+        </button>
       </div>
 
-      {/* 2-Column User & Partner Identification Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* 1. MY PROFILE CARD */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-3 relative overflow-hidden group">
-          <div className="flex items-center justify-between">
-            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200">
-              {userProfile.displayName || 'Tài khoản của bạn'}
-            </span>
-
-            <button
-              type="button"
-              onClick={() =>
-                onOpenAvatar(
-                  userProfile.uid,
-                  userProfile.displayName,
-                  myAvatar,
-                  isU1 ? 'user1' : 'user2'
-                )
-              }
-              className="text-[11px] text-slate-500 hover:text-rose-600 font-semibold flex items-center gap-1 cursor-pointer transition"
+      <section className="app-card overflow-hidden">
+        <div className="grid sm:grid-cols-2 sm:divide-x sm:divide-slate-100">
+          {[
+            {
+              uid: userProfile.uid,
+              name: userProfile.displayName,
+              avatar: myAvatar,
+              slot: (isU1 ? 'user1' : 'user2') as 'user1' | 'user2',
+              phone: myPhone,
+              birthday: myBirthday,
+              email: userProfile.email,
+            },
+            {
+              uid: partnerUid,
+              name: partnerName,
+              avatar: partnerAvatar,
+              slot: (isU1 ? 'user2' : 'user1') as 'user1' | 'user2',
+              phone: partnerPhone,
+              birthday: partnerBirthday,
+              email: '',
+            },
+          ].map((person, index) => (
+            <div
+              key={person.uid || person.name}
+              className={`flex items-center gap-3 p-4 ${index === 1 ? 'border-t border-slate-100 sm:border-t-0' : ''}`}
             >
-              <Camera className="w-3.5 h-3.5" />
-              <span>Đổi ảnh</span>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3 pt-0.5">
-            <div className="relative shrink-0">
               <button
                 type="button"
                 onClick={() =>
                   onOpenAvatar(
-                    userProfile.uid,
-                    userProfile.displayName,
-                    myAvatar,
-                    isU1 ? 'user1' : 'user2'
+                    person.uid,
+                    person.name,
+                    person.avatar,
+                    person.slot
                   )
                 }
-                className="w-12 h-12 rounded-full border border-rose-200 p-0.5 overflow-hidden block bg-white shadow-2xs cursor-pointer hover:opacity-90 transition"
-                title="Bấm để đổi avatar"
+                className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-slate-100"
+                aria-label={`Đổi ảnh ${person.name}`}
               >
                 <img
-                  src={myAvatar}
-                  alt={userProfile.displayName}
-                  className="w-full h-full object-cover rounded-full"
+                  src={person.avatar}
+                  alt={person.name}
+                  className="h-full w-full object-cover"
                 />
+                <span className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded-full bg-slate-900/75 text-white">
+                  <Camera className="h-2.5 w-2.5" />
+                </span>
               </button>
 
-              <button
-                type="button"
-                onClick={() =>
-                  onOpenAvatar(
-                    userProfile.uid,
-                    userProfile.displayName,
-                    myAvatar,
-                    isU1 ? 'user1' : 'user2'
-                  )
-                }
-                className="absolute -bottom-0.5 -right-0.5 w-4.5 h-4.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full flex items-center justify-center shadow-xs cursor-pointer transition"
-              >
-                <Camera className="w-2.5 h-2.5" />
-              </button>
+              <div className="min-w-0 flex-1">
+                <h3 className="truncate text-sm font-semibold text-slate-900">
+                  {person.name}
+                </h3>
+                {person.email && (
+                  <p className="mt-0.5 truncate text-[10px] text-slate-400">
+                    {person.email}
+                  </p>
+                )}
+                <p className="mt-1 truncate text-[11px] text-slate-500">
+                  {person.phone || 'Chưa có SĐT'} · {formatDateVN(person.birthday)}
+                </p>
+              </div>
             </div>
+          ))}
+        </div>
+      </section>
 
-            <div className="min-w-0 flex-1">
-              <h3 className="text-sm sm:text-base font-bold text-slate-800 truncate">
-                {userProfile.displayName}
-              </h3>
-              <p className="text-[11px] text-slate-400 truncate">
-                {userProfile.email}
-              </p>
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-slate-100 space-y-1.5 text-xs text-slate-600">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-slate-500">
-                <Phone className="w-3.5 h-3.5 text-emerald-500" /> SĐT:
-              </span>
-              <span className="font-mono font-medium text-slate-800">
-                {myPhone || 'Chưa cập nhật'}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-slate-500">
-                <Cake className="w-3.5 h-3.5 text-amber-500" /> Sinh nhật:
-              </span>
-              <span className="font-medium text-slate-800">
-                {formatDateVN(myBirthday)}
-              </span>
-            </div>
-          </div>
+      <section className="app-card overflow-hidden">
+        <div className="px-4 py-3">
+          <h3 className="app-section-title">Hai đứa</h3>
         </div>
 
-        {/* 2. PARTNER PROFILE CARD */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-3 relative overflow-hidden group">
-          <div className="flex items-center justify-between">
-            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-              {partnerName || 'Nửa kia'}
-            </span>
-
-            <button
-              type="button"
-              onClick={() =>
-                onOpenAvatar(
-                  partnerUid,
-                  partnerName,
-                  partnerAvatar,
-                  isU1 ? 'user2' : 'user1'
-                )
-              }
-              className="text-[11px] text-slate-500 hover:text-slate-700 font-semibold flex items-center gap-1 cursor-pointer transition"
-            >
-              <Camera className="w-3.5 h-3.5" />
-              <span>Đổi ảnh</span>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3 pt-0.5">
-            <div className="relative shrink-0">
-              <button
-                type="button"
-                onClick={() =>
-                  onOpenAvatar(
-                    partnerUid,
-                    partnerName,
-                    partnerAvatar,
-                    isU1 ? 'user2' : 'user1'
-                  )
-                }
-                className="w-12 h-12 rounded-full border border-slate-200 p-0.5 overflow-hidden block bg-white shadow-2xs cursor-pointer hover:opacity-90 transition"
-                title="Bấm để đổi avatar"
-              >
-                <img
-                  src={partnerAvatar}
-                  alt={partnerName}
-                  className="w-full h-full object-cover rounded-full"
-                />
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  onOpenAvatar(
-                    partnerUid,
-                    partnerName,
-                    partnerAvatar,
-                    isU1 ? 'user2' : 'user1'
-                  )
-                }
-                className="absolute -bottom-0.5 -right-0.5 w-4.5 h-4.5 bg-slate-700 hover:bg-slate-800 text-white rounded-full flex items-center justify-center shadow-xs cursor-pointer transition"
-              >
-                <Camera className="w-2.5 h-2.5" />
-              </button>
+        <div className="divide-y divide-slate-100 px-4">
+          <div className="flex items-center justify-between gap-3 py-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <Calendar className="h-4 w-4 shrink-0 text-slate-400" />
+              <span className="text-xs text-slate-500">Kỷ niệm</span>
             </div>
-
-            <div className="min-w-0 flex-1">
-              <h3 className="text-sm sm:text-base font-bold text-slate-800 truncate">
-                {partnerName}
-              </h3>
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-slate-100 space-y-1.5 text-xs text-slate-600">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-slate-500">
-                <Phone className="w-3.5 h-3.5 text-emerald-500" /> SĐT:
-              </span>
-              <span className="font-mono font-medium text-slate-800">
-                {partnerPhone || 'Chưa cập nhật'}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-slate-500">
-                <Cake className="w-3.5 h-3.5 text-amber-500" /> Sinh nhật:
-              </span>
-              <span className="font-medium text-slate-800">
-                {formatDateVN(partnerBirthday)}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Detailed Couple & Living Information */}
-      <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
-        <h3 className="text-sm font-bold text-slate-800 pb-2 border-b border-slate-100 flex items-center justify-between">
-          <span>Thông Tin Chung & Hẹn Hò</span>
-        </h3>
-
-        <div className="space-y-3 text-xs">
-          <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-            <span className="text-slate-500 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-rose-500" />
-              Ngày kỷ niệm yêu nhau:
-            </span>
-            <span className="font-bold text-rose-600">
+            <span className="shrink-0 text-xs font-semibold text-slate-800">
               {formatDateVN(coupleData?.anniversaryDate)}
             </span>
           </div>
 
-          {/* Address */}
-          <div className="py-1.5 border-b border-slate-100 space-y-1.5">
-            <div className="flex items-start justify-between">
-              <span className="text-slate-500 flex items-center gap-1.5 shrink-0">
-                <MapPin className="w-3.5 h-3.5 text-sky-500" />
-                Địa chỉ / Nơi ở:
-              </span>
-
-              <span className="font-medium text-slate-800 text-right">
-                {coupleData?.address ? (
-                  <>
-                    {coupleData.address}
-                    {coupleData.city && (
-                      <span className="block text-[11px] text-slate-400">
-                        {coupleData.city}
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <span className="text-slate-400 italic">Chưa cập nhật</span>
-                )}
-              </span>
+          <div className="flex items-start justify-between gap-3 py-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+              <div className="min-w-0">
+                <p className="text-xs text-slate-500">Nơi ở</p>
+                <p className="mt-0.5 line-clamp-2 text-xs font-medium text-slate-800">
+                  {(coupleData?.address || coupleData?.city)
+                    ? [coupleData?.address, coupleData?.city].filter(Boolean).join(', ')
+                    : 'Chưa cập nhật'}
+                </p>
+              </div>
             </div>
 
             {(coupleData?.address || coupleData?.city) && (
-              <div className="pt-1 flex justify-end">
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                    (
-                      (coupleData.address || '') +
-                      ' ' +
-                      (coupleData.city || '')
-                    ).trim()
-                  )}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-sky-50 hover:bg-sky-100 text-sky-600 rounded-lg text-[11px] font-semibold border border-sky-200/60 transition cursor-pointer"
-                >
-                  <Map className="w-3 h-3 text-sky-500" />
-                  <span>Mở Google Maps / Chỉ đường</span>
-                  <ExternalLink className="w-2.5 h-2.5 text-sky-400 ml-0.5" />
-                </a>
-              </div>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                  ((coupleData?.address || '') + ' ' + (coupleData?.city || '')).trim()
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                className="app-icon-button h-8 w-8 shrink-0"
+                aria-label="Mở bản đồ"
+                title="Bản đồ"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
             )}
           </div>
 
-          {(coupleData?.address || coupleData?.city) && (
-            <div className="my-2 rounded-xl border border-sky-100 overflow-hidden bg-slate-50 shadow-2xs">
-              <iframe
-                title="Google Maps Location"
-                width="100%"
-                height="150"
-                style={{ border: 0 }}
-                loading="lazy"
-                src={`https://maps.google.com/maps?q=${encodeURIComponent(
-                  (
-                    (coupleData?.address || '') +
-                    ' ' +
-                    (coupleData?.city || '')
-                  ).trim()
-                )}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
-              />
-            </div>
-          )}
-
-          {/* Favorite Places */}
-          <div className="py-1.5 border-b border-slate-100 space-y-1.5">
-            <div className="flex items-start justify-between">
-              <span className="text-slate-500 flex items-center gap-1.5 shrink-0">
-                <Heart className="w-3.5 h-3.5 text-rose-500" />
-                Địa điểm hẹn hò yêu thích:
-              </span>
-
-              <span className="font-medium text-slate-800 text-right max-w-xs">
-                {coupleData?.favoritePlaces || (
-                  <span className="text-slate-400 italic">Chưa cập nhật</span>
-                )}
-              </span>
+          <div className="flex items-start justify-between gap-3 py-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <Heart className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+              <div className="min-w-0">
+                <p className="text-xs text-slate-500">Địa điểm thích</p>
+                <p className="mt-0.5 line-clamp-2 text-xs font-medium text-slate-800">
+                  {coupleData?.favoritePlaces || 'Chưa cập nhật'}
+                </p>
+              </div>
             </div>
 
             {coupleData?.favoritePlaces && (
-              <div className="pt-0.5 flex justify-end">
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                    coupleData.favoritePlaces
-                  )}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-[11px] font-semibold border border-rose-200/60 transition cursor-pointer"
-                >
-                  <Navigation className="w-3 h-3 text-rose-500" />
-                  <span>Tìm địa điểm trên Google Maps</span>
-                  <ExternalLink className="w-2.5 h-2.5 text-rose-400 ml-0.5" />
-                </a>
-              </div>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                  coupleData.favoritePlaces
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                className="app-icon-button h-8 w-8 shrink-0"
+                aria-label="Tìm trên bản đồ"
+                title="Bản đồ"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
             )}
           </div>
 
-          {/* Status Message */}
-          <div className="py-1.5 border-b border-slate-100">
-            <span className="text-slate-500 block mb-1">
-              Lời nhắn tình yêu / Slogan:
-            </span>
-            <p className="font-medium text-slate-800 italic bg-rose-50/50 p-2.5 rounded-xl border border-rose-100/60">
-              "
-              {coupleData?.statusMessage ||
-                'Hành trình tình yêu bắt đầu từ những điều nhỏ nhất'}
-              "
-            </p>
-          </div>
-
-          {coupleData?.loveStory && (
-            <div className="py-1.5">
-              <span className="text-slate-500 block mb-1">
-                Kỷ niệm quen nhau / Ghi chú tình yêu:
-              </span>
-              <p className="text-slate-700 leading-relaxed bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                {coupleData.loveStory}
-              </p>
+          {(coupleData?.statusMessage || coupleData?.loveStory) && (
+            <div className="space-y-2 py-3">
+              {coupleData?.statusMessage && (
+                <p className="text-xs leading-5 text-slate-600">
+                  “{coupleData.statusMessage}”
+                </p>
+              )}
+              {coupleData?.loveStory && (
+                <p className="line-clamp-3 text-[11px] leading-5 text-slate-500">
+                  {coupleData.loveStory}
+                </p>
+              )}
             </div>
           )}
         </div>
-      </div>
+      </section>
 
-      {/* Pets & Companions Section */}
-      <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3">
-        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <PawPrint className="w-4 h-4 text-rose-500" />
-            <h3 className="text-sm font-bold text-slate-800">
-              Thú Cưng & Bạn Bè Đôi Mình
-            </h3>
+      <section className="app-card overflow-hidden">
+        <button
+          type="button"
+          onClick={onOpenCompanionManager}
+          className="flex w-full items-center gap-3 px-4 py-3 text-left"
+        >
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-500">
+            <PawPrint className="h-4 w-4" />
           </div>
 
-          <button
-            type="button"
-            onClick={onOpenCompanionManager}
-            className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 cursor-pointer"
-          >
-            <span>+ Quản lý / Thêm</span>
-          </button>
-        </div>
-
-        {companions.length === 0 ? (
-          <div className="py-4 text-center text-xs text-slate-400">
-            <p>Chưa có thú cưng hay bạn bè nào được thêm.</p>
-            <button
-              type="button"
-              onClick={onOpenCompanionManager}
-              className="mt-1.5 text-xs text-rose-500 font-semibold hover:underline"
-            >
-              + Thêm mèo cưng / cún cưng ngay
-            </button>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold text-slate-800">
+              Người & thú cưng
+            </p>
+            <p className="mt-0.5 text-[10px] text-slate-400">
+              {companions.length} đã lưu
+            </p>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {companions.map((comp) => (
-              <div
+
+          <span className="text-xs font-semibold text-rose-600">Quản lý</span>
+        </button>
+
+        {companions.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto border-t border-slate-100 px-4 py-3 no-scrollbar">
+            {companions.slice(0, 6).map((comp) => (
+              <button
                 key={comp.id}
+                type="button"
                 onClick={onOpenCompanionManager}
-                className="flex items-center gap-2.5 p-2.5 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-200/60 cursor-pointer transition"
+                className="flex shrink-0 items-center gap-2 rounded-xl bg-slate-50 px-2.5 py-2"
               >
-                <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-lg overflow-hidden shrink-0">
+                <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg bg-white text-sm">
                   {comp.avatarUrl ? (
                     <img
                       src={comp.avatarUrl}
                       alt={comp.name}
-                      className="w-full h-full object-cover"
+                      className="h-full w-full object-cover"
                     />
                   ) : (
-                    <span>{comp.emoji || '🐾'}</span>
+                    comp.emoji || '🐾'
                   )}
-                </div>
-
-                <div className="min-w-0">
-                  <p className="font-bold text-xs text-slate-800 truncate">
-                    {comp.name}
-                  </p>
-                  <p className="text-[10px] text-slate-400 truncate">
-                    {comp.relationship ||
-                      (comp.type === 'pet' ? 'Thú cưng' : 'Bạn bè')}
-                  </p>
-                </div>
-              </div>
+                </span>
+                <span className="max-w-[88px] truncate text-[11px] font-medium text-slate-600">
+                  {comp.name}
+                </span>
+              </button>
             ))}
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Device Management & Security Section */}
-      <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3">
-        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <h3 className="text-sm font-bold text-slate-800">
-              Quản Lý Thiết Bị & Bảo Mật
-            </h3>
+      <section className="app-card overflow-hidden">
+        <div className="px-4 py-3">
+          <h3 className="app-section-title">Cài đặt</h3>
+        </div>
+
+        <div className="divide-y divide-slate-100 px-4">
+          <button
+            type="button"
+            onClick={onOpenDeviceManager}
+            className="flex w-full items-center gap-3 py-3 text-left"
+          >
+            <ShieldCheck className="h-4 w-4 shrink-0 text-slate-400" />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-slate-800">Thiết bị</p>
+              <p className="mt-0.5 truncate text-[10px] text-slate-400">
+                {activeDeviceName} · {deviceOwner === 'duong' ? 'Dương' : 'Chúc'}
+              </p>
+            </div>
+            <span className="text-[11px] font-semibold text-slate-400">Mở</span>
+          </button>
+
+          <div className="py-3">
+            <div className="flex items-center gap-3">
+              <Bell className="h-4 w-4 shrink-0 text-slate-400" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-slate-800">Thông báo</p>
+                <p className="mt-0.5 text-[10px] text-slate-400">
+                  {notificationPermission === 'granted'
+                    ? 'Đã bật'
+                    : notificationPermission === 'unsupported'
+                      ? 'Không hỗ trợ'
+                      : 'Chưa bật'}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleTestNotification}
+                disabled={testingNotification}
+                className="app-button app-button-secondary min-h-9 px-3 py-1.5 disabled:opacity-50"
+              >
+                {testingNotification
+                  ? 'Đang thử'
+                  : notificationPermission === 'granted'
+                    ? 'Thử'
+                    : 'Bật'}
+              </button>
+            </div>
+
+            {notificationStatus && (
+              <p className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-[10px] leading-4 text-slate-500">
+                {notificationStatus}
+              </p>
+            )}
           </div>
 
           <button
             type="button"
-            onClick={onOpenDeviceManager}
-            className="text-xs text-indigo-600 hover:text-indigo-700 font-semibold flex items-center gap-1 cursor-pointer"
+            onClick={() => {
+              setPasswordStatus(null);
+              setPasswordOpen(true);
+            }}
+            className="flex w-full items-center gap-3 py-3 text-left"
           >
-            <span>Chi tiết / Đổi máy ⚙️</span>
+            <ShieldCheck className="h-4 w-4 shrink-0 text-slate-400" />
+            <span className="min-w-0 flex-1 text-xs font-semibold text-slate-800">
+              Mật khẩu
+            </span>
+            <span className="text-[11px] font-semibold text-slate-400">Đổi</span>
           </button>
-        </div>
-
-        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-              <p className="text-xs font-bold text-slate-800 truncate">
-                {activeDeviceName}
-              </p>
-            </div>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              Đang định danh:{' '}
-              <span className="font-semibold text-slate-700">
-                {deviceOwner === 'duong'
-                  ? 'Dương (Tao)'
-                  : 'Chúc (Chúc Gà)'}
-              </span>
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={onOpenDeviceManager}
-            className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium cursor-pointer shrink-0"
-          >
-            Quản lý
-          </button>
-        </div>
-
-        <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-200/70 space-y-2">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                <Bell className="w-3.5 h-3.5 text-indigo-600" />
-                Thông báo từ người kia
-              </p>
-              
-            </div>
-
-            <button
-              type="button"
-              onClick={handleTestNotification}
-              disabled={testingNotification}
-              className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold cursor-pointer shrink-0 disabled:opacity-50"
-            >
-              {testingNotification
-                ? 'Đang kiểm tra...'
-                : notificationPermission === 'granted'
-                  ? 'Kiểm tra lại'
-                  : 'Bật & thử'}
-            </button>
-          </div>
-
-          {notificationStatus && (
-            <p className="text-[11px] text-indigo-800 bg-white/70 border border-indigo-100 rounded-lg px-2.5 py-2">
-              {notificationStatus}
-            </p>
-          )}
-        </div>
-
-        <div className="p-3 bg-rose-50/60 rounded-xl border border-rose-200/70 flex items-center justify-between gap-3">
-          <div><p className="text-xs font-bold text-slate-800">Mật khẩu tài khoản</p></div>
-          <button type="button" onClick={() => { setPasswordStatus(null); setPasswordOpen(true); }} className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shrink-0">Đổi mật khẩu</button>
-        </div>
-
-        <p className="pt-1 text-center text-[10px] font-medium text-slate-400">
-          {`Phiên bản ứng dụng v${APP_VERSION}`}
-        </p>
-      </div>
-
-      {passwordOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/45 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl space-y-4">
-            <div><h3 className="font-bold text-slate-800">Đổi mật khẩu</h3><p className="text-xs text-slate-500 mt-1">Mật khẩu mới tối thiểu 6 ký tự.</p></div>
-            <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="Mật khẩu hiện tại" className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
-            <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Mật khẩu mới" className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
-            <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Nhập lại mật khẩu mới" className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
-            {passwordStatus && <p className="text-xs text-rose-600">{passwordStatus}</p>}
-            <div className="flex justify-end gap-2"><button type="button" onClick={() => setPasswordOpen(false)} className="px-3 py-2 text-xs text-slate-600">Hủy</button><button type="button" disabled={savingPassword} onClick={handleChangePassword} className="px-4 py-2 rounded-xl bg-rose-600 text-white text-xs font-semibold disabled:opacity-50">{savingPassword ? 'Đang đổi...' : 'Xác nhận đổi'}</button></div>
-          </div>
-        </div>
-      )}
-
-      {/* Recovery & History Protection Tool */}
-      <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3">
-        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-amber-500" />
-            <h3 className="text-sm font-bold text-slate-800">
-              Khôi Phục Bình Luận Đã Mất
-            </h3>
-          </div>
 
           <button
             type="button"
             onClick={onOpenRestoreComments}
-            className="text-xs px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold rounded-xl border border-amber-200/70 transition cursor-pointer flex items-center gap-1.5"
+            className="flex w-full items-center gap-3 py-3 text-left"
           >
-            <span>Khôi phục / Viết lại cmt ✍️</span>
+            <Sparkles className="h-4 w-4 shrink-0 text-slate-400" />
+            <span className="min-w-0 flex-1 text-xs font-semibold text-slate-800">
+              Khôi phục bình luận
+            </span>
+            <span className="text-[11px] font-semibold text-slate-400">Mở</span>
           </button>
+
+          <div className="flex items-center justify-between gap-3 py-3">
+            <span className="text-xs font-semibold text-slate-800">
+              Phiên bản
+            </span>
+            <span className="text-[11px] text-slate-400">
+              v{APP_VERSION}
+            </span>
+          </div>
         </div>
+      </section>
 
-        
-      </div>
+      <button
+        type="button"
+        onClick={onSignOut}
+        className="app-button app-button-secondary flex w-full items-center justify-center gap-2 text-rose-600"
+      >
+        <LogOut className="h-4 w-4" />
+        Đăng xuất
+      </button>
 
-      {/* Logout Button */}
-      <div className="pt-2">
-        <button
-          onClick={onSignOut}
-          className="w-full py-3 px-4 bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold rounded-2xl text-xs transition flex items-center justify-center gap-2 cursor-pointer border border-rose-200/60"
-        >
-          <LogOut className="w-4 h-4" />
-          Đăng xuất tài khoản
-        </button>
-      </div>
+      {passwordOpen && (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center sm:p-4">
+          <button
+            type="button"
+            className="app-modal-backdrop"
+            onClick={() => setPasswordOpen(false)}
+            aria-label="Đóng"
+          />
+
+          <div className="app-sheet relative z-10 flex w-full max-w-sm flex-col overflow-hidden rounded-t-[24px] sm:rounded-[24px]">
+            <div className="app-sheet-header">
+              <h3 className="app-section-title">Đổi mật khẩu</h3>
+              <button
+                type="button"
+                onClick={() => setPasswordOpen(false)}
+                className="app-icon-button h-9 w-9"
+                aria-label="Đóng"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+
+            <div className="space-y-2 px-4 py-4">
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+                placeholder="Mật khẩu hiện tại"
+                className="app-control h-11 w-full px-3 text-sm"
+              />
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                placeholder="Mật khẩu mới"
+                className="app-control h-11 w-full px-3 text-sm"
+              />
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                placeholder="Nhập lại mật khẩu"
+                className="app-control h-11 w-full px-3 text-sm"
+              />
+
+              {passwordStatus && (
+                <p className="text-[11px] leading-4 text-rose-600">
+                  {passwordStatus}
+                </p>
+              )}
+            </div>
+
+            <div className="app-sheet-footer">
+              <button
+                type="button"
+                onClick={() => setPasswordOpen(false)}
+                className="app-button app-button-secondary flex-1"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={savingPassword}
+                onClick={handleChangePassword}
+                className="app-button app-button-primary flex-[1.2] disabled:opacity-50"
+              >
+                {savingPassword ? 'Đang đổi' : 'Đổi mật khẩu'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+
 };
