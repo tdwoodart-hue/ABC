@@ -1107,18 +1107,18 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
         </button>
       </div>
 
-      <div className="app-segmented mb-3 grid grid-cols-2 gap-1">
+      <div className="app-subtabs mb-3">
         <button
           type="button"
           onClick={() => setMode('day')}
-          className={`app-segmented-item ${mode === 'day' ? 'app-segmented-item-active' : ''}`}
+          className={`app-subtab flex-1 ${mode === 'day' ? 'app-subtab-active' : ''}`}
         >
           Ngày
         </button>
         <button
           type="button"
           onClick={() => setMode('week')}
-          className={`app-segmented-item ${mode === 'week' ? 'app-segmented-item-active' : ''}`}
+          className={`app-subtab flex-1 ${mode === 'week' ? 'app-subtab-active' : ''}`}
         >
           Tuần
         </button>
