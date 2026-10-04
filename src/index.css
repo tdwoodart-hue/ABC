@@ -468,3 +468,81 @@ a,
     max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 12px);
   }
 }
+
+
+/* =========================================================
+   SMALL / SECONDARY TABS
+   Lower visual priority than the main bottom navigation.
+   ========================================================= */
+
+.app-subtabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  background: #f8fafc;
+  padding: 3px;
+}
+
+.app-subtabs::-webkit-scrollbar {
+  display: none;
+}
+
+.app-subtab {
+  min-height: 38px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 0 11px;
+  color: #64748b;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 650;
+  white-space: nowrap;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 120ms ease;
+}
+
+.app-subtab:hover {
+  background: rgba(255,255,255,0.72);
+  color: #334155;
+}
+
+.app-subtab:active {
+  transform: scale(0.985);
+}
+
+.app-subtab-active {
+  border-color: #ffe4e6;
+  background: #fff;
+  color: #be123c;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 3px 10px rgba(15, 23, 42, 0.035);
+}
+
+.app-subtab-count {
+  display: inline-flex;
+  min-width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #f1f5f9;
+  padding: 0 5px;
+  color: #64748b;
+  font-size: 0.625rem;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.app-subtab-active .app-subtab-count {
+  background: #fff1f2;
+  color: #be123c;
+}
