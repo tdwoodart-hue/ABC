@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   UserProfile,
   CoupleData,
@@ -6,37 +6,38 @@ import {
   TaggedPerson,
   JournalExpense,
   SavedPlace,
-  JournalEntry
+  JournalEntry,
 } from '../types';
-import { CameraLocationMetadata } from './CameraCaptureModal';
 import { TagPeopleSelector } from './TagPeopleSelector';
 import { JournalMusicPlayer } from './JournalMusicPlayer';
 import { VoiceMemoRecorder } from './journal/VoiceMemoRecorder';
 import { isVideoUrl } from '../utils/mediaHelper';
-import { extractLocationHistory, LocationHistoryItem } from '../utils/locationHistory';
-import { SavedLocationSelectorModal, SelectedLocationData } from './SavedLocationSelectorModal';
 import {
-  Sparkles,
-  MapPin,
-  Navigation,
-  Loader2,
-  Crosshair,
+  extractLocationHistory,
+  LocationHistoryItem,
+} from '../utils/locationHistory';
+import {
+  SavedLocationSelectorModal,
+  SelectedLocationData,
+} from './SavedLocationSelectorModal';
+import {
   Calendar,
   Camera,
-  Upload,
-  Play,
-  Star,
-  X,
-  Music,
-  Mic,
-  Receipt,
-  Edit3,
-  Users,
+  Check,
+  Crosshair,
   Image as ImageIcon,
-  Heart,
-  ChevronRight,
-  ChevronDown,
-  Check
+  Loader2,
+  MapPin,
+  Mic,
+  MoreHorizontal,
+  Music,
+  Navigation,
+  Play,
+  Receipt,
+  Star,
+  Upload,
+  Users,
+  X,
 } from 'lucide-react';
 
 export interface JournalFormData {
@@ -85,6 +86,8 @@ interface JournalFormProps {
   onOpenCompanionManager: () => void;
 }
 
+type ComposerPanel = 'location' | 'people' | 'voice' | 'more' | null;
+
 export const JournalForm: React.FC<JournalFormProps> = ({
   mode,
   userProfile,
@@ -106,20 +109,32 @@ export const JournalForm: React.FC<JournalFormProps> = ({
   onFilesSelected,
   onOpenCompanionManager,
 }) => {
-  const [newExpTitle, setNewExpTitle] = useState('');
-  const [newExpAmount, setNewExpAmount] = useState('');
-  const [activeSection, setActiveSection] = useState<'info' | 'media' | 'location' | 'music_expense'>('info');
+  const canEdit = isAuthor || mode === 'create';
+  const [panel, setPanel] = useState<ComposerPanel>(null);
   const [isSavedPlacesModalOpen, setIsSavedPlacesModalOpen] = useState(false);
   const [selectedPlaceNotice, setSelectedPlaceNotice] = useState<string | null>(null);
+  const [newExpTitle, setNewExpTitle] = useState('');
+  const [newExpAmount, setNewExpAmount] = useState('');
 
-  // Top quick suggestions (saved places + high photo count places)
   const quickPlaces = useMemo(() => {
     const history = extractLocationHistory(journals, savedPlaces);
     return history.slice(0, 5);
   }, [journals, savedPlaces]);
 
-  const handleSelectQuickLocation = (place: LocationHistoryItem | SelectedLocationData) => {
-    const locName =
+  const activeExtrasCount = [
+    Boolean(formData.title.trim()),
+    Boolean(formData.musicUrl.trim()),
+    formData.expenses.length > 0,
+  ].filter(Boolean).length;
+
+  const togglePanel = (next: Exclude<ComposerPanel, null>) => {
+    setPanel((current) => (current === next ? null : next));
+  };
+
+  const handleSelectQuickLocation = (
+    place: LocationHistoryItem | SelectedLocationData
+  ) => {
+    const locationName =
       ('customNickname' in place && place.customNickname)
         ? place.customNickname
         : ('locationName' in place && place.locationName)
@@ -127,62 +142,28 @@ export const JournalForm: React.FC<JournalFormProps> = ({
           : ('name' in place && place.name)
             ? place.name
             : '';
-    const locAddress = place.address || locName;
-    
+
     onFormChange({
-      location: locName,
-      locationAddress: locAddress,
+      location: locationName,
+      locationAddress: place.address || locationName,
       lat: place.lat ?? null,
       lng: place.lng ?? null,
       accuracy: place.accuracy ?? null,
       placeId: place.placeId ?? null,
-      locationTimestamp: 'lastVisited' in place && place.lastVisited ? place.lastVisited : new Date().toISOString()
+      locationTimestamp:
+        'lastVisited' in place && place.lastVisited
+          ? place.lastVisited
+          : new Date().toISOString(),
     });
 
-    setSelectedPlaceNotice(`Đã chọn: ${locName}`);
-    setTimeout(() => setSelectedPlaceNotice(null), 3000);
+    setSelectedPlaceNotice(locationName ? `Đã chọn ${locationName}` : 'Đã chọn địa điểm');
+    window.setTimeout(() => setSelectedPlaceNotice(null), 2200);
   };
 
-  const handleAddExpense = () => {
-    if (!newExpTitle.trim() || !newExpAmount) return;
-    const numAmount = parseFloat(newExpAmount.replace(/[^0-9]/g, ''));
-    if (isNaN(numAmount) || numAmount <= 0) return;
-
-    const newExpense: JournalExpense = {
-      id: Date.now().toString() + Math.random().toString(36).substring(2, 5),
-      title: newExpTitle.trim(),
-      amount: numAmount,
-    };
-
+  const handleClearLocation = () => {
     onFormChange({
-      expenses: [...formData.expenses, newExpense],
-    });
-    setNewExpTitle('');
-    setNewExpAmount('');
-  };
-
-  const handleRemoveExpense = (id: string) => {
-    onFormChange({
-      expenses: formData.expenses.filter((e) => e.id !== id),
-    });
-  };
-
-  const handleRemoveImage = (index: number) => {
-    const updatedImages = formData.images.filter((_, i) => i !== index);
-    let newMainIdx = formData.mainImageIndex;
-    if (formData.mainImageIndex === index) {
-      newMainIdx = 0;
-    } else if (formData.mainImageIndex > index) {
-      newMainIdx = formData.mainImageIndex - 1;
-    }
-    onFormChange({
-      images: updatedImages,
-      mainImageIndex: newMainIdx,
-    });
-  };
-
-  const handleClearGPS = () => {
-    onFormChange({
+      location: '',
+      locationAddress: '',
       lat: null,
       lng: null,
       accuracy: null,
@@ -191,454 +172,431 @@ export const JournalForm: React.FC<JournalFormProps> = ({
     });
   };
 
+  const handleRemoveImage = (index: number) => {
+    const images = formData.images.filter((_, currentIndex) => currentIndex !== index);
+    let mainImageIndex = formData.mainImageIndex;
+
+    if (mainImageIndex === index || mainImageIndex >= images.length) {
+      mainImageIndex = 0;
+    } else if (mainImageIndex > index) {
+      mainImageIndex -= 1;
+    }
+
+    onFormChange({ images, mainImageIndex });
+  };
+
+  const handleAddExpense = () => {
+    if (!newExpTitle.trim() || !newExpAmount) return;
+
+    const amount = Number(newExpAmount.replace(/[^0-9]/g, ''));
+    if (!Number.isFinite(amount) || amount <= 0) return;
+
+    const expense: JournalExpense = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title: newExpTitle.trim(),
+      amount,
+    };
+
+    onFormChange({ expenses: [...formData.expenses, expense] });
+    setNewExpTitle('');
+    setNewExpAmount('');
+  };
+
+  const handleRemoveExpense = (expenseId: string) => {
+    onFormChange({
+      expenses: formData.expenses.filter((expense) => expense.id !== expenseId),
+    });
+  };
+
+  const iconButtonClass = (active = false) =>
+    `relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition active:scale-95 ${
+      active
+        ? 'border-rose-200 bg-rose-50 text-rose-600'
+        : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+    }`;
+
   return (
     <form
       onSubmit={onSubmit}
-      className="bg-white rounded-3xl border border-rose-200/80 shadow-md p-5 sm:p-6 space-y-5 animate-in fade-in duration-200"
+      className="animate-in fade-in overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm duration-200"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3.5 sm:px-5">
+        <div className="min-w-0">
+          <h3 className="truncate text-sm font-bold text-slate-900">
+            {mode === 'create'
+              ? 'Viết nhật ký'
+              : canEdit
+                ? 'Chỉnh sửa nhật ký'
+                : 'Nhật ký'}
+          </h3>
+        </div>
+
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center">
-            {mode === 'create' ? <Sparkles className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
-          </div>
-          <div>
-            <h3 className="text-sm sm:text-base font-bold text-slate-800">
-              {mode === 'create'
-                ? 'Ghi lại trang kỷ niệm mới'
-                : isAuthor
-                ? 'Chỉnh sửa trang kỷ niệm'
-                : 'Chi tiết trang kỷ niệm'}
-            </h3>
-            <p className="text-[11px] text-slate-400">
-              {mode === 'create'
-                ? 'Lưu lại những khoảnh khắc đẹp của hai đứa'
-                : 'Cập nhật nội dung, địa điểm và hình ảnh'}
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={onCancel}
-          className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition cursor-pointer"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Section Selector Pills */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-        <button
-          type="button"
-          onClick={() => setActiveSection('info')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition cursor-pointer flex items-center gap-1.5 ${
-            activeSection === 'info'
-              ? 'bg-rose-500 text-white shadow-2xs font-bold'
-              : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60'
-          }`}
-        >
-          <Heart className="w-3.5 h-3.5" />
-          <span>1. Kỷ niệm</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSection('media')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition cursor-pointer flex items-center gap-1.5 ${
-            activeSection === 'media'
-              ? 'bg-rose-500 text-white shadow-2xs font-bold'
-              : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60'
-          }`}
-        >
-          <ImageIcon className="w-3.5 h-3.5" />
-          <span>2. Khoảnh khắc ({formData.images.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSection('location')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition cursor-pointer flex items-center gap-1.5 ${
-            activeSection === 'location'
-              ? 'bg-rose-500 text-white shadow-2xs font-bold'
-              : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60'
-          }`}
-        >
-          <MapPin className="w-3.5 h-3.5" />
-          <span>3. Không gian & Đồng hành</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSection('music_expense')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition cursor-pointer flex items-center gap-1.5 ${
-            activeSection === 'music_expense'
-              ? 'bg-rose-500 text-white shadow-2xs font-bold'
-              : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60'
-          }`}
-        >
-          <Mic className="w-3.5 h-3.5" />
-          <span>4. Lời thì thầm & Nhạc {formData.voiceMemoUrl ? '🎙️' : ''}</span>
-        </button>
-      </div>
-
-      {/* SECTION 1: KỶ NIỆM (Tiêu đề, Ngày, Nội dung tâm sự) */}
-      {activeSection === 'info' && (
-        <div className="space-y-4 animate-in fade-in duration-150">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Tiêu đề kỷ niệm <span className="text-[11px] font-normal text-slate-400">(không bắt buộc)</span>
-            </label>
+          <label className="relative flex min-h-9 items-center gap-1.5 rounded-xl bg-slate-50 px-2.5 text-xs font-semibold text-slate-600">
+            <Calendar className="h-3.5 w-3.5 text-slate-400" />
             <input
-              type="text"
-              disabled={!isAuthor && mode === 'edit'}
-              placeholder="Không bắt buộc — có thể để trống (VD: Một ngày mưa ấm áp...)"
-              value={formData.title}
-              onChange={(e) => onFormChange({ title: e.target.value })}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white transition disabled:bg-slate-100"
+              type="date"
+              required
+              disabled={!canEdit}
+              value={formData.date}
+              onChange={(event) => onFormChange({ date: event.target.value })}
+              className="max-w-[118px] bg-transparent text-xs font-semibold text-slate-600 outline-none disabled:opacity-70"
+              aria-label="Ngày nhật ký"
             />
-          </div>
+          </label>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Ngày kỷ niệm <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="date"
-                required
-                disabled={!isAuthor && mode === 'edit'}
-                value={formData.date}
-                onChange={(e) => onFormChange({ date: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white transition disabled:bg-slate-100"
-              />
-            </div>
-
-            <div className="flex flex-col justify-end">
-              <button
-                type="button"
-                onClick={() => setActiveSection('media')}
-                className="w-full py-2.5 px-3 bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer border border-rose-200/60"
-              >
-                <span>Thêm ảnh & video</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-semibold text-slate-700">
-                Dòng tâm sự / Cảm xúc
-                <span className="text-slate-400 font-normal ml-1">(Không bắt buộc)</span>
-              </label>
-              <button
-                type="button"
-                onClick={() => setActiveSection('music_expense')}
-                className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-lg border border-rose-200/60 transition"
-              >
-                <Mic className="w-3 h-3 text-rose-500" />
-                <span>{formData.voiceMemoUrl ? 'Đã có ghi âm 🎙️' : '+ Ghi âm giọng nói 🎙️'}</span>
-              </button>
-            </div>
-            <textarea
-              rows={4}
-              disabled={!isAuthor && mode === 'edit'}
-              placeholder="Chia sẻ những suy nghĩ, cảm xúc chân thành hoặc kỷ niệm đáng nhớ trong khoảnh khắc này..."
-              value={formData.content}
-              onChange={(e) => onFormChange({ content: e.target.value })}
-              className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white transition disabled:bg-slate-100 leading-relaxed"
-            />
-          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+            aria-label="Đóng"
+          >
+            <X className="h-4.5 w-4.5" />
+          </button>
         </div>
-      )}
+      </div>
 
-      {/* SECTION 2: KHOẢNH KHẮC (Ảnh & Video) */}
-      {activeSection === 'media' && (
-        <div className="space-y-4 animate-in fade-in duration-150">
-          {(isAuthor || mode === 'create') && (
-            <div className="space-y-2.5">
-              <div className="grid grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={onOpenCamera}
-                  disabled={imageUploading}
-                  className="flex items-center justify-center gap-2 py-3 px-3.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-2xl text-xs text-rose-700 font-bold cursor-pointer transition shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+      <div className="space-y-4 px-4 py-4 sm:px-5">
+        <textarea
+          rows={5}
+          disabled={!canEdit}
+          placeholder={mode === 'create' ? 'Hôm nay có gì đáng nhớ?' : 'Viết lại khoảnh khắc này...'}
+          value={formData.content}
+          onChange={(event) => onFormChange({ content: event.target.value })}
+          className="min-h-[128px] w-full resize-none border-0 bg-transparent p-0 text-[15px] leading-7 text-slate-800 outline-none placeholder:text-slate-400 disabled:text-slate-700"
+        />
+
+        {formData.images.length > 0 && (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {formData.images.map((mediaUrl, index) => {
+              const video = isVideoUrl(mediaUrl);
+              const thumbnail = formData.videoThumbnails[mediaUrl];
+              const isMain = formData.mainImageIndex === index;
+
+              return (
+                <div
+                  key={`${mediaUrl}-${index}`}
+                  className="group relative aspect-square overflow-hidden rounded-2xl bg-slate-100"
                 >
-                  <Camera className="w-4 h-4 text-rose-600" />
-                  <span>Chụp ảnh ngay</span>
-                </button>
-
-                <label className={`flex items-center justify-center gap-2 py-3 px-3.5 bg-slate-50 hover:bg-slate-100 border border-dashed border-slate-300 hover:border-slate-400 rounded-2xl text-xs text-slate-700 font-semibold cursor-pointer transition ${imageUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                  <Upload className="w-4 h-4 text-slate-500" />
-                  <span>{imageUploading ? 'Đang tải lên...' : 'Tải ảnh / video'}</span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif,image/heic,video/mp4,video/quicktime,video/webm,video/x-m4v,video/*,image/*"
-                    multiple
-                    onChange={onFilesSelected}
-                    className="hidden"
-                    disabled={imageUploading}
-                  />
-                </label>
-              </div>
-
-              {imageUploading && (
-                <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-rose-50/80 border border-rose-100 rounded-2xl text-xs text-rose-700 font-medium animate-pulse">
-                  <Loader2 className="w-4 h-4 animate-spin text-rose-500 shrink-0" />
-                  <span>Đang tải phương tiện lên, vui lòng chờ trong giây lát...</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Media Preview Grid */}
-          {formData.images.length > 0 ? (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs text-slate-500">
-                <span className="font-semibold">Đã chọn {formData.images.length} ảnh/video:</span>
-                <span className="text-[10px] text-amber-800 font-semibold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                  Ảnh/Video bìa: #{formData.mainImageIndex + 1}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                {formData.images.map((mediaUrl, idx) => {
-                  const isVid = isVideoUrl(mediaUrl);
-                  const thumb = formData.videoThumbnails[mediaUrl];
-                  const isMain = formData.mainImageIndex === idx;
-
-                  return (
-                    <div
-                      key={idx}
-                      className={`relative h-28 rounded-2xl overflow-hidden bg-slate-900 border-2 transition ${
-                        isMain
-                          ? 'border-amber-400 shadow-sm ring-2 ring-amber-200'
-                          : 'border-slate-200'
-                      }`}
-                    >
-                      {isVid ? (
-                        thumb ? (
-                          <img src={thumb} alt={`Media ${idx}`} className="w-full h-full object-cover" />
-                        ) : (
-                          <video src={mediaUrl} className="w-full h-full object-cover opacity-80" preload="metadata" />
-                        )
-                      ) : (
-                        <img src={mediaUrl} alt={`Media ${idx}`} className="w-full h-full object-cover" />
-                      )}
-
-                      {isVid && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/20">
-                          <div className="p-1 rounded-full bg-black/60 text-white backdrop-blur-xs">
-                            <Play className="w-4 h-4 fill-white text-white" />
-                          </div>
-                        </div>
-                      )}
-
-                      {(isAuthor || mode === 'create') && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => onFormChange({ mainImageIndex: idx })}
-                            className={`absolute top-1.5 left-1.5 px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shadow-xs z-10 ${
-                              isMain
-                                ? 'bg-amber-400 text-slate-950'
-                                : 'bg-black/60 hover:bg-amber-400 hover:text-slate-950 text-white'
-                            }`}
-                            title="Đặt làm ảnh/video bìa chính"
-                          >
-                            <Star className={`w-3 h-3 ${isMain ? 'fill-slate-950 text-slate-950' : 'text-amber-300'}`} />
-                            <span>{isMain ? 'Bìa' : 'Đặt bìa'}</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveImage(idx)}
-                            className="absolute top-1.5 right-1.5 p-1 bg-black/60 hover:bg-rose-600 text-white rounded-full transition cursor-pointer z-10"
-                            title="Xóa tệp này"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <div className="p-8 text-center bg-slate-50/80 rounded-2xl border border-dashed border-slate-200">
-              <ImageIcon className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-              <p className="text-xs text-slate-500 font-medium">Chưa có ảnh hoặc video nào</p>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Bấm "Chụp ảnh ngay" hoặc "Tải ảnh / video" để lưu lại khoảnh khắc.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* SECTION 3: KHÔNG GIAN & ĐỒNG HÀNH (Địa điểm, GPS, Ghim Map, Gắn thẻ người) */}
-      {activeSection === 'location' && (
-        <div className="space-y-4 animate-in fade-in duration-150">
-          <div className="space-y-2.5">
-            <div className="flex flex-wrap items-center justify-between gap-1.5">
-              <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-rose-500" />
-                <span>Địa điểm ghé thăm</span>
-              </label>
-              {(isAuthor || mode === 'create') && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => setIsSavedPlacesModalOpen(true)}
-                    className="text-[11px] text-rose-700 hover:text-rose-900 font-bold flex items-center gap-1 cursor-pointer bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-xl border border-rose-200/90 transition shadow-2xs"
-                    title="Chọn từ địa điểm đã lưu hoặc các góc quen chụp nhiều ảnh"
-                  >
-                    <Star className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
-                    <span>Địa điểm thân quen</span>
-                    {savedPlaces.length > 0 && (
-                      <span className="text-[10px] bg-rose-200 text-rose-800 px-1.5 py-0.2 rounded-full font-bold">
-                        {savedPlaces.length}
-                      </span>
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={onAutoDetectGPS}
-                    disabled={autoLocatingGPS}
-                    className="text-[11px] text-sky-600 hover:text-sky-800 font-semibold flex items-center gap-1 cursor-pointer bg-sky-50 hover:bg-sky-100 px-2.5 py-1 rounded-xl border border-sky-200/80 transition shadow-2xs"
-                    title="Lấy GPS thiết bị"
-                  >
-                    {autoLocatingGPS ? (
-                      <Loader2 className="w-3 h-3 animate-spin text-sky-600" />
+                  {video ? (
+                    thumbnail ? (
+                      <img
+                        src={thumbnail}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
                     ) : (
-                      <Navigation className="w-3 h-3 text-sky-600" />
-                    )}
-                    <span>{autoLocatingGPS ? 'Đang đọc GPS...' : 'GPS của tôi'}</span>
-                  </button>
+                      <video
+                        src={mediaUrl}
+                        className="h-full w-full object-cover"
+                        preload="metadata"
+                      />
+                    )
+                  ) : (
+                    <img
+                      src={mediaUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  )}
 
-                  <button
-                    type="button"
-                    onClick={onOpenMapPicker}
-                    className="text-[11px] text-slate-700 hover:text-slate-900 font-semibold flex items-center gap-1 cursor-pointer bg-slate-50 hover:bg-slate-100 px-2.5 py-1 rounded-xl border border-slate-200 transition shadow-2xs"
-                  >
-                    <MapPin className="w-3 h-3 text-rose-500" />
-                    <span>Ghim Bản đồ</span>
-                  </button>
-                </div>
-              )}
-            </div>
+                  {video && (
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/10">
+                      <div className="rounded-full bg-black/55 p-2 text-white">
+                        <Play className="h-4 w-4 fill-white" />
+                      </div>
+                    </div>
+                  )}
 
-            {/* Quick Frequent & Saved Places Pills */}
-            {quickPlaces.length > 0 && (
-              <div className="space-y-1 bg-slate-50/80 p-2.5 rounded-2xl border border-slate-200/70">
-                <div className="flex items-center justify-between text-[11px] text-slate-500 font-semibold">
-                  <span className="flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-amber-500" />
-                    <span>Góc quen hay ghé & chụp nhiều ảnh:</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsSavedPlacesModalOpen(true)}
-                    className="text-rose-600 hover:text-rose-700 font-bold flex items-center gap-0.5 text-[10px]"
-                  >
-                    <span>Xem tất cả ({quickPlaces.length})</span>
-                    <ChevronRight className="w-3 h-3" />
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
-                  {quickPlaces.map((qp) => {
-                    const isSelected = formData.location === (qp.customNickname || qp.name);
-                    return (
+                  {canEdit && (
+                    <>
                       <button
-                        key={qp.id}
                         type="button"
-                        onClick={() => handleSelectQuickLocation(qp)}
-                        className={`px-2.5 py-1 rounded-xl text-xs font-semibold shrink-0 transition flex items-center gap-1.5 border ${
-                          isSelected
-                            ? 'bg-rose-500 text-white border-rose-600 shadow-2xs'
-                            : 'bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 border-slate-200/90'
+                        onClick={() => onFormChange({ mainImageIndex: index })}
+                        className={`absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full shadow-sm transition ${
+                          isMain
+                            ? 'bg-amber-400 text-white'
+                            : 'bg-black/50 text-white hover:bg-black/70'
                         }`}
-                        title={qp.address || qp.name}
+                        aria-label={isMain ? 'Ảnh chính' : 'Đặt làm ảnh chính'}
+                        title={isMain ? 'Ảnh chính' : 'Đặt làm ảnh chính'}
                       >
-                        <span>{qp.emoji || (qp.isSaved ? '⭐' : '📍')}</span>
-                        <span className="font-bold max-w-[130px] truncate">{qp.customNickname || qp.name}</span>
-                        {qp.photoCount > 0 && (
-                          <span className={`text-[10px] px-1 py-0.2 rounded font-sans ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                            {qp.photoCount} ảnh
-                          </span>
-                        )}
+                        <Star className={`h-3.5 w-3.5 ${isMain ? 'fill-white' : ''}`} />
                       </button>
-                    );
-                  })}
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(index)}
+                        className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white shadow-sm transition hover:bg-rose-600"
+                        aria-label="Xóa ảnh hoặc video"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </>
+                  )}
                 </div>
-              </div>
+              );
+            })}
+          </div>
+        )}
+
+        {imageUploading && (
+          <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-rose-500" />
+            Đang tải ảnh/video...
+          </div>
+        )}
+
+        {(formData.location ||
+          formData.taggedPeople.length > 0 ||
+          formData.voiceMemoUrl ||
+          formData.musicUrl ||
+          formData.expenses.length > 0 ||
+          formData.title) && (
+          <div className="flex flex-wrap gap-1.5">
+            {formData.location && (
+              <button
+                type="button"
+                onClick={() => togglePanel('location')}
+                className="inline-flex max-w-full items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700"
+              >
+                <MapPin className="h-3 w-3 shrink-0" />
+                <span className="truncate">{formData.location}</span>
+              </button>
             )}
 
-            {/* Location Name Input */}
-            <div className="relative">
-              <input
-                type="text"
-                disabled={!isAuthor && mode === 'edit'}
-                placeholder="VD: Tổ ấm của chúng mình, Cafe Giảng, Phố cổ Hội An, Landmark 81..."
-                value={formData.location}
-                onChange={(e) => onFormChange({ location: e.target.value })}
-                className="w-full pl-3.5 pr-28 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 focus:bg-white transition disabled:bg-slate-100"
-              />
+            {formData.taggedPeople.length > 0 && (
+              <button
+                type="button"
+                onClick={() => togglePanel('people')}
+                className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600"
+              >
+                <Users className="h-3 w-3" />
+                {formData.taggedPeople.length}
+              </button>
+            )}
 
-              {/* Quick Save / Nickname Button */}
-              {formData.location.trim() && (
+            {formData.voiceMemoUrl && (
+              <button
+                type="button"
+                onClick={() => togglePanel('voice')}
+                className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600"
+              >
+                <Mic className="h-3 w-3" />
+                {formData.voiceMemoDuration
+                  ? `${Math.max(1, Math.round(formData.voiceMemoDuration))}s`
+                  : 'Ghi âm'}
+              </button>
+            )}
+
+            {formData.musicUrl && (
+              <button
+                type="button"
+                onClick={() => togglePanel('more')}
+                className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600"
+              >
+                <Music className="h-3 w-3" />
+                {formData.musicTitle || 'Nhạc'}
+              </button>
+            )}
+
+            {formData.expenses.length > 0 && (
+              <button
+                type="button"
+                onClick={() => togglePanel('more')}
+                className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700"
+              >
+                <Receipt className="h-3 w-3" />
+                {formData.expenses.length}
+              </button>
+            )}
+
+            {formData.title && (
+              <button
+                type="button"
+                onClick={() => togglePanel('more')}
+                className="max-w-[180px] truncate rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600"
+              >
+                {formData.title}
+              </button>
+            )}
+          </div>
+        )}
+
+        {canEdit && (
+          <div className="flex items-center gap-2 overflow-x-auto border-t border-slate-100 pt-3 no-scrollbar">
+            <button
+              type="button"
+              onClick={onOpenCamera}
+              disabled={imageUploading}
+              className={iconButtonClass(false)}
+              aria-label="Chụp ảnh"
+              title="Chụp ảnh"
+            >
+              <Camera className="h-5 w-5" />
+            </button>
+
+            <label
+              className={`${iconButtonClass(false)} ${
+                imageUploading ? 'pointer-events-none opacity-50' : 'cursor-pointer'
+              }`}
+              aria-label="Chọn ảnh hoặc video"
+              title="Chọn ảnh/video"
+            >
+              <ImageIcon className="h-5 w-5" />
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif,image/heic,video/mp4,video/quicktime,video/webm,video/x-m4v,video/*,image/*"
+                multiple
+                onChange={onFilesSelected}
+                className="hidden"
+                disabled={imageUploading}
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={() => togglePanel('location')}
+              className={iconButtonClass(panel === 'location' || Boolean(formData.location))}
+              aria-label="Địa điểm"
+              title="Địa điểm"
+            >
+              <MapPin className="h-5 w-5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => togglePanel('people')}
+              className={iconButtonClass(panel === 'people' || formData.taggedPeople.length > 0)}
+              aria-label="Gắn người"
+              title="Gắn người"
+            >
+              <Users className="h-5 w-5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => togglePanel('voice')}
+              className={iconButtonClass(panel === 'voice' || Boolean(formData.voiceMemoUrl))}
+              aria-label="Ghi âm"
+              title="Ghi âm"
+            >
+              <Mic className="h-5 w-5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => togglePanel('more')}
+              className={iconButtonClass(panel === 'more' || activeExtrasCount > 0)}
+              aria-label="Thêm tùy chọn"
+              title="Thêm tùy chọn"
+            >
+              <MoreHorizontal className="h-5 w-5" />
+              {activeExtrasCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">
+                  {activeExtrasCount}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
+
+        {panel === 'location' && (
+          <div className="animate-in fade-in space-y-3 rounded-2xl bg-slate-50 p-3 duration-150">
+            {canEdit && (
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={onAutoDetectGPS}
+                  disabled={autoLocatingGPS}
+                  className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-white px-2 text-xs font-semibold text-slate-700 shadow-xs disabled:opacity-50"
+                >
+                  {autoLocatingGPS ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Navigation className="h-3.5 w-3.5 text-sky-500" />
+                  )}
+                  Hiện tại
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setIsSavedPlacesModalOpen(true)}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] font-bold border border-rose-200 flex items-center gap-1 transition cursor-pointer"
-                  title="Đặt tên riêng & Lưu vào danh sách địa điểm thân quen"
+                  className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-white px-2 text-xs font-semibold text-slate-700 shadow-xs"
                 >
-                  <Star className="w-3 h-3 fill-rose-500 text-rose-500" />
-                  <span>Lưu / Đặt tên</span>
+                  <Star className="h-3.5 w-3.5 text-amber-500" />
+                  Đã lưu
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onOpenMapPicker}
+                  className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-white px-2 text-xs font-semibold text-slate-700 shadow-xs"
+                >
+                  <MapPin className="h-3.5 w-3.5 text-rose-500" />
+                  Bản đồ
+                </button>
+              </div>
+            )}
+
+            {quickPlaces.length > 0 && canEdit && (
+              <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+                {quickPlaces.map((place) => (
+                  <button
+                    key={place.id}
+                    type="button"
+                    onClick={() => handleSelectQuickLocation(place)}
+                    className="shrink-0 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600"
+                  >
+                    {place.emoji || (place.isSaved ? '⭐' : '📍')}{' '}
+                    {place.customNickname || place.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                disabled={!canEdit}
+                value={formData.location}
+                onChange={(event) => onFormChange({ location: event.target.value })}
+                placeholder="Tên địa điểm"
+                className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-rose-300 disabled:bg-slate-100"
+              />
+              {formData.location && canEdit && (
+                <button
+                  type="button"
+                  onClick={handleClearLocation}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-slate-400 shadow-xs hover:text-rose-500"
+                  aria-label="Xóa địa điểm"
+                >
+                  <X className="h-4 w-4" />
                 </button>
               )}
             </div>
 
-            {selectedPlaceNotice && (
-              <div className="text-xs text-rose-600 font-semibold flex items-center gap-1 animate-in fade-in">
-                <Check className="w-3.5 h-3.5" />
-                <span>{selectedPlaceNotice}</span>
+            {formData.lat !== null && formData.lng !== null && (
+              <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+                <Crosshair className="h-3.5 w-3.5 text-rose-500" />
+                <span>
+                  {formData.lat.toFixed(5)}, {formData.lng.toFixed(5)}
+                </span>
+                {formData.accuracy ? <span>±{Math.round(formData.accuracy)}m</span> : null}
               </div>
             )}
 
-            {/* GPS Metadata Badge */}
-            {formData.lat !== null && formData.lng !== null && (
-              <div className="p-2.5 bg-rose-50/60 rounded-xl border border-rose-200/80 flex items-center justify-between text-xs text-slate-700">
-                <div className="flex items-center gap-1.5 font-mono text-[11px]">
-                  <Crosshair className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                  <span className="font-bold">
-                    {formData.lat.toFixed(6)}, {formData.lng.toFixed(6)}
-                  </span>
-                  {formData.accuracy && (
-                    <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.2 rounded font-sans font-bold">
-                      ±{formData.accuracy.toFixed(0)}m
-                    </span>
-                  )}
-                </div>
-                {(isAuthor || mode === 'create') && (
-                  <button
-                    type="button"
-                    onClick={handleClearGPS}
-                    className="text-[10px] text-rose-500 hover:text-rose-700 font-semibold cursor-pointer"
-                  >
-                    Xóa GPS
-                  </button>
-                )}
+            {selectedPlaceNotice && (
+              <div className="flex items-center gap-1 text-xs font-semibold text-rose-600">
+                <Check className="h-3.5 w-3.5" />
+                {selectedPlaceNotice}
               </div>
             )}
           </div>
+        )}
 
-          {/* Tag People / Companions */}
-          <div className="pt-2">
+        {panel === 'people' && (
+          <div className="animate-in fade-in rounded-2xl bg-slate-50 p-3 duration-150">
             <TagPeopleSelector
               userProfile={userProfile}
               coupleData={coupleData}
@@ -648,211 +606,194 @@ export const JournalForm: React.FC<JournalFormProps> = ({
               onOpenCompanionManager={onOpenCompanionManager}
             />
           </div>
+        )}
 
-          {/* Saved Locations Modal */}
-          {isSavedPlacesModalOpen && coupleData?.id && (
-            <SavedLocationSelectorModal
-              isOpen={isSavedPlacesModalOpen}
-              onClose={() => setIsSavedPlacesModalOpen(false)}
-              onSelectLocation={handleSelectQuickLocation}
-              journals={journals}
-              savedPlaces={savedPlaces}
-              coupleId={coupleData.id}
-              userProfile={userProfile}
-              currentDraftLocation={{
-                name: formData.location,
-                address: formData.locationAddress || formData.location,
-                lat: formData.lat ?? undefined,
-                lng: formData.lng ?? undefined,
-                accuracy: formData.accuracy ?? undefined,
-                placeId: formData.placeId ?? undefined
-              }}
-              onOpenMapPicker={onOpenMapPicker}
+        {panel === 'voice' && (
+          <div className="animate-in fade-in rounded-2xl bg-slate-50 p-3 duration-150">
+            <VoiceMemoRecorder
+              currentVoiceUrl={formData.voiceMemoUrl}
+              currentVoiceDuration={formData.voiceMemoDuration}
+              currentVoiceTitle={formData.voiceMemoTitle}
+              recordedByName={
+                formData.voiceMemoRecordedByName || userProfile.displayName
+              }
+              onVoiceMemoSaved={(data) =>
+                onFormChange({
+                  voiceMemoUrl: data.url,
+                  voiceMemoDuration: data.duration,
+                  voiceMemoTitle: data.title,
+                  voiceMemoRecordedByName:
+                    data.recordedByName || userProfile.displayName,
+                })
+              }
+              onVoiceMemoRemoved={() =>
+                onFormChange({
+                  voiceMemoUrl: '',
+                  voiceMemoDuration: 0,
+                  voiceMemoTitle: '',
+                  voiceMemoRecordedByName: '',
+                })
+              }
+              disabled={!canEdit}
             />
-          )}
-        </div>
-      )}
+          </div>
+        )}
 
-      {/* SECTION 4: LỜI THÌ THẦM, NHẠC & CHI TIÊU */}
-      {activeSection === 'music_expense' && (
-        <div className="space-y-4 animate-in fade-in duration-150">
-          {/* Voice Memo Recorder */}
-          <VoiceMemoRecorder
-            currentVoiceUrl={formData.voiceMemoUrl}
-            currentVoiceDuration={formData.voiceMemoDuration}
-            currentVoiceTitle={formData.voiceMemoTitle}
-            recordedByName={formData.voiceMemoRecordedByName || userProfile.displayName}
-            onVoiceMemoSaved={(data) => {
-              onFormChange({
-                voiceMemoUrl: data.url,
-                voiceMemoDuration: data.duration,
-                voiceMemoTitle: data.title,
-                voiceMemoRecordedByName: data.recordedByName || userProfile.displayName,
-              });
-            }}
-            onVoiceMemoRemoved={() => {
-              onFormChange({
-                voiceMemoUrl: '',
-                voiceMemoDuration: 0,
-                voiceMemoTitle: '',
-                voiceMemoRecordedByName: '',
-              });
-            }}
-            disabled={!isAuthor && mode === 'edit'}
-          />
+        {panel === 'more' && (
+          <div className="animate-in fade-in space-y-4 rounded-2xl bg-slate-50 p-3 duration-150">
+            <input
+              type="text"
+              disabled={!canEdit}
+              value={formData.title}
+              onChange={(event) => onFormChange({ title: event.target.value })}
+              placeholder="Tiêu đề (không bắt buộc)"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-rose-300 disabled:bg-slate-100"
+            />
 
-          {/* Music Attachment */}
-          <div className="p-4 bg-rose-50/40 border border-rose-200/60 rounded-2xl space-y-2.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <Music className="w-4 h-4 text-rose-500" />
-                <span>Gắn link bài hát kỷ niệm</span>
-                <span className="text-slate-400 font-normal text-[11px]">(Tùy chọn)</span>
-              </label>
-              {formData.musicUrl && (isAuthor || mode === 'create') && (
-                <button
-                  type="button"
-                  onClick={() => onFormChange({ musicUrl: '', musicTitle: '' })}
-                  className="text-[11px] text-rose-500 hover:text-rose-700 font-medium cursor-pointer"
-                >
-                  Xóa nhạc
-                </button>
-              )}
-            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                <Music className="h-4 w-4 text-rose-500" />
+                Nhạc
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  type="url"
+                  disabled={!canEdit}
+                  value={formData.musicUrl}
+                  onChange={(event) => onFormChange({ musicUrl: event.target.value })}
+                  placeholder="Link bài hát"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800 outline-none focus:border-rose-300 disabled:bg-slate-100"
+                />
+                <input
+                  type="text"
+                  disabled={!canEdit}
+                  value={formData.musicTitle}
+                  onChange={(event) => onFormChange({ musicTitle: event.target.value })}
+                  placeholder="Tên bài hát"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800 outline-none focus:border-rose-300 disabled:bg-slate-100"
+                />
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <input
-                type="url"
-                disabled={!isAuthor && mode === 'edit'}
-                placeholder="Dán link bài hát (YouTube, Spotify, Zing, link .mp3...)"
-                value={formData.musicUrl}
-                onChange={(e) => onFormChange({ musicUrl: e.target.value })}
-                className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1.5 focus:ring-rose-400 placeholder:text-slate-400 disabled:bg-slate-100"
-              />
-              <input
-                type="text"
-                disabled={!isAuthor && mode === 'edit'}
-                placeholder="Tên bài hát (VD: Cơn Mưa Tình Yêu...)"
-                value={formData.musicTitle}
-                onChange={(e) => onFormChange({ musicTitle: e.target.value })}
-                className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1.5 focus:ring-rose-400 placeholder:text-slate-400 disabled:bg-slate-100"
-              />
-            </div>
-
-            {formData.musicUrl.trim() && (
-              <div className="pt-1">
+              {formData.musicUrl.trim() && (
                 <JournalMusicPlayer
                   musicUrl={formData.musicUrl.trim()}
                   musicTitle={formData.musicTitle.trim()}
                 />
-              </div>
-            )}
-          </div>
-
-          {/* Expenses Attachment */}
-          <div className="p-4 bg-amber-50/60 border border-amber-200/80 rounded-2xl space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                <Receipt className="w-4 h-4 text-amber-600" />
-                Chi tiêu kỷ niệm này
-              </span>
-              <span className="text-[10px] text-amber-700 font-medium">
-                (Chỉ xem trong chi tiết, ẩn ngoài bảng tin)
-              </span>
+              )}
             </div>
 
-            {(isAuthor || mode === 'create') && (
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="text"
-                  placeholder="Tên khoản chi (VD: Vé xem phim, Ăn tối...)"
-                  value={newExpTitle}
-                  onChange={(e) => setNewExpTitle(e.target.value)}
-                  className="flex-1 px-3 py-1.5 bg-white border border-amber-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-400"
-                />
-                <input
-                  type="number"
-                  placeholder="Số tiền (đ)"
-                  value={newExpAmount}
-                  onChange={(e) => setNewExpAmount(e.target.value)}
-                  className="w-full sm:w-32 px-3 py-1.5 bg-white border border-amber-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-400"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddExpense}
-                  className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl text-xs transition cursor-pointer shrink-0"
-                >
-                  + Thêm
-                </button>
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                <Receipt className="h-4 w-4 text-amber-600" />
+                Chi tiêu
               </div>
-            )}
 
-            {formData.expenses.length > 0 ? (
-              <div className="space-y-1.5 pt-1">
-                {formData.expenses.map((exp) => (
-                  <div
-                    key={exp.id}
-                    className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-amber-100 text-xs"
+              {canEdit && (
+                <div className="grid grid-cols-[1fr_110px_auto] gap-2">
+                  <input
+                    type="text"
+                    value={newExpTitle}
+                    onChange={(event) => setNewExpTitle(event.target.value)}
+                    placeholder="Khoản chi"
+                    className="min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-amber-300"
+                  />
+                  <input
+                    type="number"
+                    value={newExpAmount}
+                    onChange={(event) => setNewExpAmount(event.target.value)}
+                    placeholder="Số tiền"
+                    className="min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-amber-300"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddExpense}
+                    className="rounded-xl bg-slate-900 px-3 text-xs font-bold text-white"
+                    aria-label="Thêm khoản chi"
                   >
-                    <span className="font-medium text-slate-700">{exp.title}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-amber-700">
-                        {exp.amount.toLocaleString('vi-VN')} đ
-                      </span>
-                      {(isAuthor || mode === 'create') && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveExpense(exp.id)}
-                          className="text-slate-400 hover:text-rose-500 transition cursor-pointer"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                <div className="flex justify-between items-center pt-2 text-xs font-bold text-amber-950 border-t border-amber-200">
-                  <span>TỔNG CỘNG:</span>
-                  <span className="text-sm text-amber-700">
-                    {formData.expenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString('vi-VN')} đ
-                  </span>
+                    +
+                  </button>
                 </div>
-              </div>
-            ) : (
-              <p className="text-xs text-amber-800/70 italic">
-                Chưa có khoản chi tiêu nào được thêm.
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+              )}
 
-      {/* Form Footer Action Buttons */}
-      <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              {formData.expenses.length > 0 && (
+                <div className="space-y-1">
+                  {formData.expenses.map((expense) => (
+                    <div
+                      key={expense.id}
+                      className="flex items-center justify-between rounded-xl bg-white px-3 py-2 text-xs"
+                    >
+                      <span className="truncate font-medium text-slate-700">
+                        {expense.title}
+                      </span>
+                      <div className="ml-3 flex items-center gap-2">
+                        <span className="font-bold text-amber-700">
+                          {expense.amount.toLocaleString('vi-VN')} đ
+                        </span>
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveExpense(expense.id)}
+                            className="text-slate-400 hover:text-rose-500"
+                            aria-label="Xóa khoản chi"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {isSavedPlacesModalOpen && coupleData?.id && (
+          <SavedLocationSelectorModal
+            isOpen={isSavedPlacesModalOpen}
+            onClose={() => setIsSavedPlacesModalOpen(false)}
+            onSelectLocation={handleSelectQuickLocation}
+            journals={journals}
+            savedPlaces={savedPlaces}
+            coupleId={coupleData.id}
+            userProfile={userProfile}
+            currentDraftLocation={{
+              name: formData.location,
+              address: formData.locationAddress || formData.location,
+              lat: formData.lat ?? undefined,
+              lng: formData.lng ?? undefined,
+              accuracy: formData.accuracy ?? undefined,
+              placeId: formData.placeId ?? undefined,
+            }}
+            onOpenMapPicker={onOpenMapPicker}
+          />
+        )}
+      </div>
+
+      <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-4 py-3.5 sm:px-5">
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2.5 rounded-xl text-slate-500 hover:bg-slate-100 text-xs font-semibold transition cursor-pointer"
+          className="min-h-10 px-2 text-xs font-semibold text-slate-500"
         >
-          {isAuthor || mode === 'create' ? 'Hủy' : 'Đóng chi tiết'}
+          {canEdit ? 'Hủy' : 'Đóng'}
         </button>
 
-        {(isAuthor || mode === 'create') && (
+        {canEdit && (
           <button
             type="submit"
-            disabled={isLoading}
-            className="px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow-md transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+            disabled={isLoading || imageUploading}
+            className="inline-flex min-h-10 min-w-[112px] items-center justify-center gap-1.5 rounded-xl bg-rose-500 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-rose-600 disabled:opacity-50"
           >
             {isLoading ? (
               <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Đang lưu...</span>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Đang lưu
               </>
+            ) : mode === 'create' ? (
+              'Lưu nhật ký'
             ) : (
-              <>
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>{mode === 'create' ? 'Lưu trang nhật ký ✨' : 'Lưu thay đổi ✨'}</span>
-              </>
+              'Lưu thay đổi'
             )}
           </button>
         )}
