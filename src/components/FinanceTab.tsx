@@ -752,16 +752,9 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
   };
 
   return (
-    <div className="space-y-4 pb-12 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3 pb-1">
-        <div>
-          <h1 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2">
-            <Wallet className="w-5 h-5 text-rose-500 shrink-0" />
-            <span>Tài Chính</span>
-          </h1>
-          
-        </div>
+    <div className="mx-auto max-w-4xl space-y-4 pb-12">
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="app-page-title">Tài chính</h1>
 
         <button
           type="button"
@@ -772,76 +765,61 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
             setTxType('expense');
             setShowAddTransaction(true);
           }}
-          className="h-9 px-3 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
+          className="app-button app-button-primary inline-flex items-center gap-1.5"
         >
-          <Plus className="w-3.5 h-3.5" />
-          Ghi thu / chi
+          <Plus className="h-4 w-4" />
+          Ghi
         </button>
       </div>
 
-      {/* Main fund hero */}
-      <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
-              Dư quỹ theo sổ hiện tại
-            </p>
-            <div className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 mt-1">
-              {netBalance.toLocaleString('vi-VN')}
-              <span className="text-base ml-1 text-slate-400 font-bold">đ</span>
-            </div>
-            
-          </div>
+      <section className="app-card p-5">
+        <p className="app-caption">Số dư quỹ</p>
+        <p className="mt-1 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+          {netBalance.toLocaleString('vi-VN')}
+          <span className="ml-1 text-sm font-semibold text-slate-400">đ</span>
+        </p>
 
-          <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center">
-            <CircleDollarSign className="w-5 h-5 text-rose-500" />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2 mt-4">
+        <div className="mt-4 grid grid-cols-3 gap-2">
           <button
             type="button"
             onClick={handleQuickAddFundContribution}
-            className="py-2 rounded-xl bg-rose-500 text-white text-[11px] font-bold flex items-center justify-center gap-1"
+            className="app-button app-button-primary inline-flex items-center justify-center gap-1"
           >
-            <Plus className="w-3.5 h-3.5" />
-            Nạp quỹ
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveView('ideas')}
-            className="py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-[11px] font-bold flex items-center justify-center gap-1"
-          >
-            <ShoppingBag className="w-3.5 h-3.5 text-rose-500" />
-            Mua gì?
+            <Plus className="h-3.5 w-3.5" />
+            Nạp
           </button>
           <button
             type="button"
             onClick={() => setActiveView('goals')}
-            className="py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-[11px] font-bold flex items-center justify-center gap-1"
+            className="app-button app-button-secondary inline-flex items-center justify-center gap-1"
           >
-            <Target className="w-3.5 h-3.5 text-amber-500" />
+            <Target className="h-3.5 w-3.5" />
             Hũ
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveView('history')}
+            className="app-button app-button-secondary inline-flex items-center justify-center gap-1"
+          >
+            <Receipt className="h-3.5 w-3.5" />
+            Lịch sử
+          </button>
         </div>
-      </div>
+      </section>
 
-      {/* Finance sub navigation */}
-      <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100 rounded-2xl">
+      <div className="app-segmented grid grid-cols-4 gap-1">
         {[
           { id: 'overview' as FinanceView, label: 'Tổng quan' },
           { id: 'ideas' as FinanceView, label: 'Mua gì?' },
-          { id: 'goals' as FinanceView, label: 'Mục tiêu' },
+          { id: 'goals' as FinanceView, label: 'Hũ' },
           { id: 'history' as FinanceView, label: 'Lịch sử' },
         ].map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveView(tab.id)}
-            className={`py-2 rounded-xl text-[10px] sm:text-[11px] font-bold transition cursor-pointer ${
-              activeView === tab.id
-                ? 'bg-white text-rose-600 shadow-2xs'
-                : 'text-slate-500 hover:text-slate-700'
+            className={`app-segmented-item min-w-0 truncate px-1 ${
+              activeView === tab.id ? 'app-segmented-item-active' : ''
             }`}
           >
             {tab.label}
@@ -849,91 +827,90 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
         ))}
       </div>
 
-      {/* OVERVIEW */}
       {activeView === 'overview' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-2.5">
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs">
-              <TrendingUp className="w-4 h-4 text-emerald-500 mb-2" />
-              <p className="text-[10px] text-slate-400">Tổng nạp</p>
-              <p className="text-sm font-black text-slate-800 mt-0.5">
-                {totalIncome.toLocaleString('vi-VN')}đ
-              </p>
-            </div>
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs">
-              <TrendingDown className="w-4 h-4 text-rose-500 mb-2" />
-              <p className="text-[10px] text-slate-400">Tổng chi</p>
-              <p className="text-sm font-black text-slate-800 mt-0.5">
-                {grandTotalExpense.toLocaleString('vi-VN')}đ
-              </p>
-            </div>
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs">
-              <PiggyBank className="w-4 h-4 text-amber-500 mb-2" />
-              <p className="text-[10px] text-slate-400">Đang ở hũ</p>
-              <p className="text-sm font-black text-slate-800 mt-0.5">
-                {reservedInGoals.toLocaleString('vi-VN')}đ
-              </p>
-            </div>
-          </div>
+        <div className="space-y-3">
+          <section className="app-card grid grid-cols-3 divide-x divide-slate-100 p-3">
+            {[
+              ['Đã nạp', totalIncome, 'text-emerald-600'],
+              ['Đã chi', grandTotalExpense, 'text-rose-600'],
+              ['Trong hũ', reservedInGoals, 'text-amber-600'],
+            ].map(([label, value, tone]) => (
+              <div key={label as string} className="min-w-0 px-2 text-center">
+                <p className="text-[10px] font-semibold text-slate-400">
+                  {label as string}
+                </p>
+                <p className={`mt-1 truncate text-sm font-bold tabular-nums ${tone as string}`}>
+                  {(value as number).toLocaleString('vi-VN')}đ
+                </p>
+              </div>
+            ))}
+          </section>
 
-          {/* Couple reconciliation */}
-          <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs space-y-3">
-            <div className="flex items-center gap-1.5">
-              <Users className="w-4 h-4 text-rose-500" />
-              <span className="text-xs font-bold text-slate-800">
-                Hai đứa đã đóng & chi bao nhiêu?
+          <section className="app-card p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="app-section-title">Hai đứa</h2>
+              <span className="app-caption">
+                {weeklySavingPace.toLocaleString('vi-VN')}đ/tuần
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                <div className="flex items-center gap-2 mb-2">
-                  <img src={myAvatar} alt="" className="w-7 h-7 rounded-full object-cover bg-white border border-slate-200" />
-                  <span className="text-xs font-bold text-slate-800 truncate">{myName}</span>
-                </div>
-                <div className="text-[10px] text-slate-400">Đã nạp</div>
-                <div className="text-xs font-bold text-emerald-600">+{myIncome.toLocaleString('vi-VN')}đ</div>
-                <div className="text-[10px] text-slate-400 mt-1.5">Đã chi</div>
-                <div className="text-xs font-bold text-rose-600">-{myGrandTotalPaid.toLocaleString('vi-VN')}đ</div>
-              </div>
+            <div className="mt-3 grid grid-cols-2 divide-x divide-slate-100">
+              {[
+                {
+                  name: myName,
+                  avatar: myAvatar,
+                  income: myIncome,
+                  spent: myGrandTotalPaid,
+                },
+                {
+                  name: partnerName,
+                  avatar: partnerAvatar,
+                  income: partnerIncome,
+                  spent: partnerGrandTotalPaid,
+                },
+              ].map((person, index) => (
+                <div
+                  key={person.name}
+                  className={`min-w-0 ${index === 0 ? 'pr-3' : 'pl-3'}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <img
+                      src={person.avatar}
+                      alt=""
+                      className="h-7 w-7 shrink-0 rounded-full bg-slate-100 object-cover"
+                    />
+                    <span className="truncate text-xs font-semibold text-slate-800">
+                      {person.name}
+                    </span>
+                  </div>
 
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                <div className="flex items-center gap-2 mb-2">
-                  <img src={partnerAvatar} alt="" className="w-7 h-7 rounded-full object-cover bg-white border border-slate-200" />
-                  <span className="text-xs font-bold text-slate-800 truncate">{partnerName}</span>
+                  <div className="mt-2 flex items-center justify-between gap-2 text-[10px]">
+                    <span className="text-slate-400">Nạp</span>
+                    <span className="font-semibold text-emerald-600">
+                      +{person.income.toLocaleString('vi-VN')}đ
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between gap-2 text-[10px]">
+                    <span className="text-slate-400">Chi</span>
+                    <span className="font-semibold text-rose-600">
+                      -{person.spent.toLocaleString('vi-VN')}đ
+                    </span>
+                  </div>
                 </div>
-                <div className="text-[10px] text-slate-400">Đã nạp</div>
-                <div className="text-xs font-bold text-emerald-600">+{partnerIncome.toLocaleString('vi-VN')}đ</div>
-                <div className="text-[10px] text-slate-400 mt-1.5">Đã chi</div>
-                <div className="text-xs font-bold text-rose-600">-{partnerGrandTotalPaid.toLocaleString('vi-VN')}đ</div>
-              </div>
+              ))}
             </div>
 
-            <div className="p-2.5 bg-slate-50 rounded-xl text-[11px] text-slate-600 flex gap-2">
-              <Scale className="w-4 h-4 text-slate-400 shrink-0" />
+            <div className="mt-3 flex items-start gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-[11px] leading-5 text-slate-500">
+              <Scale className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
                 {expenseDiff === 0
-                  ? 'Hai bạn đang chi trả cân bằng.'
+                  ? 'Chi tiêu đang cân bằng.'
                   : expenseDiff > 0
-                    ? `${myName} đang chi nhiều hơn ${partnerName} ${Math.abs(expenseDiff).toLocaleString('vi-VN')}đ.`
-                    : `${partnerName} đang chi nhiều hơn ${myName} ${Math.abs(expenseDiff).toLocaleString('vi-VN')}đ.`}
+                    ? `${myName} chi nhiều hơn ${partnerName} ${Math.abs(expenseDiff).toLocaleString('vi-VN')}đ.`
+                    : `${partnerName} chi nhiều hơn ${myName} ${Math.abs(expenseDiff).toLocaleString('vi-VN')}đ.`}
               </span>
             </div>
-          </div>
-
-          {/* Saving pace */}
-          <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold text-slate-800">Nhịp đóng quỹ 30 ngày gần đây</p>
-              
-            </div>
-            <div className="text-right shrink-0">
-              <p className="text-sm font-black text-emerald-600">
-                {weeklySavingPace.toLocaleString('vi-VN')}đ
-              </p>
-              <p className="text-[10px] text-slate-400">/ tuần</p>
-            </div>
-          </div>
+          </section>
 
           <WakeUpChallengeCard
             userProfile={userProfile}
@@ -952,38 +929,26 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
         </div>
       )}
 
-      {/* PURCHASE IDEAS */}
       {activeView === 'ideas' && (
         <div className="space-y-3">
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-rose-500" />
-                  Quỹ này mua được gì?
-                </h3>
-                
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowAddWishlist(true)}
-                className="h-8 px-2.5 bg-rose-500 text-white rounded-xl text-[10px] font-bold flex items-center gap-1 shrink-0"
-              >
-                <Plus className="w-3 h-3" />
-                Wishlist
-              </button>
-            </div>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="app-section-title">Mua gì?</h2>
+            <button
+              type="button"
+              onClick={() => setShowAddWishlist(true)}
+              className="app-icon-button app-icon-button-brand h-9 w-9 border border-rose-100 bg-rose-50"
+              aria-label="Thêm wishlist"
+              title="Thêm"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
             <button
               type="button"
               onClick={() => setIdeaCategory('all')}
-              className={`h-8 px-3 rounded-xl text-[10px] font-bold whitespace-nowrap ${
-                ideaCategory === 'all'
-                  ? 'bg-slate-800 text-white'
-                  : 'bg-white border border-slate-200 text-slate-600'
-              }`}
+              className={`app-chip shrink-0 ${ideaCategory === 'all' ? 'app-chip-active' : ''}`}
             >
               Tất cả
             </button>
@@ -994,10 +959,8 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
                   key={category}
                   type="button"
                   onClick={() => setIdeaCategory(category)}
-                  className={`h-8 px-3 rounded-xl text-[10px] font-bold whitespace-nowrap ${
-                    ideaCategory === category
-                      ? 'bg-rose-500 text-white'
-                      : 'bg-white border border-slate-200 text-slate-600'
+                  className={`app-chip shrink-0 ${
+                    ideaCategory === category ? 'app-chip-active' : ''
                   }`}
                 >
                   {PURCHASE_CATEGORY_LABEL[category]}
@@ -1007,11 +970,11 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
 
             <button
               type="button"
-              onClick={() => setIdeaSort((s) => (s === 'asc' ? 'desc' : 'asc'))}
-              className="h-8 px-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 ml-auto flex items-center gap-1 text-[10px] font-bold whitespace-nowrap"
+              onClick={() => setIdeaSort((value) => (value === 'asc' ? 'desc' : 'asc'))}
+              className="app-chip ml-auto shrink-0"
             >
-              <ArrowUpDown className="w-3 h-3" />
-              {ideaSort === 'asc' ? 'Rẻ → đắt' : 'Đắt → rẻ'}
+              <ArrowUpDown className="h-3 w-3" />
+              {ideaSort === 'asc' ? 'Rẻ trước' : 'Đắt trước'}
             </button>
           </div>
 
@@ -1026,39 +989,32 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
                   : 0;
 
               return (
-                <div
-                  key={item.id}
-                  className="bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-xs"
-                >
+                <article key={item.id} className="app-card p-3.5">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-xl shrink-0">
-                      {item.emoji || <Icon className="w-4 h-4 text-slate-500" />}
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-lg">
+                      {item.emoji || <Icon className="h-4 w-4 text-slate-500" />}
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <h4 className="text-xs font-black text-slate-900 truncate">
+                          <h3 className="truncate text-sm font-semibold text-slate-900">
                             {item.title}
-                          </h4>
-                          <div className="flex items-center gap-1.5 mt-1">
-                            <span className="text-[9px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-md">
-                              {PURCHASE_CATEGORY_LABEL[item.category]}
-                            </span>
-                            {item.source === 'wishlist' && (
-                              <span className="text-[9px] text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md font-bold">
-                                Wishlist · {item.addedByName || 'Hai đứa'}
-                              </span>
-                            )}
-                          </div>
+                          </h3>
+                          <p className="mt-0.5 truncate text-[10px] text-slate-400">
+                            {PURCHASE_CATEGORY_LABEL[item.category]}
+                            {item.source === 'wishlist'
+                              ? ` · ${item.addedByName || 'Wishlist'}`
+                              : ''}
+                          </p>
                         </div>
 
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-black text-slate-900">
+                        <div className="shrink-0 text-right">
+                          <p className="text-sm font-bold tabular-nums text-slate-900">
                             {item.estimatedPrice.toLocaleString('vi-VN')}đ
                           </p>
                           <p
-                            className={`text-[9px] font-bold mt-0.5 ${
+                            className={`mt-0.5 text-[10px] font-semibold ${
                               status.key === 'ready'
                                 ? 'text-emerald-600'
                                 : status.key === 'near'
@@ -1073,38 +1029,36 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
 
                       {status.key !== 'ready' && (
                         <div className="mt-2.5">
-                          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
                             <div
-                              className="h-full bg-rose-400 rounded-full"
+                              className="h-full rounded-full bg-amber-400"
                               style={{ width: `${progress}%` }}
                             />
                           </div>
                           {weeks && (
-                            <p className="text-[9px] text-slate-400 mt-1">
-                              Với nhịp đóng quỹ gần đây: khoảng {weeks} tuần nữa đủ.
+                            <p className="mt-1 text-[10px] text-slate-400">
+                              ~{weeks} tuần
                             </p>
                           )}
                         </div>
                       )}
 
-                      <div className="flex items-center gap-1.5 mt-3">
+                      <div className="mt-3 flex items-center gap-1.5">
                         {status.key === 'ready' ? (
                           <button
                             type="button"
                             onClick={() => openExpenseFromSuggestion(item)}
-                            className="h-8 px-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-[10px] font-bold flex items-center gap-1"
+                            className="app-button min-h-9 border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] text-emerald-700"
                           >
-                            <CheckCircle2 className="w-3 h-3" />
-                            Ghi mua
+                            Mua
                           </button>
                         ) : (
                           <button
                             type="button"
                             onClick={() => createGoalFromSuggestion(item)}
-                            className="h-8 px-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl text-[10px] font-bold flex items-center gap-1"
+                            className="app-button min-h-9 border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] text-amber-700"
                           >
-                            <Target className="w-3 h-3" />
-                            Biến thành hũ
+                            Tạo hũ
                           </button>
                         )}
 
@@ -1112,67 +1066,52 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
                           <button
                             type="button"
                             onClick={() => handleDeleteWishlist(item.id)}
-                            className="w-8 h-8 rounded-xl border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center"
-                            title="Xóa khỏi wishlist"
+                            className="app-icon-button h-9 w-9 hover:bg-rose-50 hover:text-rose-500"
+                            aria-label="Xóa wishlist"
+                            title="Xóa"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         )}
-
-                        <div className="ml-auto text-[9px] text-slate-400 flex items-center gap-1">
-                          {status.key === 'ready' ? (
-                            <>
-                              <BadgeDollarSign className="w-3 h-3 text-emerald-500" />
-                              Đủ tiền
-                            </>
-                          ) : (
-                            <>
-                              <LockKeyhole className="w-3 h-3" />
-                              {progress}% mục tiêu
-                            </>
-                          )}
-                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                </article>
               );
             })}
           </div>
         </div>
       )}
 
-      {/* GOALS */}
       {activeView === 'goals' && (
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
-                <Target className="w-4 h-4 text-amber-500" />
-                Mục tiêu của hai đứa
-              </h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                {savingsGoals.length} hũ · đang có {reservedInGoals.toLocaleString('vi-VN')}đ
+              <h2 className="app-section-title">Hũ tiết kiệm</h2>
+              <p className="app-caption mt-0.5">
+                {savingsGoals.length} hũ · {reservedInGoals.toLocaleString('vi-VN')}đ
               </p>
             </div>
             <button
               type="button"
               onClick={() => setShowAddGoal(true)}
-              className="h-8 px-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-bold flex items-center gap-1"
+              className="app-icon-button h-9 w-9 border border-amber-200 bg-amber-50 text-amber-700"
+              aria-label="Tạo hũ"
+              title="Tạo hũ"
             >
-              <Plus className="w-3 h-3" />
-              Tạo hũ
+              <Plus className="h-4 w-4" />
             </button>
           </div>
 
           {savingsGoals.length === 0 ? (
-            <div className="bg-white border border-dashed border-slate-200 rounded-2xl p-8 text-center">
-              <PiggyBank className="w-7 h-7 text-slate-300 mx-auto mb-2" />
-              <p className="text-xs font-bold text-slate-600">Chưa có hũ tiết kiệm</p>
-              
+            <div className="app-card px-5 py-9 text-center">
+              <PiggyBank className="mx-auto h-5 w-5 text-slate-300" />
+              <p className="mt-2 text-xs font-semibold text-slate-500">
+                Chưa có hũ
+              </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {savingsGoals.map((goal) => {
                 const percent = Math.min(
                   100,
@@ -1182,52 +1121,51 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
                 const weeks = estimateWeeks(missing);
 
                 return (
-                  <div
-                    key={goal.id}
-                    className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs space-y-3"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h4 className="font-black text-slate-900 text-xs">{goal.title}</h4>
+                  <article key={goal.id} className="app-card p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="truncate text-sm font-semibold text-slate-900">
+                          {goal.title}
+                        </h3>
                         {goal.targetDate && (
-                          <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-1">
-                            <Calendar className="w-3 h-3" />
+                          <p className="app-caption mt-1">
                             {formatDateVN(goal.targetDate)}
                           </p>
                         )}
                       </div>
+
                       <button
                         type="button"
                         onClick={() => handleDeleteSavingsGoal(goal.id)}
-                        className="text-slate-300 hover:text-rose-500"
+                        className="app-icon-button h-8 w-8 hover:bg-rose-50 hover:text-rose-500"
+                        aria-label="Xóa hũ"
+                        title="Xóa"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
 
-                    <div>
-                      <div className="flex items-end justify-between mb-1.5">
-                        <span className="text-sm font-black text-amber-600">
-                          {goal.currentAmount.toLocaleString('vi-VN')}đ
-                        </span>
-                        <span className="text-[10px] text-slate-400">
-                          / {goal.targetAmount.toLocaleString('vi-VN')}đ
-                        </span>
-                      </div>
-                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-amber-500 rounded-full"
-                          style={{ width: `${percent}%` }}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between mt-1.5">
-                        <span className="text-[10px] font-bold text-amber-600">{percent}%</span>
-                        {weeks && missing > 0 && (
-                          <span className="text-[9px] text-slate-400">
-                            ~{weeks} tuần nữa theo nhịp hiện tại
-                          </span>
-                        )}
-                      </div>
+                    <div className="mt-3 flex items-end justify-between gap-2">
+                      <span className="text-base font-bold tabular-nums text-amber-700">
+                        {goal.currentAmount.toLocaleString('vi-VN')}đ
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        / {goal.targetAmount.toLocaleString('vi-VN')}đ
+                      </span>
+                    </div>
+
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-amber-400"
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+
+                    <div className="mt-1.5 flex items-center justify-between text-[10px]">
+                      <span className="font-semibold text-amber-700">{percent}%</span>
+                      {weeks && missing > 0 && (
+                        <span className="text-slate-400">~{weeks} tuần</span>
+                      )}
                     </div>
 
                     <button
@@ -1236,75 +1174,70 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
                         setDepositPayerUid(myUid);
                         setDepositGoalId(goal.id);
                       }}
-                      className="w-full py-2 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1"
+                      className="app-button app-button-secondary mt-3 w-full min-h-9 py-1.5"
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      Nạp thêm vào hũ
+                      Nạp thêm
                     </button>
-                  </div>
+                  </article>
                 );
               })}
             </div>
           )}
-
-          
         </div>
       )}
 
-      {/* HISTORY */}
       {activeView === 'history' && (
         <div className="space-y-3">
-          <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs space-y-3">
-            <div className="flex items-center justify-between gap-2">
+          <section className="app-card overflow-hidden">
+            <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
               <div>
-                <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
-                  <Receipt className="w-4 h-4 text-slate-500" />
-                  Lịch sử thu / chi
-                </h3>
-                <p className="text-[10px] text-slate-400 mt-0.5">
+                <h2 className="app-section-title">Giao dịch</h2>
+                <p className="app-caption mt-0.5">
                   {filteredTransactions.length} giao dịch
                 </p>
               </div>
 
               <select
                 value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="h-8 px-2 bg-slate-50 border border-slate-200 rounded-xl text-[10px] text-slate-600 outline-none"
+                onChange={(event) => setSelectedCategory(event.target.value)}
+                className="app-control h-9 max-w-[150px] px-2 text-[11px]"
               >
-                <option value="all">Tất cả danh mục</option>
-                {FINANCE_CATEGORIES.map((c) => (
-                  <option key={c.id} value={c.name}>{c.name}</option>
+                <option value="all">Tất cả</option>
+                {FINANCE_CATEGORIES.map((category) => (
+                  <option key={category.id} value={category.name}>
+                    {category.name}
+                  </option>
                 ))}
               </select>
             </div>
 
-            <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl">
-              {[
-                { id: 'all' as const, label: 'Tất cả' },
-                { id: 'me' as const, label: myName },
-                { id: 'partner' as const, label: partnerName },
-              ].map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setSelectedPayer(item.id)}
-                  className={`py-1.5 rounded-lg text-[10px] font-bold truncate ${
-                    selectedPayer === item.id
-                      ? 'bg-white text-slate-800 shadow-2xs'
-                      : 'text-slate-500'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
+            <div className="px-4 pt-3">
+              <div className="app-segmented grid grid-cols-3 gap-1">
+                {[
+                  { id: 'all' as const, label: 'Tất cả' },
+                  { id: 'me' as const, label: myName },
+                  { id: 'partner' as const, label: partnerName },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setSelectedPayer(item.id)}
+                    className={`app-segmented-item min-w-0 truncate px-1 ${
+                      selectedPayer === item.id ? 'app-segmented-item-active' : ''
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {filteredTransactions.length === 0 ? (
-              <p className="text-center py-8 text-xs text-slate-400 italic">
-                Chưa có giao dịch nào.
+              <p className="py-10 text-center text-xs text-slate-400">
+                Chưa có giao dịch
               </p>
             ) : (
-              <div className="space-y-2">
+              <div className="divide-y divide-slate-100 px-4 py-2">
                 {filteredTransactions.map((tx) => {
                   const isPayerMe = tx.paidByUid === myUid;
                   const payerDisplayName = isPayerMe
@@ -1312,51 +1245,47 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
                     : tx.paidByName || partnerName;
 
                   return (
-                    <div
-                      key={tx.id}
-                      className="flex items-center justify-between gap-2 bg-slate-50 p-3 rounded-xl border border-slate-100"
-                    >
-                      <div className="min-w-0 flex items-center gap-2.5">
-                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                    <div key={tx.id} className="flex items-center gap-3 py-3">
+                      <div
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
                           tx.type === 'income'
                             ? 'bg-emerald-50 text-emerald-600'
-                            : 'bg-rose-50 text-rose-600'
-                        }`}>
-                          {tx.type === 'income'
-                            ? <TrendingUp className="w-4 h-4" />
-                            : <Receipt className="w-4 h-4" />}
-                        </div>
-
-                        <div className="min-w-0">
-                          <h5 className="font-bold text-slate-800 text-xs truncate">
-                            {tx.title}
-                          </h5>
-                          <p className="text-[10px] text-slate-400 mt-0.5 truncate">
-                            {payerDisplayName} · {formatDateShortVN(tx.date)} · {tx.category}
-                          </p>
-                        </div>
+                            : 'bg-slate-50 text-slate-500'
+                        }`}
+                      >
+                        {tx.type === 'income' ? (
+                          <TrendingUp className="h-4 w-4" />
+                        ) : (
+                          <Receipt className="h-4 w-4" />
+                        )}
                       </div>
 
-                      <div className="flex items-center gap-1 shrink-0">
-                        <span className={`font-black text-xs ${
-                          tx.type === 'income' ? 'text-emerald-600' : 'text-slate-800'
-                        }`}>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-semibold text-slate-800">
+                          {tx.title}
+                        </p>
+                        <p className="mt-0.5 truncate text-[10px] text-slate-400">
+                          {payerDisplayName} · {formatDateShortVN(tx.date)} · {tx.category}
+                        </p>
+                      </div>
+
+                      <div className="shrink-0 text-right">
+                        <p
+                          className={`text-xs font-bold tabular-nums ${
+                            tx.type === 'income'
+                              ? 'text-emerald-600'
+                              : 'text-slate-800'
+                          }`}
+                        >
                           {tx.type === 'income' ? '+' : '-'}
                           {tx.amount.toLocaleString('vi-VN')}đ
-                        </span>
+                        </p>
                         <button
                           type="button"
                           onClick={() => setEditingTx(tx)}
-                          className="w-7 h-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center"
+                          className="mt-1 text-[10px] font-semibold text-slate-400 hover:text-rose-600"
                         >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteTransaction(tx.id)}
-                          className="w-7 h-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          Sửa
                         </button>
                       </div>
                     </div>
@@ -1364,330 +1293,340 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
                 })}
               </div>
             )}
-          </div>
+          </section>
 
           {journalExpensesList.length > 0 && (
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 space-y-2 text-xs">
-              <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-                <span className="font-bold text-slate-700">
-                  Chi tiêu trong Nhật ký
-                </span>
-                <span className="text-rose-600 font-bold">
+            <section className="app-card p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="app-section-title">Từ Nhật ký</h2>
+                <span className="text-xs font-semibold text-rose-600">
                   {journalExpensesList
-                    .reduce((s, e) => s + e.amount, 0)
+                    .reduce((sum, expense) => sum + expense.amount, 0)
                     .toLocaleString('vi-VN')}đ
                 </span>
               </div>
-              {journalExpensesList.map((exp, idx) => (
-                <div
-                  key={idx}
-                  className="flex justify-between items-center text-[11px] text-slate-600 py-1"
-                >
-                  <span className="truncate pr-3">
-                    {exp.title}{' '}
-                    <span className="text-slate-400">
-                      ({exp.authorName || partnerName})
+
+              <div className="mt-2 divide-y divide-slate-100">
+                {journalExpensesList.map((expense, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between gap-3 py-2 text-[11px]"
+                  >
+                    <span className="min-w-0 truncate text-slate-600">
+                      {expense.title} · {expense.authorName || partnerName}
                     </span>
-                  </span>
-                  <span className="font-semibold shrink-0">
-                    {exp.amount.toLocaleString('vi-VN')}đ
-                  </span>
-                </div>
-              ))}
-            </div>
+                    <span className="shrink-0 font-semibold text-slate-700">
+                      {expense.amount.toLocaleString('vi-VN')}đ
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
           )}
         </div>
       )}
 
-      {/* ADD TRANSACTION MODAL */}
       {showAddTransaction && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[90] flex items-end justify-center sm:items-center sm:p-4">
+          <button
+            type="button"
+            className="app-modal-backdrop"
+            onClick={() => setShowAddTransaction(false)}
+            aria-label="Đóng"
+          />
+
           <form
             onSubmit={handleAddTransaction}
-            className="bg-white w-full max-w-md rounded-3xl p-5 border border-slate-200 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto"
+            className="app-sheet relative z-10 flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[24px] sm:rounded-[24px]"
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-black text-slate-900">Ghi thu / chi</h3>
-                <p className="text-[10px] text-slate-400 mt-0.5">
-                  Nhập nhanh một giao dịch mới
-                </p>
-              </div>
+            <div className="app-sheet-header">
+              <h3 className="app-section-title">Thu / chi</h3>
               <button
                 type="button"
                 onClick={() => setShowAddTransaction(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center"
+                className="app-icon-button h-9 w-9"
+                aria-label="Đóng"
               >
-                <X className="w-4 h-4" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setTxType('expense')}
-                className={`py-2 rounded-lg text-xs font-bold ${
-                  txType === 'expense'
-                    ? 'bg-white text-rose-600 shadow-2xs'
-                    : 'text-slate-500'
-                }`}
-              >
-                Chi tiêu (-)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setTxType('income');
-                  setTxCategory('Đóng quỹ chung');
-                }}
-                className={`py-2 rounded-lg text-xs font-bold ${
-                  txType === 'income'
-                    ? 'bg-white text-emerald-600 shadow-2xs'
-                    : 'text-slate-500'
-                }`}
-              >
-                Nạp quỹ (+)
-              </button>
-            </div>
+            <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+              <div className="app-segmented grid grid-cols-2 gap-1">
+                <button
+                  type="button"
+                  onClick={() => setTxType('expense')}
+                  className={`app-segmented-item ${
+                    txType === 'expense' ? 'app-segmented-item-active' : ''
+                  }`}
+                >
+                  Chi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTxType('income');
+                    setTxCategory('Đóng quỹ chung');
+                  }}
+                  className={`app-segmented-item ${
+                    txType === 'income' ? 'app-segmented-item-active' : ''
+                  }`}
+                >
+                  Nạp quỹ
+                </button>
+              </div>
 
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                Số tiền
-              </label>
               <input
                 type="text"
                 inputMode="numeric"
                 required
                 autoFocus
-                value={txAmount ? Number(txAmount.replace(/[^0-9]/g, '')).toLocaleString('vi-VN') : ''}
-                onChange={(e) => setTxAmount(e.target.value.replace(/[^0-9]/g, ''))}
-                placeholder="200.000"
-                className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xl font-black text-slate-900 outline-none focus:ring-1 focus:ring-rose-400"
+                value={
+                  txAmount
+                    ? Number(txAmount.replace(/[^0-9]/g, '')).toLocaleString('vi-VN')
+                    : ''
+                }
+                onChange={(event) =>
+                  setTxAmount(event.target.value.replace(/[^0-9]/g, ''))
+                }
+                placeholder="Số tiền"
+                className="app-control h-12 w-full px-3 text-lg font-bold tabular-nums"
               />
-            </div>
 
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                Nội dung
-              </label>
               <input
                 type="text"
                 required
                 value={txTitle}
-                onChange={(e) => setTxTitle(e.target.value)}
-                placeholder={txType === 'income' ? 'Đóng quỹ tháng này...' : 'Ăn tối, xem phim...'}
-                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 outline-none focus:ring-1 focus:ring-rose-400"
+                onChange={(event) => setTxTitle(event.target.value)}
+                placeholder={txType === 'income' ? 'Nội dung nạp quỹ' : 'Ăn tối, xem phim...'}
+                className="app-control h-11 w-full px-3 text-sm"
               />
-            </div>
 
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1.5">
-                Người thực hiện
-              </label>
               <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setTxPayerUid(myUid)}
-                  className={`p-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 ${
-                    txPayerUid === myUid
-                      ? 'bg-rose-50 border-rose-300 text-rose-700'
-                      : 'bg-slate-50 border-slate-200 text-slate-600'
-                  }`}
-                >
-                  <img src={myAvatar} alt="" className="w-5 h-5 rounded-full object-cover" />
-                  <span className="truncate">{myName}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTxPayerUid(partnerUid || 'partner')}
-                  className={`p-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 ${
-                    txPayerUid !== myUid
-                      ? 'bg-rose-50 border-rose-300 text-rose-700'
-                      : 'bg-slate-50 border-slate-200 text-slate-600'
-                  }`}
-                >
-                  <img src={partnerAvatar} alt="" className="w-5 h-5 rounded-full object-cover" />
-                  <span className="truncate">{partnerName}</span>
-                </button>
+                {[
+                  { uid: myUid, name: myName, avatar: myAvatar },
+                  {
+                    uid: partnerUid || 'partner',
+                    name: partnerName,
+                    avatar: partnerAvatar,
+                  },
+                ].map((person) => {
+                  const active = txPayerUid === person.uid;
+                  return (
+                    <button
+                      key={person.uid}
+                      type="button"
+                      onClick={() => setTxPayerUid(person.uid)}
+                      className={`app-button flex min-w-0 items-center justify-center gap-2 border px-2 ${
+                        active
+                          ? 'border-rose-200 bg-rose-50 text-rose-700'
+                          : 'border-[var(--app-border)] bg-white text-slate-600'
+                      }`}
+                    >
+                      <img
+                        src={person.avatar}
+                        alt=""
+                        className="h-5 w-5 shrink-0 rounded-full object-cover"
+                      />
+                      <span className="truncate">{person.name}</span>
+                    </button>
+                  );
+                })}
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              {txType === 'expense' && (
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                    Danh mục
-                  </label>
+              <div className="grid grid-cols-2 gap-2">
+                {txType === 'expense' && (
                   <select
                     value={txCategory}
-                    onChange={(e) => setTxCategory(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none"
+                    onChange={(event) => setTxCategory(event.target.value)}
+                    className="app-control h-11 min-w-0 px-3 text-xs"
+                    aria-label="Danh mục"
                   >
-                    {FINANCE_CATEGORIES.filter((c) => c.id !== 'fund').map((cat) => (
-                      <option key={cat.id} value={cat.name}>{cat.name}</option>
-                    ))}
+                    {FINANCE_CATEGORIES.filter((category) => category.id !== 'fund').map(
+                      (category) => (
+                        <option key={category.id} value={category.name}>
+                          {category.name}
+                        </option>
+                      )
+                    )}
                   </select>
-                </div>
-              )}
-              <div className={txType === 'income' ? 'col-span-2' : ''}>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                  Ngày
-                </label>
+                )}
+
                 <input
                   type="date"
                   value={txDate}
-                  onChange={(e) => setTxDate(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none"
+                  onChange={(event) => setTxDate(event.target.value)}
+                  className={`app-control h-11 min-w-0 px-3 text-xs ${
+                    txType === 'income' ? 'col-span-2' : ''
+                  }`}
+                  aria-label="Ngày"
                 />
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={submittingTx || !txTitle.trim() || !txAmount}
-              className="w-full py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-black disabled:opacity-50"
+            <div
+              className="app-sheet-footer"
+              style={{
+                paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))',
+              }}
             >
-              {submittingTx ? 'Đang lưu...' : 'Lưu giao dịch'}
-            </button>
+              <button
+                type="button"
+                onClick={() => setShowAddTransaction(false)}
+                className="app-button app-button-secondary flex-1"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={submittingTx || !txTitle.trim() || !txAmount}
+                className="app-button app-button-primary flex-[1.2] disabled:opacity-40"
+              >
+                {submittingTx ? 'Đang lưu' : 'Lưu'}
+              </button>
+            </div>
           </form>
         </div>
       )}
 
-      {/* ADD SAVINGS GOAL MODAL */}
       {showAddGoal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[90] flex items-end justify-center sm:items-center sm:p-4">
+          <button
+            type="button"
+            className="app-modal-backdrop"
+            onClick={() => setShowAddGoal(false)}
+            aria-label="Đóng"
+          />
+
           <form
             onSubmit={handleAddSavingsGoal}
-            className="bg-white w-full max-w-md rounded-3xl p-5 border border-slate-200 shadow-2xl space-y-4"
+            className="app-sheet relative z-10 flex w-full max-w-md flex-col overflow-hidden rounded-t-[24px] sm:rounded-[24px]"
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-black text-slate-900">Tạo hũ tiết kiệm</h3>
-                <p className="text-[10px] text-slate-400 mt-0.5">
-                  Đặt mục tiêu rõ ràng cho món hai đứa muốn
-                </p>
-              </div>
+            <div className="app-sheet-header">
+              <h3 className="app-section-title">Tạo hũ</h3>
               <button
                 type="button"
                 onClick={() => setShowAddGoal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center"
+                className="app-icon-button h-9 w-9"
+                aria-label="Đóng"
               >
-                <X className="w-4 h-4" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                Mục tiêu
-              </label>
+            <div className="space-y-3 px-4 py-4">
               <input
                 type="text"
                 required
                 value={goalTitle}
-                onChange={(e) => setGoalTitle(e.target.value)}
-                placeholder="Đi Đà Lạt, mua Instax..."
-                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-amber-400"
+                onChange={(event) => setGoalTitle(event.target.value)}
+                placeholder="Mục tiêu"
+                className="app-control h-11 w-full px-3 text-sm"
               />
-            </div>
 
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                Số tiền mục tiêu
-              </label>
               <input
                 type="text"
                 inputMode="numeric"
                 required
-                value={goalTargetAmount ? Number(goalTargetAmount.replace(/[^0-9]/g, '')).toLocaleString('vi-VN') : ''}
-                onChange={(e) => setGoalTargetAmount(e.target.value.replace(/[^0-9]/g, ''))}
-                placeholder="5.000.000"
-                className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-black outline-none focus:ring-1 focus:ring-amber-400"
+                value={
+                  goalTargetAmount
+                    ? Number(goalTargetAmount.replace(/[^0-9]/g, '')).toLocaleString('vi-VN')
+                    : ''
+                }
+                onChange={(event) =>
+                  setGoalTargetAmount(event.target.value.replace(/[^0-9]/g, ''))
+                }
+                placeholder="Số tiền"
+                className="app-control h-12 w-full px-3 text-lg font-bold tabular-nums"
               />
-            </div>
 
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                Hạn hoàn thành · tùy chọn
-              </label>
               <input
                 type="date"
                 value={goalTargetDate}
-                onChange={(e) => setGoalTargetDate(e.target.value)}
-                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none"
+                onChange={(event) => setGoalTargetDate(event.target.value)}
+                className="app-control h-11 w-full px-3 text-sm"
+                aria-label="Hạn hoàn thành"
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={submittingGoal || !goalTitle.trim() || !goalTargetAmount}
-              className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black disabled:opacity-50"
-            >
-              {submittingGoal ? 'Đang tạo...' : 'Tạo hũ'}
-            </button>
+            <div className="app-sheet-footer">
+              <button
+                type="button"
+                onClick={() => setShowAddGoal(false)}
+                className="app-button app-button-secondary flex-1"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={submittingGoal || !goalTitle.trim() || !goalTargetAmount}
+                className="app-button flex-[1.2] border border-amber-500 bg-amber-500 text-white disabled:opacity-40"
+              >
+                {submittingGoal ? 'Đang tạo' : 'Tạo hũ'}
+              </button>
+            </div>
           </form>
         </div>
       )}
 
-      {/* ADD WISHLIST MODAL */}
       {showAddWishlist && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[90] flex items-end justify-center sm:items-center sm:p-4">
+          <button
+            type="button"
+            className="app-modal-backdrop"
+            onClick={() => setShowAddWishlist(false)}
+            aria-label="Đóng"
+          />
+
           <form
             onSubmit={handleAddWishlist}
-            className="bg-white w-full max-w-md rounded-3xl p-5 border border-slate-200 shadow-2xl space-y-4"
+            className="app-sheet relative z-10 flex w-full max-w-md flex-col overflow-hidden rounded-t-[24px] sm:rounded-[24px]"
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-black text-slate-900">Thêm vào wishlist</h3>
-                <p className="text-[10px] text-slate-400 mt-0.5">
-                  Hai đứa muốn mua gì trong tương lai?
-                </p>
-              </div>
+            <div className="app-sheet-header">
+              <h3 className="app-section-title">Wishlist</h3>
               <button
                 type="button"
                 onClick={() => setShowAddWishlist(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center"
+                className="app-icon-button h-9 w-9"
+                aria-label="Đóng"
               >
-                <X className="w-4 h-4" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                Tên món / trải nghiệm
-              </label>
+            <div className="space-y-3 px-4 py-4">
               <input
                 type="text"
                 required
                 value={wishlistTitle}
-                onChange={(e) => setWishlistTitle(e.target.value)}
-                placeholder="AirPods, Instax, chuyến đi..."
-                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-rose-400"
+                onChange={(event) => setWishlistTitle(event.target.value)}
+                placeholder="Muốn mua gì?"
+                className="app-control h-11 w-full px-3 text-sm"
               />
-            </div>
 
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                Giá dự kiến
-              </label>
               <input
                 type="text"
                 inputMode="numeric"
                 required
-                value={wishlistPrice ? Number(wishlistPrice.replace(/[^0-9]/g, '')).toLocaleString('vi-VN') : ''}
-                onChange={(e) => setWishlistPrice(e.target.value.replace(/[^0-9]/g, ''))}
-                placeholder="2.790.000"
-                className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-black outline-none focus:ring-1 focus:ring-rose-400"
+                value={
+                  wishlistPrice
+                    ? Number(wishlistPrice.replace(/[^0-9]/g, '')).toLocaleString('vi-VN')
+                    : ''
+                }
+                onChange={(event) =>
+                  setWishlistPrice(event.target.value.replace(/[^0-9]/g, ''))
+                }
+                placeholder="Giá dự kiến"
+                className="app-control h-12 w-full px-3 text-lg font-bold tabular-nums"
               />
-            </div>
 
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                Nhóm
-              </label>
               <select
                 value={wishlistCategory}
-                onChange={(e) => setWishlistCategory(e.target.value as PurchaseCategory)}
-                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none"
+                onChange={(event) =>
+                  setWishlistCategory(event.target.value as PurchaseCategory)
+                }
+                className="app-control h-11 w-full px-3 text-sm"
+                aria-label="Nhóm"
               >
                 {(Object.keys(PURCHASE_CATEGORY_LABEL) as PurchaseCategory[]).map(
                   (category) => (
@@ -1699,89 +1638,121 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
               </select>
             </div>
 
-            <button
-              type="submit"
-              disabled={savingWishlist || !wishlistTitle.trim() || !wishlistPrice}
-              className="w-full py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-black disabled:opacity-50"
-            >
-              {savingWishlist ? 'Đang thêm...' : 'Thêm wishlist'}
-            </button>
+            <div className="app-sheet-footer">
+              <button
+                type="button"
+                onClick={() => setShowAddWishlist(false)}
+                className="app-button app-button-secondary flex-1"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={savingWishlist || !wishlistTitle.trim() || !wishlistPrice}
+                className="app-button app-button-primary flex-[1.2] disabled:opacity-40"
+              >
+                {savingWishlist ? 'Đang lưu' : 'Lưu'}
+              </button>
+            </div>
           </form>
         </div>
       )}
 
-      {/* DEPOSIT MODAL */}
       {depositGoalId && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[90] flex items-end justify-center sm:items-center sm:p-4">
+          <button
+            type="button"
+            className="app-modal-backdrop"
+            onClick={() => setDepositGoalId(null)}
+            aria-label="Đóng"
+          />
+
           <form
             onSubmit={handleDepositToGoal}
-            className="bg-white w-full max-w-sm rounded-3xl p-5 border border-slate-200 shadow-xl space-y-4"
+            className="app-sheet relative z-10 flex w-full max-w-sm flex-col overflow-hidden rounded-t-[24px] sm:rounded-[24px]"
           >
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-black text-slate-900">Nạp tiền vào hũ</h3>
+            <div className="app-sheet-header">
+              <h3 className="app-section-title">Nạp vào hũ</h3>
               <button
                 type="button"
                 onClick={() => setDepositGoalId(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center"
+                className="app-icon-button h-9 w-9"
+                aria-label="Đóng"
               >
-                <X className="w-4 h-4" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setDepositPayerUid(myUid)}
-                className={`p-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 ${
-                  depositPayerUid === myUid
-                    ? 'bg-amber-50 border-amber-300 text-amber-700'
-                    : 'bg-slate-50 border-slate-200 text-slate-600'
-                }`}
-              >
-                <img src={myAvatar} alt="" className="w-5 h-5 rounded-full object-cover" />
-                {myName}
-              </button>
-              <button
-                type="button"
-                onClick={() => setDepositPayerUid(partnerUid || 'partner')}
-                className={`p-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 ${
-                  depositPayerUid !== myUid
-                    ? 'bg-amber-50 border-amber-300 text-amber-700'
-                    : 'bg-slate-50 border-slate-200 text-slate-600'
-                }`}
-              >
-                <img src={partnerAvatar} alt="" className="w-5 h-5 rounded-full object-cover" />
-                {partnerName}
-              </button>
-            </div>
+            <div className="space-y-3 px-4 py-4">
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { uid: myUid, name: myName, avatar: myAvatar },
+                  {
+                    uid: partnerUid || 'partner',
+                    name: partnerName,
+                    avatar: partnerAvatar,
+                  },
+                ].map((person) => {
+                  const active = depositPayerUid === person.uid;
+                  return (
+                    <button
+                      key={person.uid}
+                      type="button"
+                      onClick={() => setDepositPayerUid(person.uid)}
+                      className={`app-button flex min-w-0 items-center justify-center gap-2 border px-2 ${
+                        active
+                          ? 'border-amber-200 bg-amber-50 text-amber-700'
+                          : 'border-[var(--app-border)] bg-white text-slate-600'
+                      }`}
+                    >
+                      <img
+                        src={person.avatar}
+                        alt=""
+                        className="h-5 w-5 shrink-0 rounded-full object-cover"
+                      />
+                      <span className="truncate">{person.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
 
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                Số tiền
-              </label>
               <input
                 type="text"
                 inputMode="numeric"
                 required
-                value={depositAmount ? Number(depositAmount.replace(/[^0-9]/g, '')).toLocaleString('vi-VN') : ''}
-                onChange={(e) => setDepositAmount(e.target.value.replace(/[^0-9]/g, ''))}
-                placeholder="500.000"
-                className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-black outline-none focus:ring-1 focus:ring-amber-400"
+                value={
+                  depositAmount
+                    ? Number(depositAmount.replace(/[^0-9]/g, '')).toLocaleString('vi-VN')
+                    : ''
+                }
+                onChange={(event) =>
+                  setDepositAmount(event.target.value.replace(/[^0-9]/g, ''))
+                }
+                placeholder="Số tiền"
+                className="app-control h-12 w-full px-3 text-lg font-bold tabular-nums"
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={submittingDeposit || !depositAmount}
-              className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black disabled:opacity-50"
-            >
-              {submittingDeposit ? 'Đang nạp...' : 'Xác nhận nạp'}
-            </button>
+            <div className="app-sheet-footer">
+              <button
+                type="button"
+                onClick={() => setDepositGoalId(null)}
+                className="app-button app-button-secondary flex-1"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={submittingDeposit || !depositAmount}
+                className="app-button flex-[1.2] border border-amber-500 bg-amber-500 text-white disabled:opacity-40"
+              >
+                {submittingDeposit ? 'Đang nạp' : 'Nạp'}
+              </button>
+            </div>
           </form>
         </div>
       )}
 
-      {/* Edit Transaction Modal */}
       {editingTx && userProfile.coupleId && (
         <EditTransactionModal
           isOpen={!!editingTx}
