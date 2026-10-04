@@ -803,45 +803,36 @@ export const AchievementsTab: React.FC<AchievementsTabProps> = ({
         </div>
       </div>
 
-      {/* Sub Tabs Navigation */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+      {/* Secondary tabs */}
+      <div className="app-subtabs">
         <button
           type="button"
           onClick={() => setSubTab('tiers')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 whitespace-nowrap ${
-            subTab === 'tiers'
-              ? 'bg-rose-500 text-white shadow-xs'
-              : 'bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50'
-          }`}
+          className={`app-subtab ${subTab === 'tiers' ? 'app-subtab-active' : ''}`}
         >
-          <Trophy className="w-3.5 h-3.5" />
-          <span>Thành Tích ({tieredAchievements.length})</span>
+          <Trophy className="h-3.5 w-3.5" />
+          <span>Thành tích</span>
+          <span className="app-subtab-count">{tieredAchievements.length}</span>
         </button>
 
         <button
           type="button"
           onClick={() => setSubTab('actions')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 whitespace-nowrap ${
-            subTab === 'actions'
-              ? 'bg-rose-500 text-white shadow-xs'
-              : 'bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50'
-          }`}
+          className={`app-subtab ${subTab === 'actions' ? 'app-subtab-active' : ''}`}
         >
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Hành Động Yêu ({loveActions.length})</span>
+          <Sparkles className="h-3.5 w-3.5" />
+          <span>Ghi điểm</span>
+          <span className="app-subtab-count">{loveActions.length}</span>
         </button>
 
         <button
           type="button"
           onClick={() => setSubTab('custom')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 whitespace-nowrap ${
-            subTab === 'custom'
-              ? 'bg-rose-500 text-white shadow-xs'
-              : 'bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50'
-          }`}
+          className={`app-subtab ${subTab === 'custom' ? 'app-subtab-active' : ''}`}
         >
-          <Star className="w-3.5 h-3.5" />
-          <span>Kỷ Niệm Riêng ({customAchievements.length})</span>
+          <Star className="h-3.5 w-3.5" />
+          <span>Kỷ niệm</span>
+          <span className="app-subtab-count">{customAchievements.length}</span>
         </button>
       </div>
 
