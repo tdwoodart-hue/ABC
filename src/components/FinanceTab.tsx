@@ -807,7 +807,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
         </div>
       </section>
 
-      <div className="app-segmented grid grid-cols-4 gap-1">
+      <div className="app-subtabs">
         {[
           { id: 'overview' as FinanceView, label: 'Tổng quan' },
           { id: 'ideas' as FinanceView, label: 'Mua gì?' },
@@ -818,8 +818,8 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
             key={tab.id}
             type="button"
             onClick={() => setActiveView(tab.id)}
-            className={`app-segmented-item min-w-0 truncate px-1 ${
-              activeView === tab.id ? 'app-segmented-item-active' : ''
+            className={`app-subtab flex-1 min-w-0 truncate ${
+              activeView === tab.id ? 'app-subtab-active' : ''
             }`}
           >
             {tab.label}
@@ -1212,7 +1212,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
             </div>
 
             <div className="px-4 pt-3">
-              <div className="app-segmented grid grid-cols-3 gap-1">
+              <div className="app-subtabs">
                 {[
                   { id: 'all' as const, label: 'Tất cả' },
                   { id: 'me' as const, label: myName },
@@ -1222,8 +1222,8 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
                     key={item.id}
                     type="button"
                     onClick={() => setSelectedPayer(item.id)}
-                    className={`app-segmented-item min-w-0 truncate px-1 ${
-                      selectedPayer === item.id ? 'app-segmented-item-active' : ''
+                    className={`app-subtab flex-1 min-w-0 truncate ${
+                      selectedPayer === item.id ? 'app-subtab-active' : ''
                     }`}
                   >
                     {item.label}
@@ -1352,12 +1352,12 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
             </div>
 
             <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
-              <div className="app-segmented grid grid-cols-2 gap-1">
+              <div className="app-subtabs">
                 <button
                   type="button"
                   onClick={() => setTxType('expense')}
-                  className={`app-segmented-item ${
-                    txType === 'expense' ? 'app-segmented-item-active' : ''
+                  className={`app-subtab flex-1 ${
+                    txType === 'expense' ? 'app-subtab-active' : ''
                   }`}
                 >
                   Chi
@@ -1368,8 +1368,8 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
                     setTxType('income');
                     setTxCategory('Đóng quỹ chung');
                   }}
-                  className={`app-segmented-item ${
-                    txType === 'income' ? 'app-segmented-item-active' : ''
+                  className={`app-subtab flex-1 ${
+                    txType === 'income' ? 'app-subtab-active' : ''
                   }`}
                 >
                   Nạp quỹ
