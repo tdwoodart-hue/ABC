@@ -1243,37 +1243,26 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
             </div>
           </div>
 
-          {/* Toggle View: Active vs Recycle Bin (Deleted) */}
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+          {/* Comment view tabs */}
+          <div className="app-subtabs">
             <button
               type="button"
               onClick={() => setCommentViewMode('active')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-                commentViewMode === 'active'
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-              }`}
+              className={`app-subtab ${commentViewMode === 'active' ? 'app-subtab-active' : ''}`}
             >
-              <MessageSquare className="w-4 h-4" />
-              <span>Bình luận đang hiển thị ({filteredComments.length})</span>
+              <MessageSquare className="h-3.5 w-3.5" />
+              <span>Đang hiển thị</span>
+              <span className="app-subtab-count">{filteredComments.length}</span>
             </button>
 
             <button
               type="button"
               onClick={() => setCommentViewMode('deleted')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-                commentViewMode === 'deleted'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/60'
-              }`}
+              className={`app-subtab ${commentViewMode === 'deleted' ? 'app-subtab-active' : ''}`}
             >
-              <History className="w-4 h-4" />
-              <span>Thùng rác & Đã xóa ({filteredDeletedComments.length})</span>
-              {deletedCommentsList.length > 0 && (
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${commentViewMode === 'deleted' ? 'bg-amber-700 text-white' : 'bg-amber-200 text-amber-900'}`}>
-                  {deletedCommentsList.length}
-                </span>
-              )}
+              <History className="h-3.5 w-3.5" />
+              <span>Đã xóa</span>
+              <span className="app-subtab-count">{filteredDeletedComments.length}</span>
             </button>
           </div>
 
