@@ -286,47 +286,39 @@ export const DeviceManagerModal: React.FC<DeviceManagerModalProps> = ({
             </div>
           </div>
 
-          {/* Sub Navigation Tabs */}
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+          {/* Secondary tabs */}
+          <div className="app-subtabs">
             <button
+              type="button"
               onClick={() => setActiveTab('all')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                activeTab === 'all'
-                  ? 'bg-slate-800 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
+              className={`app-subtab ${activeTab === 'all' ? 'app-subtab-active' : ''}`}
             >
-              Tất cả ({allDevices.length})
+              <span>Tất cả</span>
+              <span className="app-subtab-count">{allDevices.length}</span>
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab('duong')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                activeTab === 'duong'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-              }`}
+              className={`app-subtab ${activeTab === 'duong' ? 'app-subtab-active' : ''}`}
             >
-              👨🏻‍💻 Thiết bị của Dương ({duongDevices.length})
+              <span>Dương</span>
+              <span className="app-subtab-count">{duongDevices.length}</span>
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab('chuc')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                activeTab === 'chuc'
-                  ? 'bg-rose-500 text-white'
-                  : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
-              }`}
+              className={`app-subtab ${activeTab === 'chuc' ? 'app-subtab-active' : ''}`}
             >
-              🌸 Thiết bị của Chúc ({chucDevices.length})
+              <span>Chúc</span>
+              <span className="app-subtab-count">{chucDevices.length}</span>
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab('security')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ml-auto ${
-                activeTab === 'security'
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-              }`}
+              className={`app-subtab ${activeTab === 'security' ? 'app-subtab-active' : ''}`}
             >
-              🔒 Mã PIN bảo vệ
+              <Lock className="h-3.5 w-3.5" />
+              <span>Bảo mật</span>
             </button>
           </div>
 
