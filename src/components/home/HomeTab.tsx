@@ -1,8 +1,5 @@
 import React from 'react';
-import {
-  Calendar,
-  ChevronRight,
-} from 'lucide-react';
+import { Calendar, ChevronRight } from 'lucide-react';
 
 import { CoupleData, JournalEntry, UserProfile, WakeUpLog } from '../../types';
 import { UI_ASSETS } from '../../config/uiAssets';
@@ -75,14 +72,9 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   })();
 
   const todayLog =
-    wakeUpLogs.find(
-      (log) => log.date === todayLocalDate
-    ) || null;
+    wakeUpLogs.find((log) => log.date === todayLocalDate) || null;
 
-  const secretStats = useHomeSecretStats(
-    journals,
-    daysTogether
-  );
+  const secretStats = useHomeSecretStats(journals, daysTogether);
 
   const clearSecretPressTimer = () => {
     if (secretPressTimerRef.current !== null) {
@@ -113,97 +105,90 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-md space-y-6">
-        <CouplePixelCard
-          duongName={u1Name}
-          chucName={u2Name}
-          isDuongCurrentUser={isU1}
-          isChucCurrentUser={isU2}
-        />
+    <div className="space-y-4">
+      <CouplePixelCard
+        duongName={u1Name}
+        chucName={u2Name}
+        isDuongCurrentUser={isU1}
+        isChucCurrentUser={isU2}
+      />
 
-        <div className="bg-gradient-to-br from-rose-50 to-pink-50/50 rounded-2xl p-6 border border-rose-100/80 text-center">
-          <span className="text-xs font-bold text-rose-500 uppercase tracking-wider block mb-1">
-            Số Ngày Bên Nhau
-          </span>
-
-          <div
-            className="text-5xl font-black text-rose-600 tracking-tight my-2 select-none touch-manipulation"
-            onPointerDown={handleSecretPressStart}
-            onPointerUp={handleSecretPressEnd}
-            onPointerCancel={handleSecretPressEnd}
-            onPointerLeave={handleSecretPressEnd}
-            onContextMenu={(event) => event.preventDefault()}
-            role="button"
-            tabIndex={0}
-            aria-label={`${daysTogether} ngày bên nhau`}
-            onKeyDown={(event) => {
-              if (
-                event.key === 'Enter' ||
-                event.key === ' '
-              ) {
-                event.preventDefault();
-                setShowSecretStats(true);
-              }
-            }}
-          >
-            {daysTogether}{' '}
-            <span className="text-xl font-bold text-rose-400">
-              ngày
-            </span>
-          </div>
-
-          <div className="mt-4 pt-3 border-t border-rose-100/80 flex items-center justify-center gap-2 text-xs text-slate-500">
-            <Calendar className="w-4 h-4 text-rose-400" />
-            <span>Ngày bắt đầu:</span>
-            <span className="font-bold text-slate-700">
-              {formatDateVN(coupleData?.anniversaryDate)}
-            </span>
-          </div>
-        </div>
-
-        <MemoryOfTheDayCard
-          journals={journals}
-          onOpenJournal={onOpenJournal}
-        />
+      <section className="home-days-card px-5 py-5 text-center sm:px-6">
+        <span className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--app-muted)]">
+          Số ngày bên nhau
+        </span>
 
         <div
-          onClick={() => onNavigate('achievements')}
-          className="bg-white rounded-2xl p-4 border border-slate-200/80 hover:border-rose-300 transition-all shadow-xs hover:shadow-md cursor-pointer flex items-center justify-between gap-3 group"
+          className="my-1.5 select-none touch-manipulation text-[3.35rem] font-semibold leading-none tracking-[-0.04em] text-[var(--app-brand)]"
+          onPointerDown={handleSecretPressStart}
+          onPointerUp={handleSecretPressEnd}
+          onPointerCancel={handleSecretPressEnd}
+          onPointerLeave={handleSecretPressEnd}
+          onContextMenu={(event) => event.preventDefault()}
+          role="button"
+          tabIndex={0}
+          aria-label={`${daysTogether} ngày bên nhau`}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              setShowSecretStats(true);
+            }
+          }}
         >
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden group-hover:scale-105 transition-transform">
-              <img
-                src={UI_ASSETS.home.achievement}
-                alt=""
-                aria-hidden="true"
-                width={128}
-                height={128}
-                decoding="async"
-                className="w-full h-full object-cover"
-              />
-            </div>
-
-            <div className="text-left min-w-0">
-              <span className="text-sm font-bold text-slate-800 block truncate">
-                Thành Tích & Điểm Thưởng
-              </span>
-              
-            </div>
-          </div>
-
-          <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-rose-500 group-hover:translate-x-0.5 transition shrink-0" />
+          {daysTogether}
+          <span className="ml-2 text-lg font-semibold text-[var(--app-muted)]">
+            ngày
+          </span>
         </div>
 
-        <WakeUpChallengeCard
-          compact={true}
-          userProfile={userProfile}
-          coupleData={coupleData}
-          todayLog={todayLog}
-          allLogs={wakeUpLogs}
-          onNavigateToFinance={() => onNavigate('finance')}
-        />
-      </div>
+        <div className="mx-auto mt-4 flex max-w-sm items-center justify-center gap-2 border-t border-[var(--app-divider)] pt-3 text-xs text-[var(--app-muted)]">
+          <Calendar className="h-4 w-4 text-[var(--app-brand)]" />
+          <span>Ngày bắt đầu</span>
+          <span className="font-semibold text-[var(--app-text)]">
+            {formatDateVN(coupleData?.anniversaryDate)}
+          </span>
+        </div>
+      </section>
+
+      <MemoryOfTheDayCard
+        journals={journals}
+        onOpenJournal={onOpenJournal}
+      />
+
+      <button
+        type="button"
+        onClick={() => onNavigate('achievements')}
+        className="app-card app-list-row flex w-full items-center justify-between gap-3 p-3.5 text-left"
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-[var(--app-surface-soft)]">
+            <img
+              src={UI_ASSETS.home.achievement}
+              alt=""
+              aria-hidden="true"
+              width={128}
+              height={128}
+              decoding="async"
+              className="h-full w-full object-cover"
+            />
+          </div>
+
+          <span className="truncate text-sm font-semibold text-[var(--app-text)]">
+            Thành tích & Điểm thưởng
+          </span>
+        </div>
+
+        <ChevronRight className="h-4 w-4 shrink-0 text-[var(--app-faint)]" />
+      </button>
+
+      <WakeUpChallengeCard
+        compact
+        userProfile={userProfile}
+        coupleData={coupleData}
+        todayLog={todayLog}
+        allLogs={wakeUpLogs}
+        onNavigateToFinance={() => onNavigate('finance')}
+      />
 
       <SecretStatsModal
         isOpen={showSecretStats}

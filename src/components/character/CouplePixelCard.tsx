@@ -252,7 +252,7 @@ export const CouplePixelCard: React.FC<
   }, [getAutomaticState, isChucCurrentUser, isDuongCurrentUser]);
 
   return (
-    <div className="relative min-h-[340px] rounded-2xl border border-rose-100/80 bg-gradient-to-b from-rose-50/70 to-white overflow-hidden">
+    <div className="couple-hero-card relative min-h-[340px] overflow-hidden">
       <div className="absolute inset-0 pt-6 pb-8 px-4 sm:px-6">
         <div className="h-full w-full flex items-end justify-center gap-2 sm:gap-8">
           <div className="w-[42%] sm:w-[38%] max-w-[240px] flex flex-col items-center justify-end">

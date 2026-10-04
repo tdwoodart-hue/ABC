@@ -2296,11 +2296,11 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
 
   return (
     <div
-      className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans pb-24"
+      className="app-shell min-h-screen flex flex-col font-sans pb-24"
       style={{ paddingBottom: 'calc(5.5rem + env(safe-area-inset-bottom, 0px))' }}
     >
       {/* Main Content Areas based on activeTab */}
-      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <main className="flex-1 max-w-[760px] w-full mx-auto px-4 sm:px-6 py-5 sm:py-6 space-y-5">
         {/* TAB 1: HOME */}
         {activeTab === 'home' && (
           <HomeTab

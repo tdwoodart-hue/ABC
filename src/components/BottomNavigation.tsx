@@ -126,10 +126,10 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
   };
 
   const itemClass = (active: boolean) =>
-    `flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-0.5 py-1.5 min-h-[50px] select-none transition ${
+    `flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 py-1.5 min-h-[48px] select-none transition ${
       active
-        ? 'border border-rose-200/80 bg-rose-50 font-bold text-rose-600 shadow-2xs'
-        : 'font-medium text-slate-500 hover:bg-slate-50/80 hover:text-slate-800'
+        ? 'bg-[var(--app-brand-soft)] font-semibold text-[var(--app-brand)]'
+        : 'font-medium text-[var(--app-muted)] hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-text)]'
     }`;
 
   if (typeof document === 'undefined') return null;
@@ -137,7 +137,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
   return createPortal(
     <>
       <nav
-        className={`fixed bottom-0 left-0 right-0 z-40 border-t border-rose-100/90 bg-white px-2 pt-1.5 shadow-[0_-4px_20px_rgba(0,0,0,0.04)] sm:px-4 ${
+        className={`fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--app-border)] bg-[#fffdfb] px-2 pt-1.5 shadow-[0_-8px_28px_rgba(58,46,40,0.055)] sm:px-4 ${
           isKeyboardOpen ? 'hidden' : ''
         }`}
         style={{
@@ -152,7 +152,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
         data-us-bottom-navigation="true"
         aria-label="Thanh điều hướng chính"
       >
-        <div className="mx-auto grid max-w-xl grid-cols-5 gap-1">
+        <div className="mx-auto grid max-w-xl grid-cols-5 gap-1.5">
           <button type="button" onClick={() => navigate('home')} className={itemClass(activeTab === 'home')}>
             <Home className="h-5 w-5 shrink-0" />
             <span className="w-full truncate whitespace-nowrap text-center text-[10px] leading-none sm:text-xs">Trang chủ</span>

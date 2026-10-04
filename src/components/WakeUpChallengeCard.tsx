@@ -517,7 +517,7 @@ export const WakeUpChallengeCard: React.FC<
   if (compact) {
     // Clean White / Rose Widget for Home Screen without clutter notes
     return (
-      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 hover:border-rose-300 transition-all shadow-xs relative overflow-hidden space-y-3">
+      <div className="app-card relative overflow-hidden p-4 sm:p-5 space-y-3">
         {showCelebration && (
           <div className="absolute inset-0 bg-rose-500/95 backdrop-blur-xs flex flex-col items-center justify-center text-white z-20 animate-fadeIn p-4 text-center">
             <Sparkles className="w-7 h-7 text-pink-200 animate-bounce mb-1" />
@@ -532,7 +532,7 @@ export const WakeUpChallengeCard: React.FC<
 
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden">
+            <div className="w-11 h-11 rounded-xl bg-[var(--app-surface-soft)] flex items-center justify-center shrink-0 overflow-hidden">
               <img
                 src={UI_ASSETS.home.morningChallenge}
                 alt=""
@@ -572,7 +572,7 @@ export const WakeUpChallengeCard: React.FC<
               loading ||
               beforeWakeStart
             }
-            className="w-full py-3.5 px-4 bg-rose-500 hover:bg-rose-600 active:scale-[0.99] disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold text-sm rounded-xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
+            className="app-button app-button-primary w-full flex items-center justify-center gap-2 text-sm disabled:cursor-not-allowed disabled:opacity-45 whitespace-nowrap"
           >
             <Sun className="w-4 h-4 text-amber-200" />
             <span>
@@ -584,7 +584,7 @@ export const WakeUpChallengeCard: React.FC<
             </span>
           </button>
         ) : (
-          <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2">
+          <div className="rounded-xl bg-[var(--app-surface-soft)] p-3 space-y-2">
             <div className="flex items-center justify-between text-xs sm:text-sm gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />

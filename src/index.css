@@ -9,7 +9,7 @@ html {
   min-height: 100%;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  background: #f8fafc;
+  background: #f8f6f3;
 }
 
 body {
@@ -17,7 +17,7 @@ body {
   min-height: 100%;
   margin: 0;
   overflow-x: hidden;
-  background: #f8fafc;
+  background: #f8f6f3;
 }
 
 #root {
@@ -237,16 +237,52 @@ a,
    ========================================================= */
 
 :root {
-  --app-brand: #e11d48;
-  --app-brand-soft: #fff1f2;
-  --app-surface: #ffffff;
-  --app-surface-soft: #f8fafc;
-  --app-border: #e7e5e4;
-  --app-text: #1e293b;
-  --app-muted: #64748b;
+  /*
+   * Warm, quiet palette:
+   * rose is an accent, not the background of the whole product.
+   * Tailwind rose/slate tokens are intentionally remapped so legacy screens
+   * inherit the same visual language without one-off overrides.
+   */
+  --color-rose-50: #fbf0f1;
+  --color-rose-100: #f6e0e3;
+  --color-rose-200: #ecc5ca;
+  --color-rose-300: #dda2aa;
+  --color-rose-400: #ca7480;
+  --color-rose-500: #b84e5a;
+  --color-rose-600: #a9434f;
+  --color-rose-700: #8d3843;
+  --color-rose-800: #74333b;
+  --color-rose-900: #623036;
+
+  --color-slate-50: #f7f5f3;
+  --color-slate-100: #f0ece9;
+  --color-slate-200: #e5dfda;
+  --color-slate-300: #d3cbc5;
+  --color-slate-400: #a19790;
+  --color-slate-500: #796f69;
+  --color-slate-600: #605752;
+  --color-slate-700: #4a433f;
+  --color-slate-800: #342f2d;
+  --color-slate-900: #262220;
+  --color-slate-950: #181513;
+
+  --app-bg: #f8f6f3;
+  --app-brand: #b84e5a;
+  --app-brand-strong: #9f414d;
+  --app-brand-soft: #fbf0f1;
+  --app-surface: #fffdfb;
+  --app-surface-elevated: #ffffff;
+  --app-surface-soft: #f3f0ed;
+  --app-border: #e9e2dd;
+  --app-divider: #f0ebe7;
+  --app-text: #302b29;
+  --app-muted: #786f69;
+  --app-faint: #a49a93;
+  --app-gold: #aa8357;
+  --app-success: #4f7f6f;
   --app-radius-card: 20px;
   --app-radius-control: 14px;
-  --app-shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.035);
+  --app-shadow-card: 0 1px 2px rgba(58, 46, 40, 0.035), 0 10px 28px rgba(58, 46, 40, 0.045);
 }
 
 .app-page-title {
@@ -281,13 +317,13 @@ a,
 .app-card {
   border: 1px solid var(--app-border);
   border-radius: var(--app-radius-card);
-  background: var(--app-surface);
+  background: var(--app-surface-elevated);
   box-shadow: var(--app-shadow-card);
 }
 
 .app-card-flat {
   border-radius: var(--app-radius-card);
-  background: var(--app-surface);
+  background: var(--app-surface-elevated);
 }
 
 .app-control {
@@ -326,18 +362,18 @@ a,
 }
 
 .app-button-primary:hover {
-  background: #be123c;
-  border-color: #be123c;
+  background: var(--app-brand-strong);
+  border-color: var(--app-brand-strong);
 }
 
 .app-button-secondary {
   border: 1px solid var(--app-border);
-  background: #fff;
-  color: #475569;
+  background: var(--app-surface-elevated);
+  color: var(--app-muted);
 }
 
 .app-button-secondary:hover {
-  background: #f8fafc;
+  background: #f8f6f3;
 }
 
 .app-icon-button {
@@ -348,12 +384,12 @@ a,
   justify-content: center;
   border: 1px solid transparent;
   border-radius: 12px;
-  color: #64748b;
+  color: var(--app-muted);
   transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
 }
 
 .app-icon-button:hover {
-  background: #f8fafc;
+  background: #f8f6f3;
   color: #334155;
 }
 
@@ -368,44 +404,44 @@ a,
   gap: 0.3rem;
   border: 1px solid var(--app-border);
   border-radius: 999px;
-  background: #fff;
+  background: var(--app-surface-elevated);
   padding: 0.25rem 0.625rem;
-  color: #64748b;
+  color: var(--app-muted);
   font-size: 0.6875rem;
   line-height: 1rem;
   font-weight: 600;
 }
 
 .app-chip-active {
-  border-color: #fecdd3;
+  border-color: #e8bcc2;
   background: var(--app-brand-soft);
-  color: #be123c;
+  color: var(--app-brand-strong);
 }
 
 .app-segmented {
   border: 1px solid var(--app-border);
   border-radius: 16px;
-  background: #fff;
+  background: var(--app-surface-elevated);
   padding: 4px;
 }
 
 .app-segmented-item {
   min-height: 40px;
   border-radius: 12px;
-  color: #64748b;
+  color: var(--app-muted);
   font-size: 0.75rem;
   font-weight: 650;
   transition: background 160ms ease, color 160ms ease;
 }
 
 .app-segmented-item:hover {
-  background: #f8fafc;
+  background: #f8f6f3;
   color: #334155;
 }
 
 .app-segmented-item-active {
   background: var(--app-brand-soft);
-  color: #be123c;
+  color: var(--app-brand-strong);
 }
 
 .app-alert {
@@ -467,4 +503,45 @@ a,
   .app-sheet {
     max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 12px);
   }
+}
+
+
+/* =========================================================
+   Product shell / home visual language
+   ========================================================= */
+
+.app-shell {
+  background:
+    linear-gradient(180deg, #fbfaf8 0%, var(--app-bg) 180px, var(--app-bg) 100%);
+  color: var(--app-text);
+}
+
+.couple-hero-card {
+  border: 1px solid var(--app-border);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 50% 14%, rgba(184, 78, 90, 0.075), transparent 36%),
+    linear-gradient(180deg, #fffaf8 0%, #fffdfb 60%, #ffffff 100%);
+  box-shadow: var(--app-shadow-card);
+}
+
+.home-days-card {
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-card);
+  background:
+    linear-gradient(180deg, #fffdfb 0%, #fbf3f2 100%);
+  box-shadow: var(--app-shadow-card);
+}
+
+.app-list-row {
+  border-radius: 16px;
+  transition: background 160ms ease, transform 120ms ease;
+}
+
+.app-list-row:hover {
+  background: var(--app-surface-soft);
+}
+
+.app-list-row:active {
+  transform: scale(0.992);
 }
