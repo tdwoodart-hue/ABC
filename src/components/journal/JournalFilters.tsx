@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Companion, JournalEntry } from '../../types';
 import {
   ArrowDownUp,
@@ -108,11 +108,6 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
 }) => {
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
 
-  const locationCount = useMemo(
-    () => journals.filter((journal) => Boolean(journal.location)).length,
-    [journals]
-  );
-
   const filterCount =
     (journalDateFilterMode !== 'all' ? 1 : 0) +
     (selectedCompanionFilter ? 1 : 0) +
@@ -175,14 +170,12 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
   const tabs = [
     {
       id: 'feed' as const,
-      label: 'Nhật ký',
-      count: journals.length,
+      label: 'Bài viết',
       icon: BookOpen,
     },
     {
       id: 'love_map' as const,
       label: 'Bản đồ',
-      count: locationCount,
       icon: Compass,
     },
     {
@@ -194,8 +187,7 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
 
   return (
     <div className="space-y-3">
-      {/* Main Journal Views */}
-      <div className="grid grid-cols-3 gap-1 rounded-2xl border border-slate-200/80 bg-white p-1 shadow-2xs">
+      <div className="app-segmented grid grid-cols-3 gap-1">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = journalViewTab === tab.id;
@@ -206,57 +198,34 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
               id={`subtab-${tab.id}`}
               type="button"
               onClick={() => setJournalViewTab(tab.id)}
-              className={`min-w-0 rounded-xl px-2 py-2.5 text-xs font-semibold transition ${
-                isActive
-                  ? 'bg-rose-500 text-white shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-50'
+              className={`app-segmented-item flex min-w-0 items-center justify-center gap-1.5 px-2 ${
+                isActive ? 'app-segmented-item-active' : ''
               }`}
+              aria-current={isActive ? 'page' : undefined}
             >
-              <span className="flex items-center justify-center gap-1.5">
-                <Icon
-                  className={`h-4 w-4 shrink-0 ${
-                    isActive ? 'text-white' : 'text-rose-500'
-                  }`}
-                />
-
-                <span className="truncate">{tab.label}</span>
-
-                {typeof tab.count === 'number' && (
-                  <span
-                    className={`hidden min-w-[18px] rounded-full px-1.5 py-0.5 text-[10px] leading-none sm:inline ${
-                      isActive
-                        ? 'bg-white/20 text-white'
-                        : 'bg-slate-100 text-slate-500'
-                    }`}
-                  >
-                    {tab.count}
-                  </span>
-                )}
-              </span>
+              <Icon className="h-4 w-4 shrink-0" />
+              <span className="truncate">{tab.label}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Search + Filter: only relevant to feed */}
       {journalViewTab === 'feed' && (
         <div className="flex items-center gap-2">
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
             <input
               type="search"
               value={journalSearch}
               onChange={(event) => setJournalSearch(event.target.value)}
-              placeholder="Tìm kỷ niệm..."
-              className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-10 text-sm text-slate-800 shadow-2xs outline-none transition placeholder:text-slate-400 focus:border-rose-300 focus:ring-2 focus:ring-rose-100"
+              placeholder="Tìm nhật ký"
+              className="app-control h-11 w-full pl-10 pr-10 text-sm placeholder:text-slate-400"
             />
-
             {journalSearch && (
               <button
                 type="button"
                 onClick={() => setJournalSearch('')}
-                className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                className="app-icon-button absolute right-0.5 top-1/2 h-9 w-9 -translate-y-1/2"
                 aria-label="Xóa tìm kiếm"
               >
                 <X className="h-4 w-4" />
@@ -267,61 +236,20 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
           <button
             type="button"
             onClick={() => setIsFilterSheetOpen(true)}
-            className={`relative flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl border px-3.5 text-sm font-semibold shadow-2xs transition ${
+            className={`app-icon-button relative h-11 w-11 border bg-white ${
               filterCount > 0
-                ? 'border-rose-200 bg-rose-50 text-rose-700'
-                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                ? 'border-rose-200 bg-rose-50 text-rose-600'
+                : 'border-[var(--app-border)]'
             }`}
+            aria-label={filterCount > 0 ? `Bộ lọc, ${filterCount} đang bật` : 'Bộ lọc'}
+            title="Bộ lọc"
           >
             <SlidersHorizontal className="h-4 w-4" />
-            <span className="hidden sm:inline">Bộ lọc</span>
-
             {filterCount > 0 && (
-              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white ring-2 ring-white">
                 {filterCount}
               </span>
             )}
-          </button>
-        </div>
-      )}
-
-      {/* Active filters summary */}
-      {journalViewTab === 'feed' && isAnyFilterActive && (
-        <div className="flex min-w-0 items-center gap-2 overflow-x-auto pb-0.5 no-scrollbar">
-          {journalDateFilterMode !== 'all' && (
-            <span className="shrink-0 rounded-full border border-rose-100 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700">
-              {journalDateFilterMode === 'this_month' && 'Tháng này'}
-              {journalDateFilterMode === 'last_month' && 'Tháng trước'}
-              {journalDateFilterMode === 'this_year' && 'Năm nay'}
-              {journalDateFilterMode === 'month' &&
-                (journalFilterMonth
-                  ? getMonthLabel(journalFilterMonth).replace(/\s\(\d+\)$/, '')
-                  : 'Theo tháng')}
-              {journalDateFilterMode === 'custom' && 'Khoảng ngày'}
-            </span>
-          )}
-
-          {selectedCompanionFilter && (
-            <span className="shrink-0 rounded-full border border-sky-100 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700">
-              {companions.find(
-                (companion) => companion.id === selectedCompanionFilter
-              )?.name || 'Người đồng hành'}
-            </span>
-          )}
-
-          {journalSortOrder === 'oldest' && (
-            <span className="shrink-0 rounded-full border border-amber-100 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
-              Cũ nhất trước
-            </span>
-          )}
-
-          <button
-            type="button"
-            onClick={onResetFilters}
-            className="ml-auto flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-rose-600"
-          >
-            <RotateCcw className="h-3 w-3" />
-            Đặt lại
           </button>
         </div>
       )}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Companion } from '../../types';
-import { BookOpen, PawPrint, Plus } from 'lucide-react';
+import { PawPrint, Plus } from 'lucide-react';
 
 interface JournalHeaderProps {
   companions: Companion[];
@@ -16,27 +16,20 @@ export const JournalHeader: React.FC<JournalHeaderProps> = ({
   onOpenCompanionManager,
 }) => {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-      <div>
-        <h2 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2">
-          <BookOpen className="w-5 h-5 text-rose-500 shrink-0" />
-          <span>Nhật Ký Tình Yêu</span>
-        </h2>
-        
-      </div>
+    <div className="flex items-center justify-between gap-3">
+      <h2 className="app-page-title">Nhật ký</h2>
 
       <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={onOpenCompanionManager}
-          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 py-2 px-3 bg-white hover:bg-rose-50 border border-slate-200/80 text-slate-700 hover:text-rose-600 rounded-xl text-xs font-semibold transition cursor-pointer shadow-2xs whitespace-nowrap"
-          title="Quản lý thú cưng & bạn bè xuất hiện trong kỷ niệm"
+          className="app-icon-button relative border border-[var(--app-border)] bg-white"
+          aria-label="Người và thú cưng"
+          title="Người và thú cưng"
         >
-          <PawPrint className="w-4 h-4 text-rose-500 shrink-0" />
-          <span className="hidden sm:inline">Thú cưng & Bạn bè</span>
-          <span className="sm:hidden">Thú cưng</span>
+          <PawPrint className="h-4.5 w-4.5" />
           {companions.length > 0 && (
-            <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-600 text-[10px] flex items-center justify-center font-bold">
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white ring-2 ring-white">
               {companions.length}
             </span>
           )}
@@ -46,10 +39,10 @@ export const JournalHeader: React.FC<JournalHeaderProps> = ({
           id="btn-open-create-journal"
           type="button"
           onClick={() => setShowAddJournal(!showAddJournal)}
-          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 py-2 px-3.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold shadow-xs hover:shadow-md transition cursor-pointer shrink-0 whitespace-nowrap"
+          className="app-button app-button-primary inline-flex items-center gap-1.5"
         >
-          <Plus className="w-4 h-4 shrink-0" />
-          <span>Viết nhật ký</span>
+          <Plus className="h-4 w-4" />
+          <span>Viết</span>
         </button>
       </div>
     </div>

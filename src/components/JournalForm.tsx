@@ -218,9 +218,9 @@ export const JournalForm: React.FC<JournalFormProps> = ({
   return (
     <form
       onSubmit={onSubmit}
-      className="animate-in fade-in overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm duration-200"
+      className="app-card animate-in fade-in overflow-hidden duration-200"
     >
-      <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3.5 sm:px-5">
+      <div className="flex items-center justify-between gap-3 px-4 py-3.5 sm:px-5">
         <div className="min-w-0">
           <h3 className="truncate text-sm font-bold text-slate-900">
             {mode === 'create'
@@ -770,7 +770,7 @@ export const JournalForm: React.FC<JournalFormProps> = ({
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-4 py-3.5 sm:px-5">
+      <div className="flex items-center justify-between gap-3 px-4 pb-4 pt-2 sm:px-5">
         <button
           type="button"
           onClick={onCancel}
@@ -783,7 +783,7 @@ export const JournalForm: React.FC<JournalFormProps> = ({
           <button
             type="submit"
             disabled={isLoading || imageUploading}
-            className="inline-flex min-h-10 min-w-[112px] items-center justify-center gap-1.5 rounded-xl bg-rose-500 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-rose-600 disabled:opacity-50"
+            className="app-button app-button-primary inline-flex min-w-[112px] items-center justify-center gap-1.5 disabled:opacity-50"
           >
             {isLoading ? (
               <>

@@ -13,7 +13,7 @@ import { JournalCard } from './journal/JournalCard';
 import { DailyJournalFeed } from './journal/DailyJournalFeed';
 import { LoveFootprintMap } from './LoveFootprintMap';
 import { VisitedPlacesTracker } from './VisitedPlacesTracker';
-import { BookOpen, Sparkles, Plus, RotateCcw } from 'lucide-react';
+import { BookOpen, Plus, RotateCcw } from 'lucide-react';
 
 export interface JournalTabProps {
   userProfile: UserProfile;
@@ -294,7 +294,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
   const coupleId = coupleData?.id || userProfile.coupleId || '';
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-4 pb-24">
       {/* HEADER SECTION */}
       <JournalHeader
         companions={companions}
@@ -389,32 +389,32 @@ export const JournalTab: React.FC<JournalTabProps> = ({
       {journalViewTab === 'feed' && (
         <>
           {filteredJournals.length === 0 ? (
-            <div className="rounded-3xl border border-slate-200/80 bg-white p-8 text-center shadow-xs sm:p-12">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
-                <BookOpen className="h-7 w-7" />
+            <div className="app-card px-5 py-8 text-center sm:py-10">
+              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-400">
+                <BookOpen className="h-5 w-5" />
               </div>
-              <h3 className="text-base font-bold text-slate-800 sm:text-lg">
-                Chưa có kỷ niệm nào phù hợp
+              <h3 className="app-section-title">
+                {isAnyFilterActive ? 'Không có kết quả' : 'Chưa có bài nào'}
               </h3>
-              
-              <div className="mt-5 flex items-center justify-center gap-2">
+
+              <div className="mt-4 flex justify-center">
                 {isAnyFilterActive ? (
                   <button
                     type="button"
                     onClick={handleResetFilters}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 cursor-pointer"
+                    className="app-button app-button-secondary inline-flex items-center gap-1.5"
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
-                    <span>Đặt lại bộ lọc</span>
+                    <span>Đặt lại</span>
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={() => setShowAddJournal(true)}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-rose-500 px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-rose-600 cursor-pointer"
+                    className="app-button app-button-primary inline-flex items-center gap-1.5"
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    <span>Viết nhật ký ngay</span>
+                    <span>Viết</span>
                   </button>
                 )}
               </div>
