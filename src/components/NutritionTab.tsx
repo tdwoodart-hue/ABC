@@ -411,20 +411,32 @@ interface SettingsModalProps {
   onSave: (profile: NutritionProfileSettings) => void;
 }
 
-const SettingsModal: React.FC<SettingsModalProps> = ({ profile, onClose, onSave }) => {
+const SettingsModal: React.FC<SettingsModalProps> = ({
+  profile,
+  onClose,
+  onSave,
+}) => {
   const [draft, setDraft] = useState(profile);
-  const suggestedBmr = calculateBmr(draft);
-  const suggestedTdee = calculateTdee(draft);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const displayedBmr = effectiveBmr(draft);
   const displayedTdee = effectiveTdee(draft);
 
-  const setNumber = (key: keyof NutritionProfileSettings, raw: string) => {
+  const setNumber = (
+    key: keyof NutritionProfileSettings,
+    raw: string
+  ) => {
     const value = Number(raw);
     if (!Number.isFinite(value)) return;
-    setDraft((current) => ({ ...current, [key]: Math.max(0, value) }));
+    setDraft((current) => ({
+      ...current,
+      [key]: Math.max(0, value),
+    }));
   };
 
-  const setOverride = (key: 'bmrOverride' | 'tdeeOverride', raw: string) => {
+  const setOverride = (
+    key: 'bmrOverride' | 'tdeeOverride',
+    raw: string
+  ) => {
     if (raw.trim() === '') {
       setDraft((current) => {
         const next = { ...current };
@@ -433,12 +445,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ profile, onClose, onSave 
       });
       return;
     }
+
     const value = Number(raw);
     if (!Number.isFinite(value)) return;
-    setDraft((current) => ({ ...current, [key]: Math.max(0, value) }));
+
+    setDraft((current) => ({
+      ...current,
+      [key]: Math.max(0, value),
+    }));
   };
 
-  const resetOverride = (key: 'bmrOverride' | 'tdeeOverride') => {
+  const resetOverride = (
+    key: 'bmrOverride' | 'tdeeOverride'
+  ) => {
     setDraft((current) => {
       const next = { ...current };
       delete next[key];
@@ -447,151 +466,282 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ profile, onClose, onSave 
   };
 
   const applySuggestion = () => {
-    setDraft((current) => ({ ...current, ...recommendedTargets(current) }));
+    setDraft((current) => ({
+      ...current,
+      ...recommendedTargets(current),
+    }));
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/35 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-      <div className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-[28px] border border-rose-100 bg-white p-4 shadow-2xl sm:rounded-[28px] sm:p-5">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-bold text-slate-900">Mục tiêu dinh dưỡng</h2>
-            
-          </div>
-          <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-500">
+    <div className="fixed inset-0 z-[90] flex items-end justify-center sm:items-center sm:p-4">
+      <button
+        type="button"
+        className="app-modal-backdrop"
+        onClick={onClose}
+        aria-label="Đóng"
+      />
+
+      <div className="app-sheet relative z-10 flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[24px] sm:rounded-[24px]">
+        <div className="app-sheet-header">
+          <h2 className="app-section-title">Cài đặt dinh dưỡng</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="app-icon-button h-9 w-9"
+            aria-label="Đóng"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <label className="rounded-xl border border-slate-200 p-3">
-            <span className="mb-1 block text-[11px] font-semibold text-slate-500">Giới tính</span>
-            <select
-              value={draft.sex}
-              onChange={(event) => setDraft((current) => ({ ...current, sex: event.target.value as NutritionSex }))}
-              className="w-full bg-transparent text-sm font-bold text-slate-800 outline-none"
-            >
-              <option value="male">Nam</option>
-              <option value="female">Nữ</option>
-            </select>
-          </label>
-          <label className="rounded-xl border border-slate-200 p-3">
-            <span className="mb-1 block text-[11px] font-semibold text-slate-500">Tuổi</span>
-            <input type="number" min="14" max="100" value={draft.age} onChange={(event) => setNumber('age', event.target.value)} className="w-full bg-transparent text-sm font-bold text-slate-800 outline-none" />
-          </label>
-          <label className="rounded-xl border border-slate-200 p-3">
-            <span className="mb-1 block text-[11px] font-semibold text-slate-500">Chiều cao</span>
-            <div className="flex items-center gap-1.5">
-              <input type="number" min="120" max="230" value={draft.heightCm} onChange={(event) => setNumber('heightCm', event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm font-bold text-slate-800 outline-none" />
-              <span className="text-[11px] font-semibold text-slate-400">cm</span>
-            </div>
-          </label>
-          <label className="rounded-xl border border-slate-200 p-3">
-            <span className="mb-1 block text-[11px] font-semibold text-slate-500">Cân nặng mục tiêu tính TDEE</span>
-            <div className="flex items-center gap-1.5">
-              <input type="number" min="20" max="300" step="0.1" value={draft.weightKg} onChange={(event) => setNumber('weightKg', event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm font-bold text-slate-800 outline-none" />
-              <span className="text-[11px] font-semibold text-slate-400">kg</span>
-            </div>
-          </label>
-        </div>
+        <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4">
+          <section className="space-y-2.5">
+            <h3 className="app-section-title">Cơ thể</h3>
 
-        <div className="mt-3 space-y-3">
-          <label className="block rounded-xl border border-slate-200 p-3">
-            <span className="mb-1 block text-[11px] font-semibold text-slate-500">Mức vận động</span>
-            <select
-              value={draft.activityLevel}
-              onChange={(event) => setDraft((current) => ({ ...current, activityLevel: event.target.value as ActivityLevel }))}
-              className="w-full bg-transparent text-sm font-bold text-slate-800 outline-none"
-            >
-              {Object.entries(ACTIVITY_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </label>
-          <label className="block rounded-xl border border-slate-200 p-3">
-            <span className="mb-1 block text-[11px] font-semibold text-slate-500">Mục tiêu</span>
-            <select
-              value={draft.goal}
-              onChange={(event) => setDraft((current) => ({ ...current, goal: event.target.value as NutritionGoal }))}
-              className="w-full bg-transparent text-sm font-bold text-slate-800 outline-none"
-            >
-              {Object.entries(GOAL_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </label>
-        </div>
+            <div className="grid grid-cols-2 gap-2">
+              <label>
+                <span className="app-caption mb-1 block">Giới tính</span>
+                <select
+                  value={draft.sex}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      sex: event.target.value as NutritionSex,
+                    }))
+                  }
+                  className="app-control h-11 w-full px-3 text-sm font-semibold"
+                >
+                  <option value="male">Nam</option>
+                  <option value="female">Nữ</option>
+                </select>
+              </label>
 
-        <div className="mt-4 grid grid-cols-1 gap-3 rounded-2xl border border-rose-100 bg-rose-50/50 p-4 sm:grid-cols-2">
-          <div className="rounded-xl border border-white/80 bg-white/75 p-3">
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-rose-400">BMR</p>
-              <button type="button" onClick={() => resetOverride('bmrOverride')} className="text-[9px] font-bold text-rose-500 hover:text-rose-600">Tự động</button>
-            </div>
-            <div className="flex items-end gap-1.5">
-              <input
-                type="number"
-                min="0"
-                step="10"
-                value={Math.round(displayedBmr)}
-                onChange={(event) => setOverride('bmrOverride', event.target.value)}
-                className="min-w-0 flex-1 bg-transparent text-xl font-extrabold tabular-nums text-slate-900 outline-none"
-              />
-              <span className="pb-1 text-[10px] font-semibold text-slate-400">kcal</span>
-            </div>
-            
-          </div>
-          <div className="rounded-xl border border-white/80 bg-white/75 p-3">
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-rose-400">TDEE</p>
-              <button type="button" onClick={() => resetOverride('tdeeOverride')} className="text-[9px] font-bold text-rose-500 hover:text-rose-600">Tự động</button>
-            </div>
-            <div className="flex items-end gap-1.5">
-              <input
-                type="number"
-                min="0"
-                step="10"
-                value={Math.round(displayedTdee)}
-                onChange={(event) => setOverride('tdeeOverride', event.target.value)}
-                className="min-w-0 flex-1 bg-transparent text-xl font-extrabold tabular-nums text-rose-600 outline-none"
-              />
-              <span className="pb-1 text-[10px] font-semibold text-slate-400">kcal</span>
-            </div>
-            
-          </div>
-        </div>
+              <label>
+                <span className="app-caption mb-1 block">Tuổi</span>
+                <input
+                  type="number"
+                  min="14"
+                  max="100"
+                  value={draft.age}
+                  onChange={(event) =>
+                    setNumber('age', event.target.value)
+                  }
+                  className="app-control h-11 w-full px-3 text-sm font-semibold"
+                />
+              </label>
 
-        <div className="mt-5">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <p className="text-xs font-bold text-slate-700">Mục tiêu theo dõi</p>
-            <button type="button" onClick={applySuggestion} className="rounded-lg bg-rose-50 px-2.5 py-1.5 text-[11px] font-bold text-rose-600 hover:bg-rose-100">
-              Tính lại gợi ý
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              ['Calories', 'calorieTarget', 'kcal'],
-              ['Protein', 'proteinTarget', 'g'],
-              ['Carb', 'carbTarget', 'g'],
-              ['Fat', 'fatTarget', 'g'],
-              ['Steps', 'stepTarget', 'bước'],
-            ].map(([label, key, unit]) => (
-              <label key={key} className="block rounded-xl border border-slate-200 bg-slate-50/60 p-3">
-                <span className="mb-1 block text-[11px] font-semibold text-slate-500">{label}</span>
-                <div className="flex items-center gap-1.5">
+              <label>
+                <span className="app-caption mb-1 block">Chiều cao</span>
+                <div className="app-control flex h-11 items-center gap-1.5 px-3">
                   <input
                     type="number"
-                    min="0"
-                    value={draft[key as keyof NutritionProfileSettings] as number}
-                    onChange={(event) => setNumber(key as keyof NutritionProfileSettings, event.target.value)}
-                    className="min-w-0 flex-1 bg-transparent text-base font-bold tabular-nums text-slate-900 outline-none"
+                    min="120"
+                    max="230"
+                    value={draft.heightCm}
+                    onChange={(event) =>
+                      setNumber('heightCm', event.target.value)
+                    }
+                    className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none"
                   />
-                  <span className="text-[11px] font-semibold text-slate-400">{unit}</span>
+                  <span className="text-[10px] text-slate-400">cm</span>
                 </div>
               </label>
-            ))}
-          </div>
+
+              <label>
+                <span className="app-caption mb-1 block">Cân nặng</span>
+                <div className="app-control flex h-11 items-center gap-1.5 px-3">
+                  <input
+                    type="number"
+                    min="20"
+                    max="300"
+                    step="0.1"
+                    value={draft.weightKg}
+                    onChange={(event) =>
+                      setNumber('weightKg', event.target.value)
+                    }
+                    className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none"
+                  />
+                  <span className="text-[10px] text-slate-400">kg</span>
+                </div>
+              </label>
+            </div>
+
+            <div className="grid gap-2">
+              <select
+                value={draft.activityLevel}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    activityLevel:
+                      event.target.value as ActivityLevel,
+                  }))
+                }
+                className="app-control h-11 w-full px-3 text-sm font-semibold"
+                aria-label="Mức vận động"
+              >
+                {Object.entries(ACTIVITY_LABELS).map(
+                  ([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  )
+                )}
+              </select>
+
+              <select
+                value={draft.goal}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    goal: event.target.value as NutritionGoal,
+                  }))
+                }
+                className="app-control h-11 w-full px-3 text-sm font-semibold"
+                aria-label="Mục tiêu"
+              >
+                {Object.entries(GOAL_LABELS).map(
+                  ([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  )
+                )}
+              </select>
+            </div>
+          </section>
+
+          <section className="space-y-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="app-section-title">Mục tiêu</h3>
+              <button
+                type="button"
+                onClick={applySuggestion}
+                className="text-[11px] font-semibold text-rose-600"
+              >
+                Tính lại
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                ['Calories', 'calorieTarget', 'kcal'],
+                ['Protein', 'proteinTarget', 'g'],
+                ['Carb', 'carbTarget', 'g'],
+                ['Fat', 'fatTarget', 'g'],
+                ['Bước', 'stepTarget', ''],
+              ].map(([label, key, unit]) => (
+                <label key={key}>
+                  <span className="app-caption mb-1 block">
+                    {label}
+                  </span>
+                  <div className="app-control flex h-11 items-center gap-1.5 px-3">
+                    <input
+                      type="number"
+                      min="0"
+                      value={
+                        draft[
+                          key as keyof NutritionProfileSettings
+                        ] as number
+                      }
+                      onChange={(event) =>
+                        setNumber(
+                          key as keyof NutritionProfileSettings,
+                          event.target.value
+                        )
+                      }
+                      className="min-w-0 flex-1 bg-transparent text-sm font-semibold tabular-nums outline-none"
+                    />
+                    {unit && (
+                      <span className="text-[10px] text-slate-400">
+                        {unit}
+                      </span>
+                    )}
+                  </div>
+                </label>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <button
+              type="button"
+              onClick={() => setAdvancedOpen((value) => !value)}
+              className="app-button app-button-secondary flex w-full items-center justify-between"
+            >
+              <span>BMR & TDEE</span>
+              <ChevronRight
+                className={`h-4 w-4 transition ${advancedOpen ? 'rotate-90' : ''}`}
+              />
+            </button>
+
+            {advancedOpen && (
+              <div className="mt-2 grid grid-cols-2 gap-2 rounded-2xl bg-slate-50 p-3">
+                {[
+                  [
+                    'BMR',
+                    'bmrOverride' as const,
+                    displayedBmr,
+                  ],
+                  [
+                    'TDEE',
+                    'tdeeOverride' as const,
+                    displayedTdee,
+                  ],
+                ].map(([label, key, value]) => (
+                  <label key={key}>
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <span className="app-caption">{label}</span>
+                      <button
+                        type="button"
+                        onClick={() => resetOverride(key)}
+                        className="text-[10px] font-semibold text-rose-600"
+                      >
+                        Tự động
+                      </button>
+                    </div>
+                    <div className="app-control flex h-11 items-center gap-1.5 bg-white px-3">
+                      <input
+                        type="number"
+                        min="0"
+                        step="10"
+                        value={Math.round(value as number)}
+                        onChange={(event) =>
+                          setOverride(key, event.target.value)
+                        }
+                        className="min-w-0 flex-1 bg-transparent text-sm font-semibold tabular-nums outline-none"
+                      />
+                      <span className="text-[10px] text-slate-400">
+                        kcal
+                      </span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-2.5">
-          <button type="button" onClick={onClose} className="h-11 rounded-xl bg-slate-100 text-sm font-bold text-slate-600">Hủy</button>
-          <button type="button" onClick={() => onSave(draft)} className="h-11 rounded-xl bg-rose-500 text-sm font-bold text-white shadow-xs hover:bg-rose-600">Lưu mục tiêu</button>
+        <div
+          className="app-sheet-footer"
+          style={{
+            paddingBottom:
+              'calc(0.75rem + env(safe-area-inset-bottom, 0px))',
+          }}
+        >
+          <button
+            type="button"
+            onClick={onClose}
+            className="app-button app-button-secondary flex-1"
+          >
+            Hủy
+          </button>
+          <button
+            type="button"
+            onClick={() => onSave(draft)}
+            className="app-button app-button-primary flex-[1.2]"
+          >
+            Lưu
+          </button>
         </div>
       </div>
     </div>
@@ -607,40 +757,100 @@ interface MealModalProps {
   onOpenLibrary: () => void;
 }
 
-const MealModal: React.FC<MealModalProps> = ({ date, editing, preset, onClose, onSave, onOpenLibrary }) => {
-  const [foodName, setFoodName] = useState(editing?.foodName || preset?.foodName || '');
-  const [mealType, setMealType] = useState<MealType>((editing?.mealType as MealType) || preset?.mealType || 'lunch');
-  const [calories, setCalories] = useState(String(editing?.calories ?? preset?.calories ?? ''));
-  const [protein, setProtein] = useState(String(editing?.protein ?? preset?.protein ?? ''));
-  const [carbs, setCarbs] = useState(String(editing?.carbs ?? preset?.carbs ?? ''));
-  const [fat, setFat] = useState(String(editing?.fat ?? preset?.fat ?? ''));
-  const [servingLabel, setServingLabel] = useState(editing?.servingLabel || preset?.servingLabel || '');
-  const [notes, setNotes] = useState(editing?.notes || preset?.notes || '');
+const MealModal: React.FC<MealModalProps> = ({
+  date,
+  editing,
+  preset,
+  onClose,
+  onSave,
+  onOpenLibrary,
+}) => {
+  const [foodName, setFoodName] = useState(
+    editing?.foodName || preset?.foodName || ''
+  );
+  const [mealType, setMealType] = useState<MealType>(
+    (editing?.mealType as MealType) ||
+      preset?.mealType ||
+      'lunch'
+  );
+  const [calories, setCalories] = useState(
+    String(editing?.calories ?? preset?.calories ?? '')
+  );
+  const [protein, setProtein] = useState(
+    String(editing?.protein ?? preset?.protein ?? '')
+  );
+  const [carbs, setCarbs] = useState(
+    String(editing?.carbs ?? preset?.carbs ?? '')
+  );
+  const [fat, setFat] = useState(
+    String(editing?.fat ?? preset?.fat ?? '')
+  );
+  const [servingLabel, setServingLabel] = useState(
+    editing?.servingLabel || preset?.servingLabel || ''
+  );
+  const [notes, setNotes] = useState(
+    editing?.notes || preset?.notes || ''
+  );
   const [aiPrompt, setAiPrompt] = useState('');
+  const [detailsOpen, setDetailsOpen] = useState(
+    Boolean(
+      editing?.notes ||
+        preset?.notes ||
+        editing?.servingLabel ||
+        preset?.servingLabel
+    )
+  );
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const analyze = async () => {
     if (!aiPrompt.trim()) return;
+
     setAnalyzing(true);
     setError('');
+
     try {
       const response = await fetch('/api/analyze-meal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: aiPrompt.trim() }),
       });
+
       const data = await response.json();
-      if (!response.ok || !data.success) throw new Error(data.error || 'Không thể phân tích món.');
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.error || 'Không thể phân tích món.'
+        );
+      }
+
       const result = data.data || {};
+
       setFoodName(result.foodName || aiPrompt.trim());
-      setMealType((['breakfast', 'lunch', 'dinner', 'snack'].includes(result.mealType) ? result.mealType : 'lunch') as MealType);
+      setMealType(
+        ([
+          'breakfast',
+          'lunch',
+          'dinner',
+          'snack',
+        ].includes(result.mealType)
+          ? result.mealType
+          : 'lunch') as MealType
+      );
       setCalories(String(result.calories ?? ''));
       setProtein(String(result.protein ?? 0));
       setCarbs(String(result.carbs ?? 0));
       setFat(String(result.fat ?? 0));
-      if (result.notes || result.breakdown) setNotes([result.notes, result.breakdown].filter(Boolean).join(' · '));
+
+      if (result.notes || result.breakdown) {
+        setNotes(
+          [result.notes, result.breakdown]
+            .filter(Boolean)
+            .join(' · ')
+        );
+        setDetailsOpen(true);
+      }
     } catch (err: any) {
       setError(err?.message || 'Không thể phân tích món.');
     } finally {
@@ -650,16 +860,21 @@ const MealModal: React.FC<MealModalProps> = ({ date, editing, preset, onClose, o
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+
     const kcal = Number(calories);
+
     if (!foodName.trim()) {
       setError('Nhập tên món.');
       return;
     }
+
     if (!Number.isFinite(kcal) || kcal < 0) {
       setError('Calories không hợp lệ.');
       return;
     }
+
     setSaving(true);
+
     try {
       await onSave({
         foodName: foodName.trim(),
@@ -668,9 +883,11 @@ const MealModal: React.FC<MealModalProps> = ({ date, editing, preset, onClose, o
         protein: Math.max(0, Number(protein) || 0),
         carbs: Math.max(0, Number(carbs) || 0),
         fat: Math.max(0, Number(fat) || 0),
-        servingLabel: servingLabel.trim() || undefined,
+        servingLabel:
+          servingLabel.trim() || undefined,
         notes: notes.trim() || undefined,
       });
+
       onClose();
     } catch (err: any) {
       setError(err?.message || 'Không thể lưu món ăn.');
@@ -680,77 +897,203 @@ const MealModal: React.FC<MealModalProps> = ({ date, editing, preset, onClose, o
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/35 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-      <form onSubmit={submit} className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-[28px] border border-rose-100 bg-white p-4 shadow-2xl sm:rounded-[28px] sm:p-5">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-bold text-slate-900">{editing ? 'Sửa món đã ghi' : 'Thêm bữa ăn'}</h2>
-            <p className="mt-0.5 text-[11px] text-slate-400">{formatDateShort(fromIso(date))}</p>
+    <div className="fixed inset-0 z-[90] flex items-end justify-center sm:items-center sm:p-4">
+      <button
+        type="button"
+        className="app-modal-backdrop"
+        onClick={onClose}
+        aria-label="Đóng"
+      />
+
+      <form
+        onSubmit={submit}
+        className="app-sheet relative z-10 flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[24px] sm:rounded-[24px]"
+      >
+        <div className="app-sheet-header">
+          <div className="min-w-0">
+            <h2 className="app-section-title">
+              {editing ? 'Sửa món' : 'Thêm món'}
+            </h2>
+            <p className="app-caption mt-0.5">
+              {formatDateShort(fromIso(date))}
+            </p>
           </div>
-          <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-500"><X className="h-4 w-4" /></button>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="app-icon-button h-9 w-9"
+            aria-label="Đóng"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
-        {!editing && (
-          <div className="mb-4 rounded-2xl border border-rose-100 bg-rose-50/35 p-3">
-            <div className="mb-2 flex items-center gap-2 text-xs font-bold text-rose-600">
-              <Sparkles className="h-4 w-4" /> AI tính nhanh
-            </div>
+        <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+          {!editing && (
             <div className="flex gap-2">
-              <input value={aiPrompt} onChange={(event) => setAiPrompt(event.target.value)} placeholder="VD: 300g ức gà áp chảo..." className="h-10 min-w-0 flex-1 rounded-xl border border-rose-100 bg-white px-3 text-xs text-slate-800 outline-none focus:border-rose-300" />
-              <button type="button" onClick={analyze} disabled={analyzing || !aiPrompt.trim()} className="h-10 shrink-0 rounded-xl bg-rose-500 px-3 text-[11px] font-bold text-white disabled:bg-slate-200">
-                {analyzing ? 'Đang tính...' : 'Phân tích'}
+              <div className="relative min-w-0 flex-1">
+                <Sparkles className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-rose-500" />
+                <input
+                  value={aiPrompt}
+                  onChange={(event) =>
+                    setAiPrompt(event.target.value)
+                  }
+                  placeholder="VD: 300g ức gà áp chảo"
+                  className="app-control h-11 w-full pl-9 pr-3 text-sm"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={analyze}
+                disabled={analyzing || !aiPrompt.trim()}
+                className="app-button app-button-primary shrink-0 disabled:opacity-40"
+              >
+                {analyzing ? 'Đang tính' : 'AI'}
               </button>
             </div>
-          </div>
-        )}
-
-        <div className="mb-3 flex items-center gap-2">
-          <select value={mealType} onChange={(event) => setMealType(event.target.value as MealType)} className="h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-rose-300">
-            {Object.entries(MEAL_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-          {!editing && (
-            <button type="button" onClick={onOpenLibrary} className="flex h-11 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-600">
-              <Database className="h-3.5 w-3.5" /> Kho món
-            </button>
           )}
-        </div>
 
-        <div className="space-y-3">
-          <label className="block">
-            <span className="mb-1 block text-[11px] font-semibold text-slate-500">Tên món</span>
-            <input value={foodName} onChange={(event) => setFoodName(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-800 outline-none focus:border-rose-300" placeholder="Ức gà áp chảo" />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-[11px] font-semibold text-slate-500">Khẩu phần</span>
-            <input value={servingLabel} onChange={(event) => setServingLabel(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-800 outline-none focus:border-rose-300" placeholder="VD: 180 g, 2 quả, 1 bát" />
-          </label>
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="flex items-center gap-2">
+            <select
+              value={mealType}
+              onChange={(event) =>
+                setMealType(event.target.value as MealType)
+              }
+              className="app-control h-11 min-w-0 flex-1 px-3 text-sm font-semibold"
+              aria-label="Bữa ăn"
+            >
+              {Object.entries(MEAL_LABELS).map(
+                ([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                )
+              )}
+            </select>
+
+            {!editing && (
+              <button
+                type="button"
+                onClick={onOpenLibrary}
+                className="app-icon-button h-11 w-11 border border-[var(--app-border)] bg-white"
+                aria-label="Kho món"
+                title="Kho món"
+              >
+                <Database className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          <input
+            value={foodName}
+            onChange={(event) =>
+              setFoodName(event.target.value)
+            }
+            className="app-control h-12 w-full px-3 text-base font-semibold"
+            placeholder="Tên món"
+          />
+
+          <div className="grid grid-cols-4 gap-1.5">
             {[
-              ['Calories', calories, setCalories, 'kcal'],
-              ['Protein', protein, setProtein, 'g'],
-              ['Carb', carbs, setCarbs, 'g'],
-              ['Fat', fat, setFat, 'g'],
-            ].map(([label, value, setter, unit]) => (
-              <label key={label as string} className="rounded-xl border border-slate-200 px-3 py-2">
-                <span className="block text-[10px] font-semibold text-slate-400">{label as string}</span>
-                <div className="mt-1 flex items-center gap-1">
-                  <input type="number" min="0" step="0.1" value={value as string} onChange={(event) => (setter as React.Dispatch<React.SetStateAction<string>>)(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm font-bold tabular-nums text-slate-800 outline-none" />
-                  <span className="text-[10px] font-semibold text-slate-400">{unit as string}</span>
-                </div>
+              ['Kcal', calories, setCalories],
+              ['P', protein, setProtein],
+              ['C', carbs, setCarbs],
+              ['F', fat, setFat],
+            ].map(([label, value, setter]) => (
+              <label
+                key={label as string}
+                className="rounded-xl bg-slate-50 px-2 py-2"
+              >
+                <span className="block text-[9px] font-semibold text-slate-400">
+                  {label as string}
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={value as string}
+                  onChange={(event) =>
+                    (
+                      setter as React.Dispatch<
+                        React.SetStateAction<string>
+                      >
+                    )(event.target.value)
+                  }
+                  className="mt-0.5 w-full bg-transparent text-sm font-bold tabular-nums text-slate-800 outline-none"
+                />
               </label>
             ))}
           </div>
-          <label className="block">
-            <span className="mb-1 block text-[11px] font-semibold text-slate-500">Ghi chú</span>
-            <textarea rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-rose-300" placeholder="Ghi chú thêm..." />
-          </label>
-          {error && <p className="text-[11px] font-semibold text-rose-600">{error}</p>}
+
+          <button
+            type="button"
+            onClick={() =>
+              setDetailsOpen((value) => !value)
+            }
+            className="app-button app-button-secondary flex w-full items-center justify-between"
+          >
+            <span>Chi tiết</span>
+            <ChevronRight
+              className={`h-4 w-4 transition ${detailsOpen ? 'rotate-90' : ''}`}
+            />
+          </button>
+
+          {detailsOpen && (
+            <div className="space-y-2 rounded-2xl bg-slate-50 p-3">
+              <input
+                value={servingLabel}
+                onChange={(event) =>
+                  setServingLabel(event.target.value)
+                }
+                className="app-control h-11 w-full bg-white px-3 text-sm"
+                placeholder="Khẩu phần"
+              />
+
+              <textarea
+                rows={2}
+                value={notes}
+                onChange={(event) =>
+                  setNotes(event.target.value)
+                }
+                className="app-control w-full resize-none bg-white px-3 py-2.5 text-sm"
+                placeholder="Ghi chú"
+              />
+            </div>
+          )}
+
+          {error && (
+            <p className="text-[11px] font-semibold text-rose-600">
+              {error}
+            </p>
+          )}
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2.5">
-          <button type="button" onClick={onClose} className="h-11 rounded-xl bg-slate-100 text-sm font-bold text-slate-600">Hủy</button>
-          <button type="submit" disabled={saving} className="h-11 rounded-xl bg-rose-500 text-sm font-bold text-white shadow-xs hover:bg-rose-600 disabled:bg-rose-300">
-            {saving ? 'Đang lưu...' : editing ? 'Lưu thay đổi' : 'Thêm vào bữa'}
+        <div
+          className="app-sheet-footer"
+          style={{
+            paddingBottom:
+              'calc(0.75rem + env(safe-area-inset-bottom, 0px))',
+          }}
+        >
+          <button
+            type="button"
+            onClick={onClose}
+            className="app-button app-button-secondary flex-1"
+          >
+            Hủy
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="app-button app-button-primary flex-[1.2] disabled:opacity-40"
+          >
+            {saving
+              ? 'Đang lưu'
+              : editing
+                ? 'Lưu'
+                : 'Thêm'}
           </button>
         </div>
       </form>
@@ -762,11 +1105,24 @@ interface FoodLibraryModalProps {
   recipes: NutritionRecipeExtended[];
   onClose: () => void;
   onUse: (recipe: NutritionRecipeExtended) => void;
-  onAdd: (payload: Omit<NutritionRecipeExtended, 'id' | 'createdByUid' | 'createdByName' | 'createdAt'>) => Promise<void>;
+  onAdd: (
+    payload: Omit<
+      NutritionRecipeExtended,
+      'id' | 'createdByUid' | 'createdByName' | 'createdAt'
+    >
+  ) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }
 
-const FoodLibraryModal: React.FC<FoodLibraryModalProps> = ({ recipes, onClose, onUse, onAdd, onDelete }) => {
+const FoodLibraryModal: React.FC<
+  FoodLibraryModalProps
+> = ({
+  recipes,
+  onClose,
+  onUse,
+  onAdd,
+  onDelete,
+}) => {
   const [queryText, setQueryText] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [title, setTitle] = useState('');
@@ -777,81 +1133,223 @@ const FoodLibraryModal: React.FC<FoodLibraryModalProps> = ({ recipes, onClose, o
   const [serving, setServing] = useState('1 phần');
   const [saving, setSaving] = useState(false);
 
-  const filtered = recipes.filter((item) => item.title.toLowerCase().includes(queryText.trim().toLowerCase()));
+  const filtered = recipes.filter((item) =>
+    item.title
+      .toLowerCase()
+      .includes(queryText.trim().toLowerCase())
+  );
 
   const saveRecipe = async () => {
     if (!title.trim()) return;
+
     setSaving(true);
+
     try {
       await onAdd({
         title: title.trim(),
         ingredients: 'Món lưu nhanh',
-        calories: Math.max(0, Number(calories) || 0),
-        protein: Math.max(0, Number(protein) || 0),
+        calories: Math.max(
+          0,
+          Number(calories) || 0
+        ),
+        protein: Math.max(
+          0,
+          Number(protein) || 0
+        ),
         carbs: Math.max(0, Number(carbs) || 0),
         fat: Math.max(0, Number(fat) || 0),
-        servingLabel: serving.trim() || '1 phần',
+        servingLabel:
+          serving.trim() || '1 phần',
       });
-      setTitle(''); setCalories(''); setProtein(''); setCarbs(''); setFat(''); setServing('1 phần'); setShowAdd(false);
+
+      setTitle('');
+      setCalories('');
+      setProtein('');
+      setCarbs('');
+      setFat('');
+      setServing('1 phần');
+      setShowAdd(false);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[75] flex items-end justify-center bg-slate-950/35 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-      <div className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-[28px] border border-rose-100 bg-white p-4 shadow-2xl sm:rounded-[28px] sm:p-5">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-base font-bold text-slate-900">Kho món</h2>
-            
+    <div className="fixed inset-0 z-[95] flex items-end justify-center sm:items-center sm:p-4">
+      <button
+        type="button"
+        className="app-modal-backdrop"
+        onClick={onClose}
+        aria-label="Đóng"
+      />
+
+      <div className="app-sheet relative z-10 flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[24px] sm:rounded-[24px]">
+        <div className="app-sheet-header">
+          <h2 className="app-section-title">Kho món</h2>
+
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() =>
+                setShowAdd((value) => !value)
+              }
+              className="app-icon-button app-icon-button-brand h-9 w-9 border border-rose-100 bg-rose-50"
+              aria-label="Thêm món vào kho"
+              title="Thêm"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="app-icon-button h-9 w-9"
+              aria-label="Đóng"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
-          <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-500"><X className="h-4 w-4" /></button>
         </div>
 
-        <div className="mb-3 flex gap-2">
-          <div className="relative min-w-0 flex-1">
+        <div className="border-b border-slate-100 px-4 py-3">
+          <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input value={queryText} onChange={(event) => setQueryText(event.target.value)} className="h-10 w-full rounded-xl border border-slate-200 pl-9 pr-3 text-xs outline-none focus:border-rose-300" placeholder="Tìm món..." />
+            <input
+              value={queryText}
+              onChange={(event) =>
+                setQueryText(event.target.value)
+              }
+              className="app-control h-11 w-full pl-9 pr-3 text-sm"
+              placeholder="Tìm món"
+            />
           </div>
-          <button type="button" onClick={() => setShowAdd((value) => !value)} className="flex h-10 items-center gap-1 rounded-xl bg-rose-500 px-3 text-[11px] font-bold text-white"><Plus className="h-3.5 w-3.5" /> Thêm món</button>
         </div>
 
         {showAdd && (
-          <div className="mb-4 rounded-2xl border border-rose-100 bg-rose-50/35 p-3">
-            <input value={title} onChange={(event) => setTitle(event.target.value)} className="mb-2 h-10 w-full rounded-xl border border-rose-100 bg-white px-3 text-xs font-semibold outline-none" placeholder="Tên món" />
-            <input value={serving} onChange={(event) => setServing(event.target.value)} className="mb-2 h-10 w-full rounded-xl border border-rose-100 bg-white px-3 text-xs outline-none" placeholder="Khẩu phần" />
-            <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-2 border-b border-slate-100 bg-slate-50 px-4 py-3">
+            <input
+              value={title}
+              onChange={(event) =>
+                setTitle(event.target.value)
+              }
+              className="app-control h-11 w-full bg-white px-3 text-sm font-semibold"
+              placeholder="Tên món"
+            />
+
+            <div className="grid grid-cols-[1.3fr_0.7fr] gap-2">
+              <input
+                value={serving}
+                onChange={(event) =>
+                  setServing(event.target.value)
+                }
+                className="app-control h-11 w-full bg-white px-3 text-sm"
+                placeholder="Khẩu phần"
+              />
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={calories}
+                onChange={(event) =>
+                  setCalories(event.target.value)
+                }
+                className="app-control h-11 w-full bg-white px-3 text-sm font-semibold"
+                placeholder="kcal"
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
               {[
-                ['Kcal', calories, setCalories],
-                ['Protein', protein, setProtein],
-                ['Carb', carbs, setCarbs],
-                ['Fat', fat, setFat],
+                ['P', protein, setProtein],
+                ['C', carbs, setCarbs],
+                ['F', fat, setFat],
               ].map(([label, value, setter]) => (
-                <label key={label as string} className="rounded-xl border border-rose-100 bg-white px-2.5 py-2">
-                  <span className="text-[9px] font-semibold text-slate-400">{label as string}</span>
-                  <input type="number" min="0" step="0.1" value={value as string} onChange={(event) => (setter as React.Dispatch<React.SetStateAction<string>>)(event.target.value)} className="mt-0.5 w-full bg-transparent text-sm font-bold outline-none" />
+                <label
+                  key={label as string}
+                  className="app-control h-11 px-2 py-1.5"
+                >
+                  <span className="block text-[9px] text-slate-400">
+                    {label as string}
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={value as string}
+                    onChange={(event) =>
+                      (
+                        setter as React.Dispatch<
+                          React.SetStateAction<string>
+                        >
+                      )(event.target.value)
+                    }
+                    className="w-full bg-transparent text-xs font-semibold outline-none"
+                  />
                 </label>
               ))}
             </div>
-            <button type="button" onClick={saveRecipe} disabled={saving || !title.trim()} className="mt-2 h-10 w-full rounded-xl bg-rose-500 text-xs font-bold text-white disabled:bg-slate-200">{saving ? 'Đang lưu...' : 'Lưu vào kho'}</button>
+
+            <button
+              type="button"
+              onClick={saveRecipe}
+              disabled={saving || !title.trim()}
+              className="app-button app-button-primary w-full disabled:opacity-40"
+            >
+              {saving ? 'Đang lưu' : 'Lưu'}
+            </button>
           </div>
         )}
 
-        <div className="space-y-2">
+        <div className="flex-1 overflow-y-auto px-3 py-2">
           {filtered.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 py-8 text-center text-xs text-slate-400">Chưa có món trong kho.</div>
-          ) : filtered.map((recipe) => (
-            <div key={recipe.id} className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-3">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-rose-500 shadow-xs"><Apple className="h-4 w-4" /></span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-bold text-slate-800">{recipe.title}</p>
-                <p className="mt-0.5 text-[10px] text-slate-400">{recipe.servingLabel || '1 phần'} · {number.format(recipe.calories || 0)} kcal · P {decimal.format(recipe.protein || 0)} · C {decimal.format(recipe.carbs || 0)} · F {decimal.format(recipe.fat || 0)}</p>
-              </div>
-              <button type="button" onClick={() => onUse(recipe)} className="h-8 rounded-lg bg-rose-500 px-2.5 text-[10px] font-bold text-white">Dùng</button>
-              <button type="button" onClick={() => void onDelete(recipe.id)} className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500"><Trash2 className="h-3.5 w-3.5" /></button>
+            <div className="py-10 text-center">
+              <Apple className="mx-auto h-5 w-5 text-slate-300" />
+              <p className="mt-2 text-xs font-semibold text-slate-500">
+                Chưa có món
+              </p>
             </div>
-          ))}
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {filtered.map((recipe) => (
+                <div
+                  key={recipe.id}
+                  className="flex items-center gap-3 px-1 py-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-800">
+                      {recipe.title}
+                    </p>
+                    <p className="mt-0.5 truncate text-[10px] text-slate-400">
+                      {recipe.servingLabel || '1 phần'} ·{' '}
+                      {number.format(recipe.calories || 0)} kcal · P{' '}
+                      {decimal.format(recipe.protein || 0)} · C{' '}
+                      {decimal.format(recipe.carbs || 0)} · F{' '}
+                      {decimal.format(recipe.fat || 0)}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => onUse(recipe)}
+                    className="app-button app-button-primary min-h-9 px-3 py-1.5"
+                  >
+                    Dùng
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void onDelete(recipe.id)
+                    }
+                    className="app-icon-button h-9 w-9 hover:bg-rose-50 hover:text-rose-500"
+                    aria-label="Xóa món"
+                    title="Xóa"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
