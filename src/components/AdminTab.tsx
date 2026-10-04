@@ -891,70 +891,54 @@ export const AdminTab: React.FC<AdminTabProps> = ({ currentUser, onRefreshProfil
       </div>
 
       {/* Sub-tab Navigation */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-3 flex-wrap">
+      <div className="app-subtabs">
         <button
           type="button"
           onClick={() => setSelectedSubTab('users')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-            selectedSubTab === 'users'
-              ? 'bg-rose-500 text-white shadow-xs'
-              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
+          className={`app-subtab ${selectedSubTab === 'users' ? 'app-subtab-active' : ''}`}
         >
-          <Users className="w-4 h-4" />
-          <span>Danh sách Tài khoản ({usersList.length})</span>
+          <Users className="h-3.5 w-3.5" />
+          <span>Tài khoản</span>
+          <span className="app-subtab-count">{usersList.length}</span>
         </button>
 
         <button
           type="button"
           onClick={() => setSelectedSubTab('couples')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-            selectedSubTab === 'couples'
-              ? 'bg-rose-500 text-white shadow-xs'
-              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
+          className={`app-subtab ${selectedSubTab === 'couples' ? 'app-subtab-active' : ''}`}
         >
-          <Heart className="w-4 h-4" />
-          <span>Quản lý Cặp đôi ({couplesList.length})</span>
+          <Heart className="h-3.5 w-3.5" />
+          <span>Cặp đôi</span>
+          <span className="app-subtab-count">{couplesList.length}</span>
         </button>
 
         <button
           type="button"
           onClick={() => setSelectedSubTab('comments')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-            selectedSubTab === 'comments'
-              ? 'bg-rose-500 text-white shadow-xs'
-              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
+          className={`app-subtab ${selectedSubTab === 'comments' ? 'app-subtab-active' : ''}`}
         >
-          <MessageCircle className="w-4 h-4" />
-          <span>Quản lý & Xóa Bình luận ({commentsList.length})</span>
+          <MessageCircle className="h-3.5 w-3.5" />
+          <span>Bình luận</span>
+          <span className="app-subtab-count">{commentsList.length}</span>
         </button>
 
         <button
           type="button"
           onClick={() => setSelectedSubTab('finances')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-            selectedSubTab === 'finances'
-              ? 'bg-rose-500 text-white shadow-xs'
-              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
+          className={`app-subtab ${selectedSubTab === 'finances' ? 'app-subtab-active' : ''}`}
         >
-          <DollarSign className="w-4 h-4" />
-          <span>Sửa Thu Chi & Người Trả ({financeList.length})</span>
+          <DollarSign className="h-3.5 w-3.5" />
+          <span>Tài chính</span>
+          <span className="app-subtab-count">{financeList.length}</span>
         </button>
 
         <button
           type="button"
           onClick={() => setSelectedSubTab('system')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-            selectedSubTab === 'system'
-              ? 'bg-rose-500 text-white shadow-xs'
-              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
+          className={`app-subtab ${selectedSubTab === 'system' ? 'app-subtab-active' : ''}`}
         >
-          <Database className="w-4 h-4" />
-          <span>Hệ thống & Cấu hình</span>
+          <Database className="h-3.5 w-3.5" />
+          <span>Hệ thống</span>
         </button>
       </div>
 
