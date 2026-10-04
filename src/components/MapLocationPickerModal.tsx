@@ -1024,7 +1024,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
               onClick={handleCaptureDeviceGPS}
               disabled={isLocatingGPS}
               className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-60 shadow-2xs shrink-0"
-              title="Lấy tọa độ GPS thiết bị với độ chính xác cao"
+              title="Vị trí hiện tại"
             >
               {isLocatingGPS ? (
                 <>
@@ -1048,13 +1048,11 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
                   ? 'bg-amber-500 text-white border-amber-600'
                   : 'bg-white hover:bg-amber-50 text-amber-800 border-amber-200'
               }`}
-              title="Xem và chọn nhanh từ danh sách các địa chỉ cũ & góc quen đã lưu"
+              title="Địa điểm đã lưu"
             >
               <History className="w-3.5 h-3.5 text-amber-600" />
               <span>Đã lưu</span>
-              {locationHistory.length > 0 && (
-                
-              )}
+
             </button>
 
             {/* Satellite / Street Map Switch */}
@@ -1062,7 +1060,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
               type="button"
               onClick={toggleMapTheme}
               className="px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl border border-slate-200 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs shrink-0"
-              title="Chuyển chế độ xem Bản đồ đường phố / Vệ tinh"
+              title="Đổi kiểu bản đồ"
             >
               <Layers className="w-3.5 h-3.5 text-slate-600" />
               <span>{mapType === 'streets' ? 'Vệ tinh' : 'Bản đồ'}</span>
@@ -1136,7 +1134,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
         {loadingMap && (
           <div className="absolute inset-0 bg-white/75 backdrop-blur-xs flex flex-col items-center justify-center gap-2 z-20">
             <Loader2 className="w-8 h-8 text-rose-500 animate-spin" />
-            <span className="text-xs font-semibold text-slate-600">Đang tải bản đồ GPS...</span>
+            <span className="text-xs font-semibold text-slate-600">Đang tải bản đồ...</span>
           </div>
         )}
 
