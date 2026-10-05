@@ -96,10 +96,11 @@ export const AvatarEditorModal: React.FC<AvatarEditorModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-md rounded-3xl p-6 border border-slate-200 shadow-2xl space-y-5">
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+      <button type="button" className="app-modal-backdrop" onClick={onClose} aria-label="Đóng" />
+      <div className="app-sheet relative z-10 flex w-full max-w-md flex-col overflow-hidden rounded-t-[24px] sm:max-h-[90vh] sm:rounded-[24px]">
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="app-sheet-header shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
               <Camera className="w-4 h-4" />
@@ -112,12 +113,13 @@ export const AvatarEditorModal: React.FC<AvatarEditorModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 transition p-1 rounded-lg"
+            className="app-icon-button h-9 w-9"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
+        <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4 sm:px-5">
         {/* Current Preview */}
         <div className="flex flex-col items-center justify-center space-y-2 py-2">
           <div className="relative group">
@@ -247,12 +249,13 @@ export const AvatarEditorModal: React.FC<AvatarEditorModalProps> = ({
           </div>
         )}
 
+        </div>
         {/* Footer Actions */}
-        <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+        <div className="app-sheet-footer justify-end">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-slate-500 hover:bg-slate-100 text-xs font-medium cursor-pointer transition"
+            className="app-button app-button-secondary min-h-10 px-4"
           >
             Hủy
           </button>
@@ -260,7 +263,7 @@ export const AvatarEditorModal: React.FC<AvatarEditorModalProps> = ({
             type="button"
             onClick={handleSaveAvatar}
             disabled={saving || !selectedAvatar}
-            className="px-5 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold shadow-xs disabled:opacity-50 cursor-pointer flex items-center gap-1.5 transition"
+            className="app-button app-button-primary min-h-10 px-4 disabled:opacity-50"
           >
             {saving ? (
               <span>Đang đồng bộ...</span>
