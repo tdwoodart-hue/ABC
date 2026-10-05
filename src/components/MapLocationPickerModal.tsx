@@ -1049,29 +1049,19 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
             <button
               type="button"
               onClick={() => setShowHistoryDrawer(!showHistoryDrawer)}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border shadow-2xs shrink-0 ${
-                showHistoryDrawer
-                  ? 'bg-amber-500 text-white border-amber-600'
-                  : 'bg-white hover:bg-amber-50 text-amber-800 border-amber-200'
-              }`}
+              className={`app-view-toggle ${showHistoryDrawer ? 'app-view-toggle-active' : ''}`}
               title="Xem và chọn nhanh từ danh sách các địa chỉ cũ & góc quen đã lưu"
             >
-              <History className="w-3.5 h-3.5 text-amber-600" />
+              <History className="h-3.5 w-3.5" />
               <span>Đã lưu</span>
-              {locationHistory.length > 0 && (
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                  showHistoryDrawer ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
-                }`}>
-                  {locationHistory.length}
-                </span>
-              )}
+
             </button>
 
             {/* Satellite / Street Map Switch */}
             <button
               type="button"
               onClick={toggleMapTheme}
-              className="app-button app-button-secondary inline-flex min-h-10 shrink-0 items-center gap-1.5 px-3 py-2"
+              className="app-view-toggle"
               title="Chuyển chế độ xem Bản đồ đường phố / Vệ tinh"
             >
               <Layers className="w-3.5 h-3.5 text-slate-600" />

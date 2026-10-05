@@ -804,7 +804,7 @@ export const AchievementsTab: React.FC<AchievementsTabProps> = ({
       </div>
 
       {/* Secondary tabs */}
-      <div className="app-subtabs">
+      <div className="app-subtabs app-subtabs-equal">
         <button
           type="button"
           onClick={() => setSubTab('tiers')}
@@ -812,7 +812,6 @@ export const AchievementsTab: React.FC<AchievementsTabProps> = ({
         >
           <Trophy className="h-3.5 w-3.5" />
           <span>Thành tích</span>
-          <span className="app-subtab-count">{tieredAchievements.length}</span>
         </button>
 
         <button
@@ -821,8 +820,7 @@ export const AchievementsTab: React.FC<AchievementsTabProps> = ({
           className={`app-subtab ${subTab === 'actions' ? 'app-subtab-active' : ''}`}
         >
           <Sparkles className="h-3.5 w-3.5" />
-          <span>Ghi điểm</span>
-          <span className="app-subtab-count">{loveActions.length}</span>
+          <span>Hành động</span>
         </button>
 
         <button
@@ -832,7 +830,6 @@ export const AchievementsTab: React.FC<AchievementsTabProps> = ({
         >
           <Star className="h-3.5 w-3.5" />
           <span>Kỷ niệm</span>
-          <span className="app-subtab-count">{customAchievements.length}</span>
         </button>
       </div>
 

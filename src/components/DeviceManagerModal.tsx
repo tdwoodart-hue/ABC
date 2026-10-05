@@ -287,14 +287,13 @@ export const DeviceManagerModal: React.FC<DeviceManagerModalProps> = ({
           </div>
 
           {/* Secondary tabs */}
-          <div className="app-subtabs">
+          <div className="app-subtabs app-subtabs-equal">
             <button
               type="button"
               onClick={() => setActiveTab('all')}
               className={`app-subtab ${activeTab === 'all' ? 'app-subtab-active' : ''}`}
             >
               <span>Tất cả</span>
-              <span className="app-subtab-count">{allDevices.length}</span>
             </button>
             <button
               type="button"
@@ -302,7 +301,6 @@ export const DeviceManagerModal: React.FC<DeviceManagerModalProps> = ({
               className={`app-subtab ${activeTab === 'duong' ? 'app-subtab-active' : ''}`}
             >
               <span>Dương</span>
-              <span className="app-subtab-count">{duongDevices.length}</span>
             </button>
             <button
               type="button"
@@ -310,7 +308,6 @@ export const DeviceManagerModal: React.FC<DeviceManagerModalProps> = ({
               className={`app-subtab ${activeTab === 'chuc' ? 'app-subtab-active' : ''}`}
             >
               <span>Chúc</span>
-              <span className="app-subtab-count">{chucDevices.length}</span>
             </button>
             <button
               type="button"

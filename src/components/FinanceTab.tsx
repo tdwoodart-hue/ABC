@@ -810,7 +810,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
       <div className="app-subtabs">
         {[
           { id: 'overview' as FinanceView, label: 'Tổng quan' },
-          { id: 'ideas' as FinanceView, label: 'Mua gì?' },
+          { id: 'ideas' as FinanceView, label: 'Mua sắm' },
           { id: 'goals' as FinanceView, label: 'Hũ' },
           { id: 'history' as FinanceView, label: 'Lịch sử' },
         ].map((tab) => (

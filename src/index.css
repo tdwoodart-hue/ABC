@@ -546,3 +546,43 @@ a,
   background: #fff1f2;
   color: #be123c;
 }
+
+
+.app-subtabs-equal .app-subtab {
+  flex: 1 1 0%;
+  min-width: 0;
+}
+
+.app-view-toggle {
+  min-height: 38px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  background: #fff;
+  padding: 0 10px;
+  color: #64748b;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 650;
+  white-space: nowrap;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease, transform 120ms ease;
+}
+
+.app-view-toggle:hover {
+  background: #f8fafc;
+  color: #334155;
+}
+
+.app-view-toggle:active {
+  transform: scale(0.985);
+}
+
+.app-view-toggle-active {
+  border-color: #fecdd3;
+  background: #fff1f2;
+  color: #be123c;
+}
