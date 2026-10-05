@@ -45,15 +45,16 @@ export const SecretStatsModal: React.FC<SecretStatsModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex items-end justify-center bg-slate-950/45 p-0 backdrop-blur-[3px] sm:items-center sm:p-5"
+      className="fixed inset-0 z-[120] flex items-end justify-center p-0 sm:items-center sm:p-5"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
         }
       }}
     >
-      <div className="max-h-[88dvh] w-full max-w-xl overflow-y-auto rounded-t-[32px] border border-white/70 bg-white shadow-2xl sm:rounded-[32px]">
-        <div className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-100 bg-white/95 px-5 pb-4 pt-5 backdrop-blur-xl sm:px-6">
+      <button type="button" className="app-modal-backdrop" onClick={onClose} aria-label="Đóng" />
+      <div className="app-sheet relative z-10 max-h-[88dvh] w-full max-w-xl overflow-y-auto rounded-t-[24px] sm:rounded-[24px]">
+        <div className="app-sheet-header sticky top-0 z-10 items-start bg-white/95 backdrop-blur-xl">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-500">
               Bí mật nhỏ của Us
@@ -71,7 +72,7 @@ export const SecretStatsModal: React.FC<SecretStatsModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50"
+            className="app-icon-button h-9 w-9 shrink-0"
             aria-label="Đóng thống kê bí mật"
           >
             <X className="h-4 w-4" />
