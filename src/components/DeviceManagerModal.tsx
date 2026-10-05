@@ -145,36 +145,29 @@ export const DeviceManagerModal: React.FC<DeviceManagerModalProps> = ({
     : allDevices;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+      <button type="button" className="app-modal-backdrop" onClick={onClose} aria-label="Đóng" />
+      <div className="app-sheet relative z-10 flex w-full max-w-xl flex-col overflow-hidden rounded-t-[24px] sm:max-h-[90vh] sm:rounded-[24px]">
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+        <div className="app-sheet-header shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center">
-              <Smartphone className="w-5 h-5" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-slate-500">
+              <Smartphone className="h-4.5 w-4.5" />
             </div>
             <div>
-              <h3 className="font-bold text-base text-slate-800 flex items-center gap-2">
-                Quản lý thiết bị của hai đứa
-                <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold">
-                  Bảo mật cao
-                </span>
-              </h3>
-              <p className="text-xs text-slate-500">
-                Xác định rõ ràng đâu là thiết bị của Dương và đâu là của Chúc
-              </p>
+              <h3 className="app-section-title">Quản lý thiết bị</h3>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer"
+            className="app-icon-button h-9 w-9"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1">
+        <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4 sm:px-5">
           {/* Current Device Card */}
           <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-50/50 via-white to-pink-50/50 border border-indigo-100/80 shadow-xs">
             <div className="flex items-center justify-between mb-3">
@@ -236,51 +229,20 @@ export const DeviceManagerModal: React.FC<DeviceManagerModalProps> = ({
               <p className="text-xs font-semibold text-slate-600 mb-2">
                 Thiết bị này thuộc quyền sở hữu của:
               </p>
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="app-subtabs app-subtabs-equal">
                 <button
                   type="button"
                   onClick={() => handleSwitchOwner('duong')}
-                  className={`p-3 rounded-2xl border text-left flex items-center justify-between transition cursor-pointer ${
-                    currentOwner === 'duong'
-                      ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-400/20 text-blue-900 font-bold'
-                      : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700 font-medium'
-                  }`}
+                  className={`app-subtab ${currentOwner === 'duong' ? 'app-subtab-active' : ''}`}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">👨🏻‍💻</span>
-                    <div>
-                      <p className="text-xs">Dương (Tao)</p>
-                      <p className="text-[10px] text-slate-400 font-normal">Anh ♂</p>
-                    </div>
-                  </div>
-                  {currentOwner === 'duong' && (
-                    <div className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">
-                      ✓
-                    </div>
-                  )}
+                  Dương
                 </button>
-
                 <button
                   type="button"
                   onClick={() => handleSwitchOwner('chuc')}
-                  className={`p-3 rounded-2xl border text-left flex items-center justify-between transition cursor-pointer ${
-                    currentOwner === 'chuc'
-                      ? 'bg-rose-50 border-rose-300 ring-2 ring-rose-400/20 text-rose-900 font-bold'
-                      : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700 font-medium'
-                  }`}
+                  className={`app-subtab ${currentOwner === 'chuc' ? 'app-subtab-active' : ''}`}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">🌸</span>
-                    <div>
-                      <p className="text-xs">Chúc (Chúc Gà)</p>
-                      <p className="text-[10px] text-slate-400 font-normal">Em ♀</p>
-                    </div>
-                  </div>
-                  {currentOwner === 'chuc' && (
-                    <div className="w-4 h-4 rounded-full bg-rose-500 text-white flex items-center justify-center text-[10px]">
-                      ✓
-                    </div>
-                  )}
+                  Chúc
                 </button>
               </div>
             </div>
@@ -459,14 +421,14 @@ export const DeviceManagerModal: React.FC<DeviceManagerModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-3.5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-xs text-slate-500">
+        <div className="app-sheet-footer justify-between text-xs text-slate-500">
           <div className="flex items-center gap-1.5">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
             <span>Mỗi thiết bị được định danh độc lập & an toàn</span>
           </div>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-medium text-xs transition cursor-pointer"
+            className="app-button app-button-secondary min-h-10 px-4"
           >
             Đóng
           </button>
