@@ -79,12 +79,13 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+      <button type="button" className="app-modal-backdrop" onClick={onClose} aria-label="Đóng" />
       <form
         onSubmit={onSubmit}
-        className="bg-white w-full max-w-lg rounded-2xl p-5 border border-slate-200 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto"
+        className="app-sheet relative z-10 flex w-full max-w-lg flex-col overflow-hidden rounded-t-[24px] sm:max-h-[90vh] sm:rounded-[24px]"
       >
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100 sticky top-0 bg-white z-10">
+        <div className="app-sheet-header shrink-0">
           <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
             <Edit3 className="w-4 h-4 text-rose-500" />
             Chỉnh Sửa Thông Tin Hồ Sơ & Địa Chỉ
@@ -93,12 +94,13 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 transition"
+            className="app-icon-button h-9 w-9"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
         {/* Group 1: Standard Names & Anniversary */}
         <div className="space-y-3">
           <h4 className="text-xs font-bold text-rose-600 uppercase tracking-wider">
@@ -361,12 +363,13 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
           />
         </div>
 
+        </div>
         {/* Modal Actions */}
-        <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 sticky bottom-0 bg-white">
+        <div className="app-sheet-footer justify-end">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-slate-500 hover:bg-slate-100 text-xs font-medium cursor-pointer"
+            className="app-button app-button-secondary min-h-10 px-4"
           >
             Hủy
           </button>
@@ -374,7 +377,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
           <button
             type="submit"
             disabled={savingProfile}
-            className="px-5 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold shadow-xs disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+            className="app-button app-button-primary min-h-10 px-4 disabled:opacity-50"
           >
             <Save className="w-3.5 h-3.5" />
             {savingProfile ? 'Đang lưu...' : 'Lưu thông tin'}
