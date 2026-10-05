@@ -259,9 +259,10 @@ export const SavedLocationSelectorModal: React.FC<
   };
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/35 sm:items-center sm:p-4">
-      <div className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-[24px] bg-white shadow-2xl sm:max-w-xl sm:rounded-[24px]">
-        <div className="flex items-center justify-between px-4 py-3.5 sm:px-5">
+    <div className="fixed inset-0 z-[120] flex items-end justify-center sm:items-center sm:p-4">
+      <button type="button" className="app-modal-backdrop" onClick={onClose} aria-label="Đóng" />
+      <div className="app-sheet relative z-10 flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-[24px] sm:max-w-xl sm:rounded-[24px]">
+        <div className="app-sheet-header">
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4 text-rose-500" />
             <h3 className="app-section-title">Địa điểm</h3>
