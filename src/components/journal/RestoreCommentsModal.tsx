@@ -60,10 +60,11 @@ export const RestoreCommentsModal: React.FC<RestoreCommentsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-lg rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-2xl space-y-4 max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+      <button type="button" className="app-modal-backdrop" onClick={handleClose} aria-label="Đóng" />
+      <div className="app-sheet relative z-10 flex w-full max-w-lg flex-col overflow-hidden rounded-t-[24px] sm:max-h-[90vh] sm:rounded-[24px]">
         {/* Modal Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+        <div className="app-sheet-header shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-2xl bg-amber-50 text-amber-700 border border-amber-200/80 flex items-center justify-center">
               <History className="w-5 h-5" />
@@ -82,14 +83,14 @@ export const RestoreCommentsModal: React.FC<RestoreCommentsModalProps> = ({
           <button
             type="button"
             onClick={handleClose}
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition cursor-pointer"
+            className="app-icon-button h-9 w-9"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Modal Content - Scrollable */}
-        <div className="space-y-4 overflow-y-auto flex-1 pr-1">
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
           {!showManualRestoreForm ? (
             <div className="space-y-3">
               <div className="flex items-center justify-between text-xs text-slate-600 font-semibold px-1">
@@ -235,29 +236,20 @@ export const RestoreCommentsModal: React.FC<RestoreCommentsModalProps> = ({
                   Người bình luận:
                 </label>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="app-subtabs app-subtabs-equal">
                   <button
                     type="button"
                     onClick={() => onCommentAuthorChange('duong')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                      restoreCommentAuthor === 'duong'
-                        ? 'bg-rose-50 border-rose-400 text-rose-700 shadow-xs'
-                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                    }`}
+                    className={`app-subtab ${restoreCommentAuthor === 'duong' ? 'app-subtab-active' : ''}`}
                   >
-                    <span>👦 Dương</span>
+                    Dương
                   </button>
-
                   <button
                     type="button"
                     onClick={() => onCommentAuthorChange('chuc')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                      restoreCommentAuthor === 'chuc'
-                        ? 'bg-rose-50 border-rose-400 text-rose-700 shadow-xs'
-                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                    }`}
+                    className={`app-subtab ${restoreCommentAuthor === 'chuc' ? 'app-subtab-active' : ''}`}
                   >
-                    <span>👧 Chúc Gà</span>
+                    Chúc
                   </button>
                 </div>
               </div>
@@ -303,7 +295,7 @@ export const RestoreCommentsModal: React.FC<RestoreCommentsModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="pt-3 border-t border-slate-100 flex items-center justify-between shrink-0">
+        <div className="app-sheet-footer justify-between shrink-0">
           <span className="text-[11px] text-slate-400">
             {deletedCommentsList.length} bình luận đã lưu trữ
           </span>
@@ -311,7 +303,7 @@ export const RestoreCommentsModal: React.FC<RestoreCommentsModalProps> = ({
           <button
             type="button"
             onClick={handleClose}
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+            className="app-button app-button-secondary min-h-10 px-4"
           >
             Đóng
           </button>
