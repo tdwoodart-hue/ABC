@@ -128,10 +128,11 @@ export const CompanionManagerModal: React.FC<CompanionManagerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fadeIn">
-      <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 border border-slate-200/80 shadow-xl space-y-4 max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+      <button type="button" className="app-modal-backdrop" onClick={onClose} aria-label="Đóng" />
+      <div className="app-sheet relative z-10 flex w-full max-w-md flex-col overflow-hidden rounded-t-[24px] sm:max-h-[90vh] sm:rounded-[24px]">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="app-sheet-header shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100">
               <PawPrint className="w-5 h-5 text-rose-500" />
@@ -146,14 +147,14 @@ export const CompanionManagerModal: React.FC<CompanionManagerModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+            className="app-icon-button h-9 w-9"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content Area */}
-        <div className="overflow-y-auto flex-1 space-y-4 pr-1">
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
           {isAdding ? (
             <form onSubmit={handleSave} className="bg-slate-50 p-4 rounded-2xl border border-rose-200/80 space-y-3">
               <div className="flex items-center justify-between">
@@ -385,11 +386,11 @@ export const CompanionManagerModal: React.FC<CompanionManagerModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="pt-2 border-t border-slate-100 flex justify-end">
+        <div className="app-sheet-footer justify-end">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition cursor-pointer"
+            className="app-button app-button-secondary min-h-10 px-4"
           >
             Đóng
           </button>
