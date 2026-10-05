@@ -392,12 +392,13 @@ export const SavedLocationSelectorModal: React.FC<
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 z-[130] flex items-end justify-center bg-black/35 sm:items-center sm:p-4">
+        <div className="fixed inset-0 z-[130] flex items-end justify-center sm:items-center sm:p-4">
+          <button type="button" className="app-modal-backdrop" onClick={() => setShowForm(false)} aria-label="Đóng" />
           <form
             onSubmit={savePlace}
-            className="w-full rounded-t-[24px] bg-white p-4 shadow-2xl sm:max-w-md sm:rounded-[24px] sm:p-5"
+            className="app-sheet relative z-10 w-full overflow-hidden rounded-t-[24px] sm:max-w-md sm:rounded-[24px]"
           >
-            <div className="mb-4 flex items-center justify-between">
+            <div className="app-sheet-header">
               <h4 className="app-section-title">
                 {editingPlaceId ? 'Sửa địa điểm' : 'Lưu địa điểm'}
               </h4>
@@ -412,7 +413,7 @@ export const SavedLocationSelectorModal: React.FC<
               </button>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3 px-4 py-4 sm:px-5">
               <input
                 type="text"
                 required
@@ -445,7 +446,7 @@ export const SavedLocationSelectorModal: React.FC<
               </button>
             </div>
 
-            <div className="mt-5 flex gap-2">
+            <div className="app-sheet-footer">
               <button
                 type="button"
                 onClick={() => setShowForm(false)}
