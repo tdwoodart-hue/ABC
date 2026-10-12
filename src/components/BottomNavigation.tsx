@@ -270,12 +270,18 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
         </nav>
 
         <div className="mt-auto px-2 pt-6">
-          <div className="rounded-2xl border border-rose-100/80 bg-gradient-to-br from-rose-50/80 to-white p-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-              <Heart className="h-3.5 w-3.5 fill-rose-400 text-rose-400" />
-              Không gian của hai đứa
+          <div className="rounded-2xl border border-slate-200/80 bg-slate-50/85 p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+            <div className="flex items-start gap-2.5">
+              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200/80">
+                <Heart className="h-3.5 w-3.5 fill-rose-400 text-rose-400" />
+              </span>
+              <div className="min-w-0">
+                <div className="text-xs font-bold text-slate-700">Không gian của hai đứa</div>
+                <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                  Nhật ký, sức khỏe, tài chính và những điều nhỏ xíu cùng nhau.
+                </p>
+              </div>
             </div>
-            <p className="mt-1.5 text-[10px] leading-4 text-slate-400">Nhật ký, sức khỏe, tài chính và những điều nhỏ xíu cùng nhau.</p>
           </div>
           <p className="mt-3 px-1 text-[10px] font-semibold text-slate-300">Us v{APP_VERSION}</p>
         </div>
