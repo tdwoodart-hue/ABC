@@ -205,8 +205,15 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
           onClick={() => onNavigate('home')}
           className="flex items-center gap-3 rounded-2xl px-2 py-2 text-left"
         >
-          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-rose-500 text-white shadow-sm shadow-rose-200">
-            <Heart className="h-5 w-5 fill-current" />
+          <span className="h-10 w-10 shrink-0 overflow-hidden rounded-2xl border border-rose-100 bg-white shadow-sm shadow-rose-100">
+            <img
+              src="/icons/icon.png"
+              alt="Us"
+              className="h-full w-full object-cover"
+              width={40}
+              height={40}
+              decoding="async"
+            />
           </span>
           <span className="min-w-0">
             <span className="block text-base font-black tracking-tight text-slate-900">Us</span>

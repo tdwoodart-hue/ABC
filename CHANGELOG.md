@@ -8,20 +8,18 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR** (`0.X.0`) for backwards-compatible features.
 - **PATCH** (`0.0.X`) for backwards-compatible fixes.
 
+## [0.3.21] - 2026-10-12
+
+### Fixed
+
+- Replaced the temporary Lucide heart in the desktop sidebar with the real Us app icon from `/icons/icon.png`.
+
 ## [0.3.20] - 2026-10-12
 
 ### Added
 
-- Desktop-first application shell with a persistent left navigation sidebar from 1024px upward.
-- Direct desktop access to Home, Journal, Nutrition, Finance, Achievements, Profile and Scheduled Messages.
-- Desktop Home dashboard layout with greeting header, two-column couple/day hero area and a secondary utility rail.
-- Current app version shown in the desktop sidebar.
-
-### Changed
-
-- The mobile bottom navigation now stays mobile-only while the desktop layout uses the available horizontal space.
-- Desktop content expands up to 1320px instead of remaining constrained to the mobile-width column.
-- Home keeps the existing mobile experience while receiving a dedicated desktop composition.
+- Added a desktop-first application shell with a persistent left sidebar.
+- Reworked the Home screen into a wider desktop dashboard while preserving the mobile layout.
 
 ## [0.3.1] - 2026-09-29
 
