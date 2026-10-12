@@ -8,6 +8,12 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR** (`0.X.0`) for backwards-compatible features.
 - **PATCH** (`0.0.X`) for backwards-compatible fixes.
 
+## [0.3.22] - 2026-10-12
+
+### Changed
+
+- Refined the desktop sidebar footer card to use the same neutral slate surface, border weight and rose accent language as the rest of the desktop navigation.
+
 ## [0.3.21] - 2026-10-12
 
 ### Fixed
@@ -45,4 +51,3 @@ This project follows [Semantic Versioning](https://semver.org/):
 
 - Established the first stable, recoverable release baseline.
 - Added a changelog and Semantic Versioning policy.
-
