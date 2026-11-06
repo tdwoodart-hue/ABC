@@ -16,8 +16,8 @@ export const JournalHeader: React.FC<JournalHeaderProps> = ({
   onOpenCompanionManager,
 }) => {
   return (
-    <div className="journal-header">
-      <div><h1 className="app-page-title">Nhật ký của mình</h1><p className="us-tool-description">Lưu lại những ngày và câu chuyện của hai đứa.</p></div>
+    <div className="flex items-center justify-between gap-3">
+      <h2 className="app-page-title">Nhật ký</h2>
 
       <div className="flex items-center gap-2">
         <button
@@ -38,13 +38,11 @@ export const JournalHeader: React.FC<JournalHeaderProps> = ({
         <button
           id="btn-open-create-journal"
           type="button"
-          onClick={() => setShowAddJournal(true)}
-          aria-expanded={showAddJournal}
-          aria-controls={showAddJournal ? 'journal-composer' : undefined}
-          className="app-button app-button-primary journal-create-button"
+          onClick={() => setShowAddJournal(!showAddJournal)}
+          className="app-button app-button-primary inline-flex items-center gap-1.5"
         >
           <Plus className="h-4 w-4" />
-          <span>{showAddJournal ? 'Đang viết' : 'Viết nhật ký'}</span>
+          <span>Viết</span>
         </button>
       </div>
     </div>

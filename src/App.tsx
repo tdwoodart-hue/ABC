@@ -24,8 +24,6 @@ import {
 
 import type { UserProfile } from './types';
 
-import { MotionConfig } from 'motion/react';
-
 import { AuthCard } from './components/AuthCard';
 import { LoadingSplash } from './components/LoadingSplash';
 
@@ -326,11 +324,12 @@ export default function App() {
   ]);
 
   return (
-    <MotionConfig reducedMotion="user">
-    <div className="us-app min-h-screen text-slate-800 font-sans selection:bg-rose-100 selection:text-rose-700">
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-rose-100 selection:text-rose-700">
       {authResolved && (
         !currentUser ? (
-          <div className="us-auth-page min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 relative overflow-hidden">
+          <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-gradient-to-br from-rose-50 via-slate-50 to-pink-50 relative overflow-hidden">
+            <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-rose-200/20 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-pink-200/20 rounded-full blur-3xl pointer-events-none" />
 
             <div className="w-full relative z-10">
               <AuthCard
@@ -373,6 +372,5 @@ export default function App() {
         />
       )}
     </div>
-    </MotionConfig>
   );
 }

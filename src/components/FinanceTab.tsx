@@ -752,9 +752,9 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
   };
 
   return (
-    <div className="us-finance mx-auto space-y-5 pb-12">
-      <div className="us-tool-header flex items-center justify-between gap-3">
-        <div><h1 className="app-page-title">Quỹ của hai đứa</h1><p className="us-tool-description">Chi tiêu rõ ràng, dành dụm cho những điều chung.</p></div>
+    <div className="mx-auto max-w-4xl space-y-4 pb-12">
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="app-page-title">Tài chính</h1>
 
         <button
           type="button"
@@ -768,12 +768,12 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
           className="app-button app-button-primary inline-flex items-center gap-1.5"
         >
           <Plus className="h-4 w-4" />
-          Ghi thu / chi
+          Ghi
         </button>
       </div>
 
-      <section className="finance-overview app-card p-5">
-        <p className="app-caption">Quỹ chung đang có</p>
+      <section className="app-card p-5">
+        <p className="app-caption">Số dư quỹ</p>
         <p className="mt-1 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
           {netBalance.toLocaleString('vi-VN')}
           <span className="ml-1 text-sm font-semibold text-slate-400">đ</span>
@@ -786,7 +786,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
             className="app-button app-button-primary inline-flex items-center justify-center gap-1"
           >
             <Plus className="h-3.5 w-3.5" />
-            Nạp quỹ
+            Nạp
           </button>
           <button
             type="button"
@@ -794,7 +794,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
             className="app-button app-button-secondary inline-flex items-center justify-center gap-1"
           >
             <Target className="h-3.5 w-3.5" />
-            Tiết kiệm
+            Hũ
           </button>
           <button
             type="button"
@@ -828,7 +828,7 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({
       </div>
 
       {activeView === 'overview' && (
-        <div className="finance-panels space-y-3">
+        <div className="space-y-3">
           <section className="app-card grid grid-cols-3 divide-x divide-slate-100 p-3">
             {[
               ['Đã nạp', totalIncome, 'text-emerald-600'],

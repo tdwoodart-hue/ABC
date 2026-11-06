@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { LayoutGroup, motion } from 'motion/react';
 import { createPortal } from 'react-dom';
 import {
   Apple,
@@ -134,14 +133,14 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
   };
 
   const itemClass = (active: boolean) =>
-    `us-nav-item flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-0.5 py-1.5 min-h-[50px] select-none transition ${
+    `flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-0.5 py-1.5 min-h-[50px] select-none transition ${
       active
         ? 'border border-rose-200/80 bg-rose-50 font-bold text-rose-600 shadow-2xs'
         : 'font-medium text-slate-500 hover:bg-slate-50/80 hover:text-slate-800'
     }`;
 
   const desktopItemClass = (active: boolean) =>
-    `us-sidebar-item group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+    `group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
       active
         ? 'bg-rose-50 font-bold text-rose-700 ring-1 ring-inset ring-rose-100'
         : 'font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-900'
@@ -170,7 +169,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <LayoutGroup id="us-navigation">
+    <>
       <style>{`
         @media (min-width: 1024px) {
           body:has(.us-desktop-sidebar) #root .min-h-screen:has(> main) {
@@ -218,7 +217,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
           </span>
           <span className="min-w-0">
             <span className="block text-base font-black tracking-tight text-slate-900">Us</span>
-            <span className="block text-[11px] font-semibold text-slate-400">Những ngày có nhau</span>
+            <span className="block text-[11px] font-semibold text-slate-400">Couple App</span>
           </span>
         </button>
 
@@ -231,7 +230,6 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
                 key={item.id}
                 type="button"
                 onClick={() => onNavigate(item.id)}
-                aria-current={active ? 'page' : undefined}
                 className={desktopItemClass(active)}
               >
                 <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? 'text-rose-500' : 'text-slate-400 group-hover:text-slate-600'}`} />
@@ -242,7 +240,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
         </nav>
 
         <div className="my-5 border-t border-slate-100" />
-        <p className="px-3 pb-2 text-xs font-semibold text-slate-400">Hai đứa</p>
+        <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-300">Hai đứa</p>
 
         <nav className="space-y-1" aria-label="Tiện ích desktop">
           {desktopSecondaryItems.map((item) => {
@@ -253,7 +251,6 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
                 key={item.id}
                 type="button"
                 onClick={() => onNavigate(item.id)}
-                aria-current={active ? 'page' : undefined}
                 className={desktopItemClass(active)}
               >
                 <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? 'text-rose-500' : 'text-slate-400 group-hover:text-slate-600'}`} />
@@ -307,28 +304,23 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
         aria-label="Thanh điều hướng chính"
       >
         <div className="mx-auto grid max-w-xl grid-cols-5 gap-1">
-          <button type="button" onClick={() => navigate('home')} aria-current={activeTab === 'home' ? 'page' : undefined} className={itemClass(activeTab === 'home')}>
-            {activeTab === 'home' && <motion.span className="us-nav-indicator" layoutId="mobile-active-tab" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />}
+          <button type="button" onClick={() => navigate('home')} className={itemClass(activeTab === 'home')}>
             <Home className="h-5 w-5 shrink-0" />
             <span className="w-full truncate whitespace-nowrap text-center text-[10px] leading-none sm:text-xs">Trang chủ</span>
           </button>
-          <button type="button" onClick={() => navigate('journal')} aria-current={activeTab === 'journal' ? 'page' : undefined} className={itemClass(activeTab === 'journal')}>
-            {activeTab === 'journal' && <motion.span className="us-nav-indicator" layoutId="mobile-active-tab" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />}
+          <button type="button" onClick={() => navigate('journal')} className={itemClass(activeTab === 'journal')}>
             <BookOpen className="h-5 w-5 shrink-0" />
             <span className="w-full truncate whitespace-nowrap text-center text-[10px] leading-none sm:text-xs">Nhật ký</span>
           </button>
-          <button type="button" onClick={() => navigate('nutrition')} aria-current={activeTab === 'nutrition' ? 'page' : undefined} className={itemClass(activeTab === 'nutrition')}>
-            {activeTab === 'nutrition' && <motion.span className="us-nav-indicator" layoutId="mobile-active-tab" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />}
+          <button type="button" onClick={() => navigate('nutrition')} className={itemClass(activeTab === 'nutrition')}>
             <Apple className="h-5 w-5 shrink-0" />
             <span className="w-full truncate whitespace-nowrap text-center text-[10px] leading-none sm:text-xs">Dinh dưỡng</span>
           </button>
-          <button type="button" onClick={() => navigate('finance')} aria-current={activeTab === 'finance' ? 'page' : undefined} className={itemClass(activeTab === 'finance')}>
-            {activeTab === 'finance' && <motion.span className="us-nav-indicator" layoutId="mobile-active-tab" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />}
+          <button type="button" onClick={() => navigate('finance')} className={itemClass(activeTab === 'finance')}>
             <Wallet className="h-5 w-5 shrink-0" />
             <span className="w-full truncate whitespace-nowrap text-center text-[10px] leading-none sm:text-xs">Tài chính</span>
           </button>
-          <button type="button" onClick={() => navigate('more')} className={`${itemClass(isMoreActive)} relative`} aria-current={isMoreActive ? 'page' : undefined} aria-expanded={isMoreMenuOpen} aria-haspopup="dialog">
-            {isMoreActive && <motion.span className="us-nav-indicator" layoutId="mobile-active-tab" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />}
+          <button type="button" onClick={() => navigate('more')} className={`${itemClass(isMoreActive)} relative`} aria-expanded={isMoreMenuOpen} aria-haspopup="dialog">
             <div className="relative">
               <MoreHorizontal className="h-5 w-5 shrink-0" />
               {(activeTab === 'achievements' || activeTab === 'profile') && <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />}
@@ -346,7 +338,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
         onOpenMessages={() => setIsMessagesOpen(true)}
       />
       <ScheduledMessagesModal isOpen={isMessagesOpen} onClose={() => setIsMessagesOpen(false)} />
-    </LayoutGroup>,
+    </>,
     document.body
   );
 };

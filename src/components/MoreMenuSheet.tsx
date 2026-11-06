@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { Heart, Trophy, User, X } from 'lucide-react';
 import { TabType } from './LightHomeScreen';
 
@@ -17,21 +17,9 @@ export const MoreMenuSheet: React.FC<MoreMenuSheetProps> = ({
   onNavigate,
   onOpenMessages,
 }) => {
-  const sheetRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!isOpen) return;
-    const previousFocus = document.activeElement as HTMLElement | null;
-    const previousOverflow = document.body.style.overflow;
-    sheetRef.current?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-      if (event.key === 'Tab') {
-        const buttons = sheetRef.current?.querySelectorAll<HTMLButtonElement>('button');
-        if (!buttons?.length) return;
-        const first = buttons[0], last = buttons[buttons.length - 1];
-        if (event.shiftKey && (document.activeElement === first || document.activeElement === sheetRef.current)) { event.preventDefault(); last.focus(); }
-        else if (!event.shiftKey && (document.activeElement === last || document.activeElement === sheetRef.current)) { event.preventDefault(); first.focus(); }
-      }
+      if (event.key === 'Escape' && isOpen) onClose();
     };
 
     if (isOpen) {
@@ -41,8 +29,7 @@ export const MoreMenuSheet: React.FC<MoreMenuSheetProps> = ({
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = previousOverflow;
-      previousFocus?.focus();
+      document.body.style.overflow = '';
     };
   }, [isOpen, onClose]);
 
@@ -64,7 +51,6 @@ export const MoreMenuSheet: React.FC<MoreMenuSheetProps> = ({
       />
 
       <div
-        ref={sheetRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Thêm tiện ích"
         className="app-sheet relative z-10 w-full max-w-lg overflow-hidden rounded-t-[24px] sm:rounded-[24px]"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
