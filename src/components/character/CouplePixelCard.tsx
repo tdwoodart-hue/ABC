@@ -288,7 +288,7 @@ export const CouplePixelCard: React.FC<
         <span className="couple-hint">{duongState === 'wave' ? 'Chào bạn nè!' : 'Chạm để chào'}</span>
       </motion.button>
       <div className="couple-heart-wrap">
-        <motion.button type="button" className="couple-heart" onClick={dropHeart} aria-label="Thả tim cho hai đứa" whileHover={reduced ? undefined : { scale: 1.12, rotate: -8 }} whileTap={reduced ? undefined : { scale: .85 }}>
+        <motion.button type="button" className="couple-heart" onClick={dropHeart} aria-label="Thả tim cho hai đứa" whileHover={reduced ? undefined : { scale: 1.05 }} whileTap={reduced ? undefined : { scale: .85 }}>
           <Heart size={32} fill="currentColor" strokeWidth={1.5} />
         </motion.button>
         {burstVisible && <span className="couple-heart-feedback" role="status">Thương nè!</span>}

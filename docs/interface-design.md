@@ -2,7 +2,9 @@
 
 The user rejected muted plum, a boxed character scene and the floor under the sprites. Never restore those treatments.
 
-Palette: white #ffffff, canvas #f7fbff, ink #20334b, strawberry #ee4776, sky #35a4eb, mint #24b89b. Pale tints belong to functional shortcuts, not a rectangle behind the characters. Color should remain fresh and saturated at the accent level.
+Palette: white #ffffff, neutral canvas #fafbfc, ink #20334b, one strawberry accent #c92958 and its soft tint #fff1f5. All primary actions, selected navigation, icon accents and progress indicators use these same tokens. No per-feature decorative blue/mint/yellow backgrounds. Green/amber/red remain available only for meaningful status or financial/nutrition data.
+
+Icons: Lucide outline only, stroke 1.75. Match the same action across surfaces: BookOpen for journal, Apple for nutrition, Wallet for finance, Trophy for achievements. Primary shortcut icons are 22px with no colored tile behind them; navigation icons remain 18–20px and inline controls 14–18px. No painted illustrations or emoji substitutes in routine action controls. Section titles do not need decorative icon badges. Preserve the existing pixel people as the only illustrative characters.
 
 Type: locally hosted Be Vietnam Pro with Vietnamese coverage. Headings 28–48px, body 14–16px, supporting labels at least 12px on new surfaces.
 

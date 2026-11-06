@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   ChevronRight,
 } from 'lucide-react';
-import { UI_ASSETS } from '../config/uiAssets';
 import { formatDateShortVN } from '../utils/formatDate';
 import { sendPartnerNotification } from '../utils/notifications';
 import { buildWakeUpNotification } from '../utils/notificationEvents';
@@ -532,19 +531,9 @@ export const WakeUpChallengeCard: React.FC<
 
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden">
-              <img
-                src={UI_ASSETS.home.morningChallenge}
-                alt=""
-                aria-hidden="true"
-                width={128}
-                height={128}
-                decoding="async"
-                className="w-full h-full object-cover"
-              />
-            </div>
+            <span className="wake-icon" aria-hidden="true"><Sun size={22} strokeWidth={1.75} /></span>
             <span className="text-sm font-bold text-slate-800 whitespace-nowrap">
-              Ai Dậy Sớm Hơn?
+              Hẹn nhau dậy sớm
             </span>
           </div>
 
@@ -572,15 +561,15 @@ export const WakeUpChallengeCard: React.FC<
               loading ||
               beforeWakeStart
             }
-            className="w-full py-3.5 px-4 bg-rose-500 hover:bg-rose-600 active:scale-[0.99] disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold text-sm rounded-xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
+            className="w-full py-3.5 px-4 bg-[var(--app-brand)] hover:bg-rose-700 active:scale-[0.99] disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold text-sm rounded-xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
           >
-            <Sun className="w-4 h-4 text-amber-200" />
+            <Sun className="w-4 h-4" aria-hidden="true" />
             <span>
               {beforeWakeStart
                 ? 'Bắt đầu từ 05:30'
                 : loading
                   ? 'Đang ghi nhận...'
-                  : '☀️ Tôi Đã Dậy Rồi!'}
+                  : 'Mình dậy rồi'}
             </span>
           </button>
         ) : (
@@ -716,7 +705,7 @@ export const WakeUpChallengeCard: React.FC<
               }
               className="w-full py-2.5 bg-rose-500 hover:bg-rose-600 disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed active:scale-98 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer flex items-center justify-center gap-2"
             >
-              <Sun className="w-4 h-4 text-amber-200" />
+              <Sun className="w-4 h-4" aria-hidden="true" />
               <span>
                 {beforeWakeStart
                   ? 'Bắt đầu từ 05:30'

@@ -1146,7 +1146,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
         <div className="nutrition-day-grid space-y-4">
           <section className="nutrition-energy app-card p-5 sm:p-6">
             <div className="flex items-center gap-5">
-              <div className="grid h-28 w-28 shrink-0 place-items-center rounded-full p-2" style={{ background: `conic-gradient(#24b89b ${caloriePercent * 3.6}deg, #cfefe1 0deg)` }}>
+              <div className="grid h-28 w-28 shrink-0 place-items-center rounded-full p-2" style={{ background: `conic-gradient(var(--app-brand) ${caloriePercent * 3.6}deg, var(--app-brand-soft) 0deg)` }}>
                 <div className="grid h-full w-full place-items-center rounded-full bg-white text-center">
                   <div>
                     <p className="text-2xl font-extrabold tracking-tight tabular-nums text-slate-900">{number.format(dayTotals.calories)}</p>

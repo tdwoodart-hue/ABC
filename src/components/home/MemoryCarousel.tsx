@@ -1,6 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { ArrowUpRight, BookOpen, ChevronLeft, ChevronRight, Image, MapPin } from 'lucide-react';
+import { ArrowUpRight, BookOpen, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 import type { JournalEntry } from '../../types';
 import { formatDateVN } from '../../utils/formatDate';
 import { isVideoUrl } from '../../utils/mediaHelper';
@@ -27,7 +27,7 @@ export function MemoryCarousel({ journals, onOpenJournal, onCreateJournal }: {
 
   return <section className="home-memories" aria-label="Kỷ niệm gần đây" aria-roledescription="băng chuyền">
     <div className="home-section-heading">
-      <div><span className="section-icon blue"><Image size={18} aria-hidden="true" /></span><h2>Những ngày đáng nhớ</h2></div>
+      <div><h2>Những ngày đáng nhớ</h2></div>
       {memories.length > 1 && <div className="memory-arrows">
         <button type="button" onClick={() => move(-1)} aria-label="Kỷ niệm trước"><ChevronLeft size={18} /></button>
         <button type="button" onClick={() => move(1)} aria-label="Kỷ niệm tiếp theo"><ChevronRight size={18} /></button>
