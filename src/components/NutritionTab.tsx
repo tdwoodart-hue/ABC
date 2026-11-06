@@ -1093,9 +1093,9 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
   };
 
   return (
-    <div className="mx-auto min-w-0 w-full max-w-3xl overflow-x-hidden pb-16">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h1 className="app-page-title">Dinh dưỡng</h1>
+    <div className="us-nutrition mx-auto min-w-0 w-full pb-16">
+      <div className="us-tool-header flex items-center justify-between gap-3">
+        <div><h1 className="app-page-title">Khỏe cùng nhau</h1><p className="us-tool-description">Ăn đủ, vận động một chút, chăm mình mỗi ngày.</p></div>
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
@@ -1143,10 +1143,10 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
       </div>
 
       {mode === 'day' ? (
-        <div className="space-y-4">
-          <section className="app-card p-5 sm:p-6">
+        <div className="nutrition-day-grid space-y-4">
+          <section className="nutrition-energy app-card p-5 sm:p-6">
             <div className="flex items-center gap-5">
-              <div className="grid h-28 w-28 shrink-0 place-items-center rounded-full p-2" style={{ background: `conic-gradient(rgb(244 63 94) ${caloriePercent * 3.6}deg, rgb(255 228 230) 0deg)` }}>
+              <div className="grid h-28 w-28 shrink-0 place-items-center rounded-full p-2" style={{ background: `conic-gradient(var(--app-brand) ${caloriePercent * 3.6}deg, var(--app-brand-soft) 0deg)` }}>
                 <div className="grid h-full w-full place-items-center rounded-full bg-white text-center">
                   <div>
                     <p className="text-2xl font-extrabold tracking-tight tabular-nums text-slate-900">{number.format(dayTotals.calories)}</p>
@@ -1173,10 +1173,10 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
             onSave={(updates) => void saveMetric(updates)}
           />
 
-          <section className="app-card p-5">
+          <section className="nutrition-macros app-card p-5">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-bold text-slate-900">Macro</h2>
+                <h2 className="text-sm font-bold text-slate-900">Dưỡng chất hôm nay</h2>
                 
               </div>
               <span className="text-[10px] font-semibold text-slate-400">
@@ -1190,7 +1190,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
             </div>
           </section>
 
-          <section className="app-card p-4 sm:p-5">
+          <section className="nutrition-meals app-card p-4 sm:p-5">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-900">Bữa ăn</h2>
@@ -1205,7 +1205,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
             {dayEntries.length === 0 ? (
               <button type="button" onClick={() => setAddOpen(true)} className="flex w-full flex-col items-center justify-center rounded-2xl bg-slate-50 px-4 py-7 text-center hover:bg-slate-100">
                 <span className="mb-2 grid h-10 w-10 place-items-center rounded-2xl bg-white text-rose-400 shadow-xs"><UtensilsCrossed className="h-4.5 w-4.5" /></span>
-                <span className="text-xs font-bold text-slate-600">Chưa ghi bữa ăn nào</span>
+                <span className="text-sm font-semibold text-slate-600">Hôm nay mình ăn gì?</span><span className="mt-1 text-xs text-slate-500">Chạm để ghi bữa ăn đầu tiên</span>
                 
               </button>
             ) : (
@@ -1284,7 +1284,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
             </div>
           </section>
 
-          <section className="app-card p-5">
+          <section className="nutrition-macros app-card p-5">
             <div className="mb-4">
               <h2 className="text-sm font-bold text-slate-900">Hoạt động 7 ngày</h2>
               
@@ -1309,7 +1309,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({ userProfile, coupleD
             </div>
           </section>
 
-          <section className="app-card p-5">
+          <section className="nutrition-macros app-card p-5">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-900">Macro trung bình</h2>

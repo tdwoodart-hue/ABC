@@ -191,9 +191,9 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4 pb-12">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="app-page-title">Hồ sơ</h2>
+    <div className="us-profile mx-auto space-y-5 pb-12">
+      <div className="us-tool-header flex items-center justify-between gap-3">
+        <div><h2 className="app-page-title">Hai đứa mình</h2><p className="us-tool-description">Thông tin, những ngày đặc biệt và cài đặt của mình.</p></div>
 
         <button
           type="button"

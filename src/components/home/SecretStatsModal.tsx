@@ -25,10 +25,23 @@ export const SecretStatsModal: React.FC<SecretStatsModalProps> = ({
   stats,
   onClose,
 }) => {
+  const dialogRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
     if (!isOpen) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    dialogRef.current?.focus();
 
     const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Tab') {
+        const controls = dialogRef.current?.querySelectorAll<HTMLElement>('button, a[href], input, [tabindex="0"]');
+        if (controls?.length) {
+          const first = controls[0], last = controls[controls.length - 1];
+          if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) { event.preventDefault(); last.focus(); }
+          else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialogRef.current)) { event.preventDefault(); first.focus(); }
+        }
+      }
       if (event.key === 'Escape') {
         onClose();
       }
@@ -38,6 +51,8 @@ export const SecretStatsModal: React.FC<SecretStatsModalProps> = ({
 
     return () => {
       document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
     };
   }, [isOpen, onClose]);
 
@@ -53,19 +68,19 @@ export const SecretStatsModal: React.FC<SecretStatsModalProps> = ({
       }}
     >
       <button type="button" className="app-modal-backdrop" onClick={onClose} aria-label="Đóng" />
-      <div className="app-sheet relative z-10 max-h-[88dvh] w-full max-w-xl overflow-y-auto rounded-t-[24px] sm:rounded-[24px]">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="home-stats-title" tabIndex={-1} className="app-sheet home-stats-sheet relative z-10 max-h-[88dvh] w-full max-w-xl overflow-y-auto rounded-t-[24px] sm:rounded-[24px]">
         <div className="app-sheet-header sticky top-0 z-10 items-start bg-white/95 backdrop-blur-xl">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-500">
-              Bí mật nhỏ của Us
+              Hành trình của mình
             </p>
 
-            <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
+            <h2 id="home-stats-title" className="mt-1 text-2xl font-black tracking-tight text-slate-900">
               {stats.daysTogether.toLocaleString('vi-VN')} ngày bên nhau
             </h2>
 
             <p className="mt-1 text-xs text-slate-400">
-              Không có nút thống kê đâu, chỉ ai biết mới mở được.
+              Những điều nhỏ đã cùng nhau góp lại.
             </p>
           </div>
 
@@ -73,7 +88,7 @@ export const SecretStatsModal: React.FC<SecretStatsModalProps> = ({
             type="button"
             onClick={onClose}
             className="app-icon-button h-9 w-9 shrink-0"
-            aria-label="Đóng thống kê bí mật"
+            aria-label="Đóng thống kê"
           >
             <X className="h-4 w-4" />
           </button>

@@ -1,0 +1,1 @@
+Be Vietnam Pro by the Be Vietnam Pro Project Authors. Source: Google Fonts / google/fonts/ofl/bevietnampro. Served locally with Latin, Latin Extended, and Vietnamese subsets, weights 400–800. License: SIL Open Font License 1.1, see OFL.txt.
