@@ -10,6 +10,7 @@ import { JournalHeader } from './journal/JournalHeader';
 import { JournalFilters } from './journal/JournalFilters';
 import { JournalForm, JournalFormData } from './JournalForm';
 import { JournalCard } from './journal/JournalCard';
+import { JournalArchive } from './journal/JournalArchive';
 import { DailyJournalFeed } from './journal/DailyJournalFeed';
 import { LoveFootprintMap } from './LoveFootprintMap';
 import { VisitedPlacesTracker } from './VisitedPlacesTracker';
@@ -294,7 +295,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
   const coupleId = coupleData?.id || userProfile.coupleId || '';
 
   return (
-    <div className="space-y-4 pb-24">
+    <div className="journal-page">
       {/* HEADER SECTION */}
       <JournalHeader
         companions={companions}
@@ -303,9 +304,11 @@ export const JournalTab: React.FC<JournalTabProps> = ({
         onOpenCompanionManager={onOpenCompanionManager}
       />
 
+      <div className={`journal-layout ${journalViewTab === 'feed' ? 'has-archive' : ''}`}>
+      <div className="journal-main">
       {/* CREATE JOURNAL FORM */}
       {showAddJournal && (
-        <div className="animate-in fade-in slide-in-from-top-4 duration-200">
+        <div id="journal-composer" className="journal-panel">
           <JournalForm
             mode="create"
             userProfile={userProfile}
@@ -385,6 +388,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
         />
       )}
 
+      {journalViewTab === 'feed' && <div className="journal-results"><span>{filteredJournals.length.toLocaleString('vi-VN')} bài viết{isAnyFilterActive ? ' phù hợp' : ' đã lưu'}</span>{isAnyFilterActive && <button type="button" onClick={handleResetFilters}>Xóa bộ lọc</button>}</div>}
       {/* TAB CONTENT: JOURNAL FEED WITH DAILY CAPSULES */}
       {journalViewTab === 'feed' && (
         <>
@@ -394,9 +398,10 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                 <BookOpen className="h-5 w-5" />
               </div>
               <h3 className="app-section-title">
-                {isAnyFilterActive ? 'Không có kết quả' : 'Chưa có bài nào'}
+                {isAnyFilterActive ? 'Chưa tìm thấy bài phù hợp' : 'Trang đầu tiên của hai đứa'}
               </h3>
 
+              <p className="journal-empty-copy">{isAnyFilterActive ? 'Thử một từ khóa khác hoặc bỏ bớt điều kiện lọc.' : 'Lưu một tấm ảnh, một buổi hẹn hay vài dòng về hôm nay.'}</p>
               <div className="mt-4 flex justify-center">
                 {isAnyFilterActive ? (
                   <button
@@ -405,7 +410,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                     className="app-button app-button-secondary inline-flex items-center gap-1.5"
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
-                    <span>Đặt lại</span>
+                    <span>Xóa bộ lọc</span>
                   </button>
                 ) : (
                   <button
@@ -414,7 +419,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                     className="app-button app-button-primary inline-flex items-center gap-1.5"
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    <span>Viết</span>
+                    <span>Viết nhật ký đầu tiên</span>
                   </button>
                 )}
               </div>
@@ -428,6 +433,9 @@ export const JournalTab: React.FC<JournalTabProps> = ({
           )}
         </>
       )}
+      </div>
+      {journalViewTab === 'feed' && <JournalArchive showingAll={journalDateFilterMode === 'all' && !selectedCompanionFilter && !journalSearch.trim()} journals={journals} selectedMonth={journalDateFilterMode === 'month' ? journalFilterMonth : null} onChooseMonth={month => { setJournalFilterMonth(month); setJournalDateFilterMode('month'); setIsCustomDateOpen(false); }} onShowAll={handleResetFilters} />}
+      </div>
     </div>
   );
 };

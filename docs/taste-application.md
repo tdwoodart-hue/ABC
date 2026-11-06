@@ -36,3 +36,7 @@ Remaining findings are retained: container-edges/split-pair measure the marketin
 Idle sprite loops were stopped; tap-triggered waves and heart feedback remain. This avoids an endless decorative animation without adding more icon controls.
 
 Raw review artifacts in the workspace: /workspace/artifacts/taste-consistency.json and /workspace/artifacts/taste-recheck.json. Screenshots were captured using the skill's shoot.mjs. Its stitched output can suppress fixed navigation, so final review screenshots use a single tall viewport (1440×1200 and 390×1680) to keep the app navigation visible. Normal device widths/heights were checked separately in the consistency runs.
+
+## Journal app verification
+
+The Journal pass uses Taste's screenshot tooling for visual review and separate headless Playwright assertions for actual app interactions (compose/edit, filters, comments, deep links and media indices). This is an explicit app-testing adaptation to the upstream marketing-page tooling restriction; it does not change the kit or claim a full marketing checker pass. All test data is isolated and Firebase writes are blocked.
