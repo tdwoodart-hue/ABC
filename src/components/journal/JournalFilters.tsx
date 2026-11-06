@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Companion, JournalEntry } from '../../types';
 import {
   ArrowDownUp,
@@ -81,6 +81,7 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
   onResetFilters,
 }) => {
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
 
   const filterCount =
     (journalDateFilterMode !== 'all' ? 1 : 0) +
@@ -90,9 +91,17 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
   useEffect(() => {
     if (!isFilterSheetOpen) return;
     const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    sheetRef.current?.focus();
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setIsFilterSheetOpen(false);
+      if (event.key === 'Tab') {
+        const controls = [...(sheetRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input, select, summary, [tabindex="0"]') || [])].filter(node => node.getClientRects().length > 0);
+        const first = controls[0], last = controls[controls.length - 1];
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === sheetRef.current)) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && (document.activeElement === last || document.activeElement === sheetRef.current)) { event.preventDefault(); first?.focus(); }
+      }
     };
 
     document.body.style.overflow = 'hidden';
@@ -101,6 +110,7 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', onKeyDown);
+      previousFocus?.focus();
     };
   }, [isFilterSheetOpen]);
 
@@ -123,8 +133,8 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
   ];
 
   return (
-    <div className="space-y-3">
-      <div className="app-subtabs">
+    <div className="journal-filters space-y-3">
+      <nav className="journal-view-tabs" aria-label="Chế độ xem nhật ký">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const active = journalViewTab === tab.id;
@@ -135,8 +145,8 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
               id={`subtab-${tab.id}`}
               type="button"
               onClick={() => setJournalViewTab(tab.id)}
-              className={`app-subtab flex-1 min-w-0 ${
-                active ? 'app-subtab-active' : ''
+              className={`journal-view-tab ${
+                active ? 'is-selected' : ''
               }`}
               aria-current={active ? 'page' : undefined}
             >
@@ -145,7 +155,7 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
             </button>
           );
         })}
-      </div>
+      </nav>
 
       {journalViewTab === 'feed' && (
         <div className="flex items-center gap-2">
@@ -153,9 +163,10 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="search"
+              aria-label="Tìm nhật ký"
               value={journalSearch}
               onChange={(event) => setJournalSearch(event.target.value)}
-              placeholder="Tìm nhật ký"
+              placeholder="Tìm một câu chuyện, địa điểm…"
               className="app-control h-11 w-full pl-10 pr-10 text-sm placeholder:text-slate-400"
             />
 
@@ -180,6 +191,7 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
                 : 'border-[var(--app-border)]'
             }`}
             aria-label="Bộ lọc"
+            aria-expanded={isFilterSheetOpen}
           >
             <SlidersHorizontal className="h-4 w-4" />
             {filterCount > 0 && (
@@ -190,6 +202,12 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
           </button>
         </div>
       )}
+
+      {journalViewTab === 'feed' && filterCount > 0 && <div className="journal-active-filters" aria-label="Điều kiện đang lọc">
+        {journalDateFilterMode !== 'all' && <button type="button" onClick={() => chooseDate('all')} aria-label="Bỏ lọc thời gian"><span>{journalDateFilterMode === 'month' ? `Tháng ${journalFilterMonth.slice(5)}/${journalFilterMonth.slice(0, 4)}` : journalDateFilterMode === 'custom' ? 'Khoảng ngày đã chọn' : journalDateFilterMode === 'this_month' ? 'Tháng này' : journalDateFilterMode === 'last_month' ? 'Tháng trước' : 'Năm nay'}</span><X size={13} /></button>}
+        {selectedCompanionFilter && <button type="button" onClick={() => setSelectedCompanionFilter(null)} aria-label="Bỏ lọc người"><span>{companions.find(item => item.id === selectedCompanionFilter)?.name || 'Người đã chọn'}</span><X size={13} /></button>}
+        {journalSortOrder === 'oldest' && <button type="button" onClick={() => setJournalSortOrder('newest')} aria-label="Đổi về mới nhất"><span>Cũ nhất trước</span><X size={13} /></button>}
+      </div>}
 
       {isFilterSheetOpen && (
         <div
@@ -205,7 +223,7 @@ export const JournalFilters: React.FC<JournalFiltersProps> = ({
             aria-label="Đóng"
           />
 
-          <div className="relative z-10 flex max-h-[86vh] w-full flex-col overflow-hidden rounded-t-[24px] bg-white shadow-2xl sm:max-w-md sm:rounded-[24px]">
+          <div ref={sheetRef} tabIndex={-1} className="journal-filter-sheet app-sheet relative z-10 flex max-h-[86vh] w-full flex-col overflow-hidden rounded-t-[24px] bg-white shadow-2xl sm:max-w-md sm:rounded-[24px]">
             <div className="flex items-center justify-between px-4 py-3.5">
               <h3 className="app-section-title">Bộ lọc</h3>
               <button

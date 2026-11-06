@@ -202,7 +202,7 @@ export const JournalCard: React.FC<JournalCardProps> = ({
   return (
     <article
       id={`journal-card-${item.id}`}
-      className="app-card overflow-hidden"
+      className="journal-post app-card"
     >
       <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-4 sm:px-5 sm:pt-5">
         <div className="flex min-w-0 items-center gap-2.5">
@@ -236,13 +236,14 @@ export const JournalCard: React.FC<JournalCardProps> = ({
             className="app-icon-button h-9 w-9"
             aria-label="Tùy chọn bài viết"
             aria-expanded={actionsOpen}
+            aria-controls={`journal-actions-${item.id}`}
             title="Tùy chọn"
           >
             <MoreHorizontal className="h-4.5 w-4.5" />
           </button>
 
           {actionsOpen && (
-            <div className="absolute right-0 top-10 z-30 min-w-[148px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-lg">
+            <div id={`journal-actions-${item.id}`} className="journal-action-popover journal-panel absolute right-0 top-10 z-30 min-w-[168px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-lg">
               {!singlePostView && (
                 <button
                   type="button"
@@ -253,7 +254,7 @@ export const JournalCard: React.FC<JournalCardProps> = ({
                   className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50"
                 >
                   <Eye className="h-3.5 w-3.5" />
-                  Xem
+                  Mở bài viết
                 </button>
               )}
 
@@ -268,7 +269,7 @@ export const JournalCard: React.FC<JournalCardProps> = ({
                   className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50"
                 >
                   <Edit3 className="h-3.5 w-3.5" />
-                  Sửa
+                  Sửa bài viết
                 </button>
               )}
 
@@ -283,7 +284,7 @@ export const JournalCard: React.FC<JournalCardProps> = ({
                   className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                  Xóa
+                  Yêu cầu xóa
                 </button>
               )}
             </div>
@@ -293,8 +294,8 @@ export const JournalCard: React.FC<JournalCardProps> = ({
 
       <div className="space-y-3 px-4 pb-4 pt-2 sm:px-5 sm:pb-5">
         {item.title && item.title.trim() && (
-          <h3 className="text-base font-semibold leading-snug text-slate-900">
-            {item.title}
+          <h3 className="journal-post-title">
+            {singlePostView ? item.title : <button type="button" onClick={() => onOpenPost(item)}>{item.title}</button>}
           </h3>
         )}
 
@@ -314,7 +315,7 @@ export const JournalCard: React.FC<JournalCardProps> = ({
                   className={`app-chip ${isSelected ? 'app-chip-active' : ''}`}
                   title={`Lọc theo ${person.name}`}
                 >
-                  <span>{person.emoji || '👤'}</span>
+                  {person.emoji && <span>{person.emoji}</span>}
                   <span>{person.name}</span>
                 </button>
               );
@@ -344,7 +345,7 @@ export const JournalCard: React.FC<JournalCardProps> = ({
         )}
 
         {item.content && (
-          <p className="whitespace-pre-line text-sm leading-6 text-slate-700">
+          <p className="journal-post-copy">
             {item.content}
           </p>
         )}
