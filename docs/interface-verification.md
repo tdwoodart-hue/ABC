@@ -1,18 +1,31 @@
-# Interface refresh verification
+# Bright Us interface verification
 
 Checked 2026-11-06.
 
-- TypeScript (`npm run lint`) and production build passed. Vite reports large existing entry chunks (>500 kB).
-- Chromium at 390×844 and 1440×1000: isolated Home fixtures render without horizontal overflow or uncaught page errors.
-- Mobile navigation updates aria-current; More opens; reduced motion is respected; login fields have associated labels.
-- Home fixtures used an empty couple ID and blocked remote Firebase requests to prevent automatic check-in writes. Relationship dates/counts in screenshots are sample data.
-- Authenticated journal, finance, nutrition, and profile flows require an authorized session. Their shared palette changes in this pass; their individual layouts remain for the next pass.
+## Delivered
 
-## Existing test failures
+- Open Home layout with free-standing characters, bright strawberry/sky/mint accents and locally hosted Be Vietnam Pro (Latin and Vietnamese subsets).
+- Tap either character to replay its existing wave. The heart triggers a local burst and both waves; it does not claim to send a notification.
+- Four functional shortcuts, direct journal creation, a swipeable recent-memory carousel, and an accessible journey dialog.
+- Proper calendar-day relationship counting, a 100-day milestone tracker, explicit setup for missing/invalid dates and countdowns for future starts.
+- Finance overview with separate balances/actions and desktop overview columns; nutrition energy/macros side by side with meals below; refreshed profile and journal headings.
+- Keyboard focus trapping/restoration for the journey and More dialogs, safe-area navigation, and reduced motion.
 
-Node test suite: 6 passed, 2 failed. Both failures are present at base commit 3e754a2:
+## Checks
 
-- scheduled-messages-ui.test.mjs expects “Đôi lời muốn nói”; the unchanged MoreMenuSheet uses “Lời nhắn”.
-- version-display.test.mjs asserts 0.3.19; the unchanged package version is 0.3.22.
+- TypeScript (`npm run lint`): passed.
+- Production build (`npm run build`): passed. Existing large entry chunks remain a separate optimization concern.
+- Node test suite: 13/13 passed. Calendar tests also passed under America/New_York for DST coverage.
+- Updated two stale baseline assertions: More uses its actual “Lời nhắn” label; version validation accepts semantic versions while still checking the dynamic package-version display.
+- Chromium visual checks: 360×800, 390×844, 768×1024 and 1440×1050, no horizontal overflow or uncaught page errors.
+- Exercised heart burst, individual waves, carousel buttons and drag, opening a memory, creating a journal callback, journey dialog Tab/Escape, More dialog Escape, and reduced motion.
+- Reviewed empty memories, long Vietnamese names, unset anniversary, login, and real Finance/Nutrition/Profile components with isolated fixture props.
+- Rechecked desktop nutrition alignment after correcting grid placement.
 
-Neither test was modified to conceal these baseline failures.
+## Limits and preview data
+
+Browser review used empty couple IDs and blocked external Firebase requests. It did not authenticate or write production data. Journal creation/opening callbacks were checked in the component harness; production persistence still requires an authorized session.
+
+The images, names, dates and counters in these screenshots are illustrative fixtures, not the user's stored memories. Preview photography: Unsplash (photo-1476514525535-07fb3b4ae5f1 and photo-1509042239860-f550ce710b93). The preview harness is local only and is not part of the production app.
+
+[Mobile screenshot](design/home-mobile.webp) · [Desktop screenshot](design/home-desktop.webp)

@@ -1,23 +1,13 @@
-# Us interface direction
+# Us: bright, personal, interactive
 
-A shared little home for two people, with the existing pixel characters as its signature. Left-aligned greetings, a single illustrated scene, and quieter daily tools below. Preserve real names and content; never invent relationship history.
+The user rejected muted plum, a boxed character scene and the floor under the sprites. Never restore those treatments.
 
-## Tokens
+Palette: white #ffffff, canvas #f7fbff, ink #20334b, strawberry #ee4776, sky #35a4eb, mint #24b89b. Pale tints belong to functional shortcuts, not a rectangle behind the characters. Color should remain fresh and saturated at the accent level.
 
-- Canvas #fff8fb, surface #ffffff, ink #302638, muted #776a7d, plum #85416a, soft pink #f6e8ef.
-- System rounded sans for Vietnamese body and headings; large expressive relationship count, regular sentence case elsewhere.
-- Content: mobile 16–24px gutters, desktop 32–40px, max 1320px; 8/12/16/24/32px spacing.
-- Corners: 28px hero, 20px cards, 14px controls. Shadows only for floating navigation and dialogs.
+Type: locally hosted Be Vietnam Pro with Vietnamese coverage. Headings 28–48px, body 14–16px, supporting labels at least 12px on new surfaces.
 
-## Layout
+Layout: a real app home, greeting then an open two-column welcome with free-standing interactive characters. Four useful shortcuts. Below: an actual memory carousel next to daily tools. Mobile stacks with a compact character section. No floor, pedestal, shadow ellipse, or frame around sprites.
 
-Greeting → character scene and relationship counter → memory and daily tools.
-Mobile stacks naturally; desktop uses a main column and a narrow utility column. Avoid nested cards around cards.
+Motion: one entrance coordinated after the startup splash, tap a character to replay its existing wave, tap the center heart for a brief heart burst, swipe memories with spring transitions, navigation active marker follows the selected item. Honor reduced motion. Controls need real outcomes, keyboard operation, and no invented data or fake sent messages.
 
-## Motion
-
-Use existing Motion library. Navigation indicator answers tab selection with a spring; page changes fade in over 180ms without remounting the journal. Buttons have a brief press response. Avoid looping decorative motion; the characters already provide life. Respect prefers-reduced-motion globally and in MotionConfig. Preserve scroll positions and fixed-position overlays.
-
-## Review
-
-The signature is the pixel couple, not a generic gradient hero or marketing dashboard. Keep their sprites unchanged. Test empty content, long Vietnamese names, 390px mobile, desktop, keyboard focus, and reduced motion. Authenticated data flows require a real authorized session; use isolated local fixtures for visual review.
+Review: screenshots at 360/390/768/1440px, empty and populated memories, long names, reduced motion, keyboard and touch. Preserve persistent journal mounting, iOS safe areas, scroll restoration, Firebase permissions, and production data. Use isolated preview fixtures for visual tests.

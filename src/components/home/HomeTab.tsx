@@ -1,249 +1,91 @@
 import React from 'react';
-import {
-  Calendar,
-  BookOpen,
-  ChevronRight,
-  Heart,
-} from 'lucide-react';
-
-import { CoupleData, JournalEntry, UserProfile, WakeUpLog } from '../../types';
-import { UI_ASSETS } from '../../config/uiAssets';
+import { motion, useReducedMotion } from 'motion/react';
+import { ArrowUpRight, BookHeart, CalendarHeart, ChevronRight, Heart, Plus, Settings2, Sparkles, Sun, Trophy, Utensils, Wallet } from 'lucide-react';
+import type { CoupleData, JournalEntry, UserProfile, WakeUpLog } from '../../types';
 import { formatDateVN } from '../../utils/formatDate';
+import { getRelationshipTimeline } from '../../utils/relationshipTimeline';
 import { CouplePixelCard } from '../character/CouplePixelCard';
 import { WakeUpChallengeCard } from '../WakeUpChallengeCard';
-import { MemoryOfTheDayCard } from './MemoryOfTheDayCard';
 import { SecretStatsModal } from './SecretStatsModal';
 import { useHomeSecretStats } from './hooks/useHomeSecretStats';
+import { MemoryCarousel } from './MemoryCarousel';
 
 interface HomeTabProps {
   userProfile: UserProfile;
   coupleData: CoupleData | null;
   wakeUpLogs: WakeUpLog[];
   journals: JournalEntry[];
-  onNavigate: (tab: 'achievements' | 'finance' | 'journal') => void;
+  onNavigate: (tab: 'achievements' | 'finance' | 'journal' | 'nutrition' | 'profile') => void;
   onOpenJournal: (journal: JournalEntry) => void;
+  onCreateJournal?: () => void;
 }
 
-export const HomeTab: React.FC<HomeTabProps> = ({
-  userProfile,
-  coupleData,
-  wakeUpLogs,
-  journals,
-  onNavigate,
-  onOpenJournal,
-}) => {
-  const [showSecretStats, setShowSecretStats] = React.useState(false);
-  React.useEffect(() => () => {
-    if (secretPressTimerRef.current !== null) window.clearTimeout(secretPressTimerRef.current);
+export const HomeTab: React.FC<HomeTabProps> = ({ userProfile, coupleData, wakeUpLogs, journals, onNavigate, onOpenJournal, onCreateJournal }) => {
+  const [showStats, setShowStats] = React.useState(false);
+  const [introReady, setIntroReady] = React.useState(false);
+  const reduced = useReducedMotion();
+  // Home mounts behind the splash. Coordinate the entrance with its removal.
+  React.useEffect(() => {
+    const ready = () => !document.querySelector('.us-snake-loader');
+    if (ready()) { setIntroReady(true); return; }
+    const observer = new MutationObserver(() => { if (ready()) { setIntroReady(true); observer.disconnect(); } });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
   }, []);
-  const secretPressTimerRef = React.useRef<number | null>(null);
-  const secretPressTriggeredRef = React.useRef(false);
-
-  const isU1 =
-    coupleData?.user1Id === userProfile.uid ||
-    coupleData?.user1Uid === userProfile.uid ||
-    userProfile.email?.toLowerCase().includes('duong');
-
-  const isU2 =
-    coupleData?.user2Id === userProfile.uid ||
-    coupleData?.user2Uid === userProfile.uid ||
-    userProfile.email?.toLowerCase().includes('chucga');
-
-  const u1Name = isU1
-    ? userProfile.displayName || coupleData?.user1Name || 'Dương'
-    : coupleData?.user1Name || 'Dương';
-
-  const u2Name = isU2
-    ? userProfile.displayName || coupleData?.user2Name || 'Chúc Gà'
-    : coupleData?.user2Name || 'Chúc Gà';
-
-  const getDaysTogether = (): number => {
-    if (!coupleData?.anniversaryDate) return 1;
-
-    const start = new Date(coupleData.anniversaryDate);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - start.getTime());
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-    return diffDays + 1;
-  };
-
-  const daysTogether = getDaysTogether();
-
-  const todayLocalDate = (() => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-
-    return `${year}-${month}-${day}`;
-  })();
-
-  const todayLog = wakeUpLogs.find((log) => log.date === todayLocalDate) || null;
-
-  const secretStats = useHomeSecretStats(journals, daysTogether);
-
+  const isU1 = coupleData?.user1Id === userProfile.uid || coupleData?.user1Uid === userProfile.uid || userProfile.email?.toLowerCase().includes('duong');
+  const isU2 = coupleData?.user2Id === userProfile.uid || coupleData?.user2Uid === userProfile.uid || userProfile.email?.toLowerCase().includes('chucga');
+  const u1Name = (isU1 ? userProfile.displayName : '') || coupleData?.user1Name || 'Dương';
+  const u2Name = (isU2 ? userProfile.displayName : '') || coupleData?.user2Name || 'Chúc Gà';
   const now = new Date();
+  const timeline = getRelationshipTimeline(coupleData?.anniversaryDate, now);
+  const stats = useHomeSecretStats(journals, timeline?.days ?? 0);
   const hour = now.getHours();
   const greeting = hour < 11 ? 'Chào buổi sáng' : hour < 18 ? 'Chào buổi chiều' : 'Chào buổi tối';
-  const currentUserName = userProfile.displayName || (isU1 ? u1Name : u2Name) || 'bạn';
-  const currentDateLabel = new Intl.DateTimeFormat('vi-VN', {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  }).format(now);
+  const dateKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const todayLog = wakeUpLogs.find(log => log.date === dateKey) || null;
+  const createJournal = onCreateJournal || (() => onNavigate('journal'));
+  const shortcuts = [
+    { label: 'Nhật ký', description: 'Cất một kỷ niệm', icon: BookHeart, tone: 'pink', action: () => onNavigate('journal') },
+    { label: 'Dinh dưỡng', description: 'Khỏe cùng nhau', icon: Utensils, tone: 'mint', action: () => onNavigate('nutrition') },
+    { label: 'Quỹ chung', description: 'Góp cho ngày mai', icon: Wallet, tone: 'blue', action: () => onNavigate('finance') },
+    { label: 'Thành tích', description: 'Những điều đã làm', icon: Trophy, tone: 'yellow', action: () => onNavigate('achievements') },
+  ];
 
-  const clearSecretPressTimer = () => {
-    if (secretPressTimerRef.current !== null) {
-      window.clearTimeout(secretPressTimerRef.current);
-      secretPressTimerRef.current = null;
-    }
-  };
+  return <div className="home-v2">
+    <header className="home-topbar">
+      <div><p className="home-today">{new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: 'numeric', month: 'long' }).format(now)}</p><h1>{greeting}, <span>{userProfile.displayName || 'bạn'}!</span></h1></div>
+      <button type="button" className="home-settings" aria-label="Mở hồ sơ và cài đặt" onClick={() => onNavigate('profile')}><Settings2 size={20} /></button>
+    </header>
 
-  const handleSecretPressStart = () => {
-    clearSecretPressTimer();
-    secretPressTriggeredRef.current = false;
-
-    secretPressTimerRef.current = window.setTimeout(() => {
-      secretPressTriggeredRef.current = true;
-      setShowSecretStats(true);
-
-      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-        navigator.vibrate?.(35);
-      }
-    }, 800);
-  };
-
-  const handleSecretPressEnd = () => {
-    clearSecretPressTimer();
-  };
-
-  const daysCard = (
-    <div className="us-days-card flex min-h-[188px] flex-col justify-center p-6 text-center lg:min-h-[340px] lg:p-8">
-      <span className="mb-1 block text-sm font-medium text-rose-500">
-        Mình đã bên nhau
-      </span>
-
-      <div
-        className="us-days-count my-2 select-none font-black tracking-tight touch-manipulation"
-        onPointerDown={handleSecretPressStart}
-        onPointerUp={handleSecretPressEnd}
-        onPointerCancel={handleSecretPressEnd}
-        onPointerLeave={handleSecretPressEnd}
-        onContextMenu={(event) => event.preventDefault()}
-        role="button"
-        tabIndex={0}
-        aria-label={`${daysTogether} ngày bên nhau`}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            setShowSecretStats(true);
-          }
-        }}
-      >
-        {daysTogether.toLocaleString('vi-VN')}{' '}
-        <span className="text-xl font-bold text-rose-400">ngày</span>
+    <section className="home-welcome" aria-label="Không gian của hai đứa">
+      <motion.div className="home-welcome-copy" initial={false} animate={introReady ? { opacity: 1, y: 0 } : { opacity: 0, y: reduced ? 0 : 16 }} transition={{ duration: reduced ? 0 : .5, ease: [.22, 1, .36, 1] }}>
+        <span className="home-love-label"><Heart size={14} fill="currentColor" /> Chỉ của hai đứa</span>
+        <h2>Ở đây có<br />{' '}hai đứa mình.</h2>
+        <p>Một chút quan tâm mỗi ngày.<br />{' '}Một hành trình chỉ riêng mình có.</p>
+        <button type="button" className="home-primary" onClick={createJournal}><Plus size={19} /> Lưu chuyện hôm nay</button>
+      </motion.div>
+      <motion.div className="home-characters" initial={false} animate={introReady ? { opacity: 1, scale: 1 } : { opacity: 0, scale: reduced ? 1 : .94 }} transition={{ duration: reduced ? 0 : .6, delay: reduced ? 0 : .1, ease: [.22, 1, .36, 1] }}>
+        <CouplePixelCard duongName={u1Name} chucName={u2Name} isDuongCurrentUser={!!isU1} isChucCurrentUser={!!isU2} />
+      </motion.div>
+      <div className="home-together">
+        <span className="together-icon"><CalendarHeart size={21} /></span>
+        {timeline && timeline.untilStart === 0 ? <><button type="button" onClick={() => setShowStats(true)} className="together-days" aria-label={`Xem hành trình ${timeline.days} ngày bên nhau`}><strong>{timeline.days.toLocaleString('vi-VN')}</strong><span>ngày bên nhau <ChevronRight size={14} /></span></button><span className="together-since">Từ {formatDateVN(coupleData?.anniversaryDate)}</span><div className="together-milestone"><span>{timeline.remaining === 0 ? `Chạm mốc ${timeline.nextMilestone} ngày!` : `Còn ${timeline.remaining} ngày đến mốc ${timeline.nextMilestone.toLocaleString('vi-VN')}`}</span><span className="together-track"><motion.span initial={false} animate={{ width: `${timeline.progress * 100}%` }} transition={{ duration: reduced ? 0 : .8 }} /></span></div></> : <button type="button" className="together-setup" onClick={() => onNavigate('profile')}>{timeline ? `Còn ${timeline.untilStart} ngày đến ngày của mình` : 'Thêm ngày bắt đầu của hai đứa'}<ChevronRight size={17} /></button>}
       </div>
+    </section>
 
-      <div className="mt-4 flex items-center justify-center gap-2 border-t border-rose-100/80 pt-3 text-xs text-slate-500">
-        <Calendar className="h-4 w-4 text-rose-400" />
-        <span>Ngày bắt đầu:</span>
-        <span className="font-bold text-slate-700">{formatDateVN(coupleData?.anniversaryDate)}</span>
-      </div>
+    <nav className="home-shortcuts" aria-label="Lối tắt của hai đứa">
+      {shortcuts.map(item => <motion.button type="button" key={item.label} className={`home-shortcut ${item.tone}`} onClick={item.action} whileHover={reduced ? undefined : { y: -3 }} whileTap={reduced ? undefined : { scale: .97 }}><span className="shortcut-icon"><item.icon size={24} strokeWidth={1.8} /></span><span><strong>{item.label}</strong><small>{item.description}</small></span><ArrowUpRight size={17} className="shortcut-arrow" /></motion.button>)}
+    </nav>
+
+    <div className="home-daily-grid">
+      <MemoryCarousel journals={journals} onOpenJournal={onOpenJournal} onCreateJournal={createJournal} />
+      <aside className="home-daily">
+        <div className="home-section-heading"><div><span className="section-icon yellow"><Sun size={19} /></span><h2>Mỗi ngày một chút</h2></div></div>
+        <div className="home-wake"><WakeUpChallengeCard compact userProfile={userProfile} coupleData={coupleData} todayLog={todayLog} allLogs={wakeUpLogs} onNavigateToFinance={() => onNavigate('finance')} /></div>
+        <button type="button" className="home-journey" onClick={() => setShowStats(true)}><span className="journey-icon"><Sparkles size={23} /></span><span><strong>Chuyện mình qua những con số</strong><small>{stats.journalCount} trang nhật ký, {stats.totalPhotos} tấm ảnh</small></span><ArrowUpRight size={19} /></button>
+        <p className="home-small-note"><Heart size={13} /> Chẳng cần ngày đặc biệt để thương nhau.</p>
+      </aside>
     </div>
-  );
-
-  const achievementCard = (
-    <button
-      type="button"
-      onClick={() => onNavigate('achievements')}
-      className="us-achievement-link group flex w-full items-center justify-between gap-3 rounded-2xl border bg-white p-4 text-left"
-    >
-      <div className="flex min-w-0 items-center gap-3">
-        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white transition-transform group-hover:scale-105">
-          <img
-            src={UI_ASSETS.home.achievement}
-            alt=""
-            aria-hidden="true"
-            width={128}
-            height={128}
-            decoding="async"
-            className="h-full w-full object-cover"
-          />
-        </div>
-
-        <div className="min-w-0">
-          <span className="block truncate text-sm font-bold text-slate-800">Những cột mốc của mình</span>
-          <span className="mt-0.5 block text-[11px] font-medium text-slate-400">Xem hành trình và những cột mốc của hai đứa</span>
-        </div>
-      </div>
-
-      <ChevronRight className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-rose-500" />
-    </button>
-  );
-
-  return (
-    <div className="us-home space-y-6">
-      <header className="us-home-header flex items-end justify-between gap-6">
-        <div>
-          <p className="mb-1 text-sm font-semibold capitalize text-slate-400">{currentDateLabel}</p>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-[-0.035em] text-slate-900">
-            {greeting}, {currentUserName} <span aria-hidden="true">👋</span>
-          </h1>
-          <p className="mt-2 flex items-center gap-1.5 text-sm font-medium text-slate-500">
-            <Heart className="h-4 w-4 fill-rose-400 text-rose-400" />
-            Một góc nhỏ để hai đứa lưu lại những ngày bình thường mà đáng nhớ.
-          </p>
-        </div>
-      </header>
-
-      <div className="space-y-6">
-        <div className="us-couple-scene grid overflow-hidden lg:grid-cols-[minmax(0,1.45fr)_minmax(260px,0.85fr)]">
-          <div className="min-w-0">
-            <CouplePixelCard
-              duongName={u1Name}
-              chucName={u2Name}
-              isDuongCurrentUser={isU1}
-              isChucCurrentUser={isU2}
-            />
-          </div>
-          {daysCard}
-        </div>
-
-        <div className="space-y-6 lg:grid lg:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.75fr)] lg:items-start lg:gap-5 lg:space-y-0">
-          <div className="min-w-0">
-            {journals.length > 0 ? (
-              <MemoryOfTheDayCard journals={journals} onOpenJournal={onOpenJournal} />
-            ) : (
-              <section className="us-memory-empty app-card p-6 sm:p-8">
-                <BookOpen className="h-6 w-6 text-rose-500" aria-hidden="true" />
-                <h2 className="mt-4 text-lg font-bold text-slate-900">Chuyện của mình bắt đầu từ đây</h2>
-                <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">Một bức ảnh, một buổi hẹn, hay chỉ là một ngày hai đứa ở bên nhau.</p>
-                <button type="button" onClick={() => onNavigate('journal')} className="app-button app-button-primary mt-5">Mở nhật ký</button>
-              </section>
-            )}
-          </div>
-
-          <aside className="space-y-4 lg:sticky lg:top-8">
-            {achievementCard}
-            <WakeUpChallengeCard
-              compact={true}
-              userProfile={userProfile}
-              coupleData={coupleData}
-              todayLog={todayLog}
-              allLogs={wakeUpLogs}
-              onNavigateToFinance={() => onNavigate('finance')}
-            />
-          </aside>
-        </div>
-      </div>
-
-      <SecretStatsModal
-        isOpen={showSecretStats}
-        stats={secretStats}
-        onClose={() => setShowSecretStats(false)}
-      />
-    </div>
-  );
+    <SecretStatsModal isOpen={showStats} stats={stats} onClose={() => setShowStats(false)} />
+  </div>;
 };

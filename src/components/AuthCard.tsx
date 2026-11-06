@@ -105,10 +105,10 @@ export const AuthCard: React.FC<AuthCardProps> = ({ onSuccess }) => {
           <Heart className="w-6 h-6 fill-rose-500 text-rose-500" />
         </div>
         <h2 className="text-2xl font-bold text-slate-800 tracking-tight">
-          Về nhà thôi, hai đứa.
+          Hôm nay mình thế nào?
         </h2>
         <p className="text-sm text-slate-500 mt-1">
-          Những ngày của mình, cất ở đây.
+          Vào đây, kể nhau nghe một chút nhé.
         </p>
       </div>
 

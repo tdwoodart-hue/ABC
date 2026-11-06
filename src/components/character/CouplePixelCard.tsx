@@ -1,4 +1,6 @@
 import React from 'react';
+import { motion, useReducedMotion } from 'motion/react';
+import { Heart } from 'lucide-react';
 import { CharacterState, PixelCharacter } from './PixelCharacter';
 
 interface CouplePixelCardProps {
@@ -251,38 +253,54 @@ export const CouplePixelCard: React.FC<
     };
   }, [getAutomaticState, isChucCurrentUser, isDuongCurrentUser]);
 
+  const reduced = useReducedMotion();
+  const [heartBurst, setHeartBurst] = React.useState(0);
+  const [burstVisible, setBurstVisible] = React.useState(false);
+  const burstTimer = React.useRef<number | null>(null);
+  React.useEffect(() => () => {
+    if (burstTimer.current !== null) window.clearTimeout(burstTimer.current);
+  }, []);
+
+  const waveDuong = () => {
+    if (duongWelcomeEndTimerRef.current !== null) window.clearTimeout(duongWelcomeEndTimerRef.current);
+    setDuongState('wave');
+    duongWelcomeEndTimerRef.current = window.setTimeout(() => setDuongState(getAutomaticState()), DUONG_WELCOME_MS);
+  };
+  const waveChuc = () => {
+    if (chucWelcomeEndTimerRef.current !== null) window.clearTimeout(chucWelcomeEndTimerRef.current);
+    setChucState('wave');
+    chucWelcomeEndTimerRef.current = window.setTimeout(() => setChucState('idle'), CHUC_WELCOME_MS);
+  };
+  const dropHeart = () => {
+    setHeartBurst(value => value + 1);
+    setBurstVisible(true);
+    waveDuong();
+    waveChuc();
+    if (burstTimer.current !== null) window.clearTimeout(burstTimer.current);
+    burstTimer.current = window.setTimeout(() => setBurstVisible(false), 1500);
+  };
+
   return (
-    <div className="us-character-scene relative min-h-[340px] overflow-hidden">
-      <div className="absolute inset-0 pt-6 pb-8 px-4 sm:px-6">
-        <div className="h-full w-full flex items-end justify-center gap-2 sm:gap-8">
-          <div className="w-[42%] sm:w-[38%] max-w-[240px] flex flex-col items-center justify-end">
-            <div className="h-56 sm:h-64 w-full flex items-end justify-center">
-              <PixelCharacter
-                state={duongState}
-                name={duongName}
-                className="h-full w-full"
-              />
-            </div>
-
-            <span className="mt-2 text-sm sm:text-base font-semibold text-slate-700 text-center leading-none">
-              {duongName}
-            </span>
-          </div>
-
-          <div className="w-[38%] sm:w-[34%] max-w-[210px] flex flex-col items-center justify-end">
-            <div className="h-52 sm:h-60 w-full flex items-end justify-center">
-              <ChucAnimatedSprite
-                state={chucState}
-                name={chucName}
-              />
-            </div>
-
-            <span className="mt-2 text-sm sm:text-base font-semibold text-slate-700 text-center leading-none">
-              {chucName}
-            </span>
-          </div>
-        </div>
+    <div className="couple-playground">
+      <motion.button type="button" className="couple-person couple-person-duong" onClick={waveDuong} aria-label={`Chào ${duongName}`} whileTap={reduced ? undefined : { scale: .96 }}>
+        <span className="couple-sprite couple-sprite-duong"><PixelCharacter state={duongState} name={duongName} className="h-full w-full" /></span>
+        <span className="couple-name">{duongName}</span>
+        <span className="couple-hint">{duongState === 'wave' ? 'Chào bạn nè!' : 'Chạm để chào'}</span>
+      </motion.button>
+      <div className="couple-heart-wrap">
+        <motion.button type="button" className="couple-heart" onClick={dropHeart} aria-label="Thả tim cho hai đứa" whileHover={reduced ? undefined : { scale: 1.12, rotate: -8 }} whileTap={reduced ? undefined : { scale: .85 }}>
+          <Heart size={32} fill="currentColor" strokeWidth={1.5} />
+        </motion.button>
+        {burstVisible && <span className="couple-heart-feedback" role="status">Thương nè!</span>}
+        {burstVisible && !reduced && <span className="couple-burst" key={heartBurst} aria-hidden="true">
+          {[-65, -30, 0, 35, 68].map((x, index) => <motion.span key={x} initial={{ opacity: 1, x: 0, y: 0, scale: .4 }} animate={{ opacity: [1, 1, 0], x, y: -75 - (index % 2) * 35, scale: [0.4, 1.1, .7], rotate: x / 2 }} transition={{ duration: 1.2, ease: 'easeOut' }}><Heart size={14 + index * 2} fill="currentColor" /></motion.span>)}
+        </span>}
       </div>
+      <motion.button type="button" className="couple-person couple-person-chuc" onClick={waveChuc} aria-label={`Chào ${chucName}`} whileTap={reduced ? undefined : { scale: .96 }}>
+        <span className="couple-sprite couple-sprite-chuc"><ChucAnimatedSprite state={chucState} name={chucName} /></span>
+        <span className="couple-name">{chucName}</span>
+        <span className="couple-hint">{chucState === 'wave' ? 'Chào bạn nè!' : 'Chạm để chào'}</span>
+      </motion.button>
     </div>
   );
 };

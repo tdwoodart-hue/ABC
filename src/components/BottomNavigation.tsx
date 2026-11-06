@@ -218,7 +218,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
           </span>
           <span className="min-w-0">
             <span className="block text-base font-black tracking-tight text-slate-900">Us</span>
-            <span className="block text-[11px] font-semibold text-slate-400">Couple App</span>
+            <span className="block text-[11px] font-semibold text-slate-400">Những ngày có nhau</span>
           </span>
         </button>
 

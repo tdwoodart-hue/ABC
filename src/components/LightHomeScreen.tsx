@@ -2318,6 +2318,10 @@ export const LightHomeScreen: React.FC<LightHomeScreenProps> = ({ userProfile, o
             wakeUpLogs={wakeUpLogs}
             journals={journals}
             onNavigate={handleNavigateTab}
+            onCreateJournal={() => {
+              handleNavigateTab('journal');
+              setShowAddJournal(true);
+            }}
             onOpenJournal={(journal) => {
               handleNavigateTab('journal');
 
