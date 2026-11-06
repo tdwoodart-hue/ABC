@@ -98,22 +98,22 @@ export const AuthCard: React.FC<AuthCardProps> = ({ onSuccess }) => {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto bg-white rounded-3xl shadow-xl border border-rose-100 p-8 transition-all">
+    <div className="us-auth-card w-full max-w-md mx-auto bg-white rounded-3xl border p-6 sm:p-9">
       {/* Header */}
       <div className="text-center mb-8">
         <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 text-rose-500 mb-3 shadow-xs">
           <Heart className="w-6 h-6 fill-rose-500 text-rose-500" />
         </div>
         <h2 className="text-2xl font-bold text-slate-800 tracking-tight">
-          Chào mừng quay trở lại 💕
+          Về nhà thôi, hai đứa.
         </h2>
         <p className="text-sm text-slate-500 mt-1">
-          Đăng nhập vào không gian dành riêng cho hai bạn
+          Những ngày của mình, cất ở đây.
         </p>
       </div>
 
       {error && (
-        <div className="mb-5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-sm flex items-start gap-2">
+        <div role="alert" className="mb-5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-sm flex items-start gap-2">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
@@ -122,12 +122,14 @@ export const AuthCard: React.FC<AuthCardProps> = ({ onSuccess }) => {
       {/* Login Form */}
       <form onSubmit={handleLogin} className="space-y-4">
         <div>
-          <label className="block text-xs font-semibold text-slate-600 mb-1">
+          <label htmlFor="us-email" className="block text-xs font-semibold text-slate-600 mb-1">
             Địa chỉ Email
           </label>
           <div className="relative">
             <Mail className="w-5 h-5 absolute left-3.5 top-3 text-slate-400" />
             <input
+              id="us-email"
+              autoComplete="email"
               type="email"
               required
               placeholder="name@example.com"
@@ -139,12 +141,14 @@ export const AuthCard: React.FC<AuthCardProps> = ({ onSuccess }) => {
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-600 mb-1">
+          <label htmlFor="us-password" className="block text-xs font-semibold text-slate-600 mb-1">
             Mật khẩu
           </label>
           <div className="relative">
             <Lock className="w-5 h-5 absolute left-3.5 top-3 text-slate-400" />
             <input
+              id="us-password"
+              autoComplete="current-password"
               type="password"
               required
               placeholder="••••••••"
@@ -158,7 +162,7 @@ export const AuthCard: React.FC<AuthCardProps> = ({ onSuccess }) => {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3 px-4 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white font-medium rounded-xl shadow-md shadow-rose-200 flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
+          className="w-full py-3 px-4 us-sign-in text-white font-medium rounded-xl shadow-md shadow-rose-200 flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
         >
           {loading ? (
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

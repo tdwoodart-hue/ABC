@@ -586,3 +586,90 @@ a,
   background: #fff1f2;
   color: #be123c;
 }
+
+/* Us: a quiet home around the existing pixel couple. */
+@theme {
+  --color-rose-50: #fcf1f6;
+  --color-rose-100: #f6e8ef;
+  --color-rose-200: #eacddd;
+  --color-rose-300: #d6a9c1;
+  --color-rose-400: #b8789b;
+  --color-rose-500: #99547e;
+  --color-rose-600: #85416a;
+  --color-rose-700: #71365a;
+  --color-rose-800: #5e2d4b;
+  --color-rose-900: #4d263f;
+  --color-slate-50: #faf7fb;
+  --color-slate-100: #f2edf4;
+  --color-slate-200: #e7dfe9;
+  --color-slate-300: #c8bdce;
+  --color-slate-400: #8e8097;
+  --color-slate-500: #776a7d;
+  --color-slate-600: #62546a;
+  --color-slate-700: #4d4055;
+  --color-slate-800: #3e3246;
+  --color-slate-900: #302638;
+  --font-sans: ui-rounded, 'SF Pro Rounded', 'Segoe UI', system-ui, sans-serif;
+}
+
+:root {
+  --app-brand: #85416a;
+  --app-brand-soft: #fcf1f6;
+  --app-surface-soft: #faf7fb;
+  --app-border: #e7dfe9;
+  --app-text: #302638;
+  --app-muted: #776a7d;
+  --app-shadow-card: 0 3px 14px rgb(69 40 66 / 3%);
+  --us-canvas: #fff8fb;
+}
+
+html, body, .us-app, .us-shell { background: var(--us-canvas); }
+body { color: var(--app-text); }
+button, a, input, textarea, select { -webkit-tap-highlight-color: transparent; }
+button:not(:disabled), [role='button'] { cursor: pointer; }
+:where(button, a, input, textarea, select, [tabindex]):focus-visible {
+  outline: 3px solid var(--app-brand);
+  outline-offset: 4px;
+}
+:where(button):disabled { cursor: not-allowed; }
+.app-button-primary:hover { background: #71365a; border-color: #71365a; }
+.app-control:focus { border-color: #b8789b; box-shadow: 0 0 0 3px #f6e8ef; }
+.app-sheet { animation: us-sheet-enter 200ms cubic-bezier(.2,.8,.2,1); }
+.app-modal-backdrop { animation: us-backdrop-enter 160ms ease-out; }
+@keyframes us-sheet-enter { from { opacity: 0; translate: 0 16px; } to { opacity: 1; translate: 0 0; } }
+@keyframes us-backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
+
+.us-auth-page { background: var(--us-canvas); }
+.us-auth-card { border-color: var(--app-border); box-shadow: 0 24px 80px rgb(80 44 72 / 7%); }
+.us-auth-card h2 { font-size: clamp(1.5rem, 5vw, 1.85rem); letter-spacing: -.045em; }
+.us-sign-in { background: var(--app-brand); box-shadow: none; }
+.us-sign-in:hover { background: #71365a; }
+.us-home-header p:first-child { font-size: .75rem; font-weight: 500; }
+.us-home-header h1 { line-height: 1.25; }
+.us-home-header h1 + p { max-width: 52ch; line-height: 1.7; }
+.us-couple-scene { border-radius: 28px; border: 1px solid #ead7e5; background: #f6e8ef; }
+.us-character-scene::before { content: ''; position: absolute; width: 70%; height: 26px; left: 15%; bottom: 18px; border-radius: 50%; background: #e9d9e5; }
+.us-memory-empty { box-shadow: none; }
+.us-days-card { color: var(--app-brand); }
+.us-days-count { font-size: clamp(3.5rem, 7vw, 5rem); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.us-days-count:focus-visible { border-radius: 12px; }
+.us-days-count > span { display: block; margin-top: 8px; font-size: .9rem; font-weight: 500; color: var(--app-muted); }
+.us-achievement-link { border-color: var(--app-border); transition: border-color 150ms ease, background 150ms ease; }
+.us-achievement-link:hover { border-color: #b8789b; background: #fcf1f6; }
+.us-desktop-sidebar { background: #fffdfd; box-shadow: none; }
+.us-sidebar-item { min-height: 46px; }
+.us-sidebar-item[aria-current='page'] { background: var(--app-brand-soft); color: var(--app-brand); box-shadow: inset 3px 0 var(--app-brand); }
+[data-us-bottom-navigation] { background: rgb(255 253 254 / 96%); border-color: var(--app-border); }
+.us-nav-item { position: relative; isolation: isolate; border: 0; box-shadow: none; background: transparent; }
+.us-nav-item > svg, .us-nav-item > span:not(.us-nav-indicator) { position: relative; z-index: 1; }
+.us-nav-indicator { position: absolute; inset: 2px; z-index: -1; border-radius: 14px; background: var(--app-brand-soft); }
+.us-nav-item:active, .us-sign-in:active { scale: .97; }
+@media (max-width: 1023px) {
+  .us-days-card { padding-top: 12px; min-height: 170px; }
+  .us-character-scene { min-height: 315px; }
+  .us-home-header h1 + p { font-size: .8rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  .us-nav-item:active, .us-sign-in:active { scale: 1; }
+}

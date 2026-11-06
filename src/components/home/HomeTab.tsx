@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Calendar,
+  BookOpen,
   ChevronRight,
   Heart,
 } from 'lucide-react';
@@ -19,7 +20,7 @@ interface HomeTabProps {
   coupleData: CoupleData | null;
   wakeUpLogs: WakeUpLog[];
   journals: JournalEntry[];
-  onNavigate: (tab: 'achievements' | 'finance') => void;
+  onNavigate: (tab: 'achievements' | 'finance' | 'journal') => void;
   onOpenJournal: (journal: JournalEntry) => void;
 }
 
@@ -32,6 +33,9 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   onOpenJournal,
 }) => {
   const [showSecretStats, setShowSecretStats] = React.useState(false);
+  React.useEffect(() => () => {
+    if (secretPressTimerRef.current !== null) window.clearTimeout(secretPressTimerRef.current);
+  }, []);
   const secretPressTimerRef = React.useRef<number | null>(null);
   const secretPressTriggeredRef = React.useRef(false);
 
@@ -116,13 +120,13 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   };
 
   const daysCard = (
-    <div className="flex min-h-[188px] flex-col justify-center rounded-2xl border border-rose-100/80 bg-gradient-to-br from-rose-50 to-pink-50/50 p-6 text-center lg:min-h-[340px] lg:p-8">
-      <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-rose-500">
-        Số Ngày Bên Nhau
+    <div className="us-days-card flex min-h-[188px] flex-col justify-center p-6 text-center lg:min-h-[340px] lg:p-8">
+      <span className="mb-1 block text-sm font-medium text-rose-500">
+        Mình đã bên nhau
       </span>
 
       <div
-        className="my-2 select-none text-5xl font-black tracking-tight text-rose-600 touch-manipulation lg:text-6xl"
+        className="us-days-count my-2 select-none font-black tracking-tight touch-manipulation"
         onPointerDown={handleSecretPressStart}
         onPointerUp={handleSecretPressEnd}
         onPointerCancel={handleSecretPressEnd}
@@ -138,7 +142,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           }
         }}
       >
-        {daysTogether}{' '}
+        {daysTogether.toLocaleString('vi-VN')}{' '}
         <span className="text-xl font-bold text-rose-400">ngày</span>
       </div>
 
@@ -154,7 +158,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
     <button
       type="button"
       onClick={() => onNavigate('achievements')}
-      className="group flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 text-left shadow-xs transition-all hover:border-rose-300 hover:shadow-md"
+      className="us-achievement-link group flex w-full items-center justify-between gap-3 rounded-2xl border bg-white p-4 text-left"
     >
       <div className="flex min-w-0 items-center gap-3">
         <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white transition-transform group-hover:scale-105">
@@ -170,7 +174,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
         </div>
 
         <div className="min-w-0">
-          <span className="block truncate text-sm font-bold text-slate-800">Thành Tích & Điểm Thưởng</span>
+          <span className="block truncate text-sm font-bold text-slate-800">Những cột mốc của mình</span>
           <span className="mt-0.5 block text-[11px] font-medium text-slate-400">Xem hành trình và những cột mốc của hai đứa</span>
         </div>
       </div>
@@ -180,11 +184,11 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   );
 
   return (
-    <div className="space-y-6">
-      <header className="hidden items-end justify-between gap-6 lg:flex">
+    <div className="us-home space-y-6">
+      <header className="us-home-header flex items-end justify-between gap-6">
         <div>
           <p className="mb-1 text-sm font-semibold capitalize text-slate-400">{currentDateLabel}</p>
-          <h1 className="text-3xl font-black tracking-[-0.035em] text-slate-900">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-[-0.035em] text-slate-900">
             {greeting}, {currentUserName} <span aria-hidden="true">👋</span>
           </h1>
           <p className="mt-2 flex items-center gap-1.5 text-sm font-medium text-slate-500">
@@ -194,8 +198,8 @@ export const HomeTab: React.FC<HomeTabProps> = ({
         </div>
       </header>
 
-      <div className="space-y-6 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-md sm:p-8 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
-        <div className="space-y-6 lg:grid lg:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.85fr)] lg:gap-5 lg:space-y-0">
+      <div className="space-y-6">
+        <div className="us-couple-scene grid overflow-hidden lg:grid-cols-[minmax(0,1.45fr)_minmax(260px,0.85fr)]">
           <div className="min-w-0">
             <CouplePixelCard
               duongName={u1Name}
@@ -209,7 +213,16 @@ export const HomeTab: React.FC<HomeTabProps> = ({
 
         <div className="space-y-6 lg:grid lg:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.75fr)] lg:items-start lg:gap-5 lg:space-y-0">
           <div className="min-w-0">
-            <MemoryOfTheDayCard journals={journals} onOpenJournal={onOpenJournal} />
+            {journals.length > 0 ? (
+              <MemoryOfTheDayCard journals={journals} onOpenJournal={onOpenJournal} />
+            ) : (
+              <section className="us-memory-empty app-card p-6 sm:p-8">
+                <BookOpen className="h-6 w-6 text-rose-500" aria-hidden="true" />
+                <h2 className="mt-4 text-lg font-bold text-slate-900">Chuyện của mình bắt đầu từ đây</h2>
+                <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">Một bức ảnh, một buổi hẹn, hay chỉ là một ngày hai đứa ở bên nhau.</p>
+                <button type="button" onClick={() => onNavigate('journal')} className="app-button app-button-primary mt-5">Mở nhật ký</button>
+              </section>
+            )}
           </div>
 
           <aside className="space-y-4 lg:sticky lg:top-8">
